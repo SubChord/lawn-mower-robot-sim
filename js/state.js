@@ -95,27 +95,27 @@ function gardenCost(key) {
 // ---------- Crew skill tree ----------
 // 3-tier tree, each node unlocks once (no levels). (col is 0..2 for rendering)
 const SKILL_TREE = [
-  { id: 'foreman',    tier: 0, col: 1, icon: '👷', name: 'Hire Foreman',
+  { id: 'foreman',    tier: 0, col: 1, icon: '👷', name: 'Hire Foreman',    crewName: 'Big Ron',
     desc: 'Recruit your first hand. +5% robot speed.',
     cost: 1200, req: null },
 
-  { id: 'mechanic',   tier: 1, col: 0, icon: '🧰', name: 'Apprentice Mechanic',
+  { id: 'mechanic',   tier: 1, col: 0, icon: '🧰', name: 'Apprentice Mechanic', crewName: 'Grease McFix',
     desc: 'Refuel costs -25% and drain -5%.',
     cost: 3500, req: 'foreman' },
-  { id: 'keenEye',    tier: 1, col: 1, icon: '👁️', name: 'Keen Eye',
+  { id: 'keenEye',    tier: 1, col: 1, icon: '👁️', name: 'Keen Eye',           crewName: 'Eagle-Eye Brenda',
     desc: 'Gnomes visit 35% more often · +60% skin drop chance.',
     cost: 4500, req: 'foreman' },
-  { id: 'qualityControl', tier: 1, col: 2, icon: '🎯', name: 'Quality Control',
+  { id: 'qualityControl', tier: 1, col: 2, icon: '🎯', name: 'Quality Control', crewName: 'Picky Patricia',
     desc: '+4% crit chance (stacks with gnomes).',
     cost: 5000, req: 'foreman' },
 
-  { id: 'autoRefuel', tier: 2, col: 0, icon: '⛽', name: 'Auto-Refueler',
+  { id: 'autoRefuel', tier: 2, col: 0, icon: '⛽', name: 'Auto-Refueler',      crewName: 'Nozzle Dave',
     desc: 'Automatically refuel when fuel hits 25%.',
     cost: 12000, req: 'mechanic' },
-  { id: 'scout',      tier: 2, col: 1, icon: '🔍', name: 'Treasure Scout',
+  { id: 'scout',      tier: 2, col: 1, icon: '🔍', name: 'Treasure Scout',     crewName: 'Sneaky Steve',
     desc: 'Auto-collects gnome treasures after 8s.',
     cost: 15000, req: 'keenEye' },
-  { id: 'efficiency', tier: 2, col: 2, icon: '⚙️', name: 'Efficiency Expert',
+  { id: 'efficiency', tier: 2, col: 2, icon: '⚙️', name: 'Efficiency Expert',  crewName: 'Spreadsheet Karen',
     desc: '+20% mow rate and +10% global coin income.',
     cost: 18000, req: 'qualityControl' },
 ];

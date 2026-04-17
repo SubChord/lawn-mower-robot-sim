@@ -34,8 +34,17 @@ function saveGame() {
       activeSkin: state.activeSkin,
       treasuresCollected: state.treasuresCollected,
       gnomeTimer: state.gnomeTimer,
+      fuel: state.fuel,
     },
+    achieved: [...achieved],
     tiles: tilePack,
+    grass: (() => {
+      if (!grass) return null;
+      let bin = '';
+      for (let i = 0; i < grass.length; i++) bin += String.fromCharCode(Math.round(grass[i] * 255));
+      return btoa(bin);
+    })(),
+    robots: robots.map(r => [+r.x.toFixed(1), +r.y.toFixed(1), +r.angle.toFixed(3), r.name || '']),
     ts: Date.now(),
   };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(payload)); } catch(e) {}
@@ -63,10 +72,19 @@ function loadGame() {
     if (!isFinite(state.treasuresCollected)) state.treasuresCollected = 0;
     if (!isFinite(state.gnomeTimer)) state.gnomeTimer = 60 + Math.random() * 30;
     if (state.fuel == null) state.fuel = CFG.fuelMax;
+    if (Array.isArray(data.achieved)) data.achieved.forEach(id => achieved.add(id));
     grass = new Float32Array(CFG.gridW * CFG.gridH);
     tiles = new Uint8Array(CFG.gridW * CFG.gridH);
     flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
-    for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
+    if (data.grass) {
+      try {
+        const bin = atob(data.grass);
+        for (let i = 0; i < grass.length && i < bin.length; i++) grass[i] = bin.charCodeAt(i) / 255;
+      } catch(e) { for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3; }
+    } else {
+      for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
+    }
+    if (Array.isArray(data.robots)) state._savedRobots = data.robots;
     if (Array.isArray(data.tiles)) {
       for (const entry of data.tiles) {
         const [t, x, y, col] = entry;

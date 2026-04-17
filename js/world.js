@@ -85,6 +85,7 @@ function spawnRobot() {
     bladePhase: Math.random() * Math.PI * 2,
     lastTargetCheck: 0,
     bob: Math.random() * Math.PI * 2,
+    name: ROBOT_NAMES[robots.length % ROBOT_NAMES.length],
   });
 }
 
@@ -158,6 +159,7 @@ function spawnVisitorGnome() {
     stateTime: 0,
     walkPhase: Math.random() * 10,
     hasDropped: false,
+    name: GNOME_NAMES[Math.floor(Math.random() * GNOME_NAMES.length)],
   });
 }
 

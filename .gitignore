@@ -7,3 +7,7 @@
 
 # Logs
 *.log
+
+# Save files
+*.coin-save
+.coin-save

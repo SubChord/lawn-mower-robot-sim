@@ -386,7 +386,7 @@ function renderCrew(list) {
     el.style.top  = TIER_Y[node.tier] + '%';
     el.innerHTML = `
       <div class="crew-icon">${node.icon}</div>
-      <div class="crew-name">${node.name}</div>
+      <div class="crew-name">${owned ? node.crewName : node.name}</div>
       <div class="crew-desc">${node.desc}</div>
       <div class="crew-cost">${owned ? '✅ HIRED' : (locked ? '🔒 locked' : '💰 ' + formatShort(node.cost))}</div>
     `;

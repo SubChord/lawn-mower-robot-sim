@@ -298,6 +298,16 @@ function drawRobot(r) {
   ctx.save();
   if (state.fuel <= 0) ctx.globalAlpha = 0.35;
   ctx.translate(r.x, r.y + Math.sin(r.bob) * 0.6);
+  if (r.name) {
+    const s = Math.max(10, tileSize * 0.9);
+    const fs = Math.max(6, Math.round(tileSize * 0.38));
+    ctx.font = `bold ${fs}px Inter,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillText(r.name, 1, -s * 0.62 + 1);
+    ctx.fillStyle = '#fffde0';
+    ctx.fillText(r.name, 0, -s * 0.62);
+  }
   ctx.rotate(r.angle);
 
   const s = Math.max(10, tileSize * 0.9);
@@ -375,6 +385,15 @@ function drawVisitorGnome(g) {
   // shadow
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(0, ts * 0.42, ts * 0.30, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+  if (g.name) {
+    const fs = Math.max(6, Math.round(tileSize * 0.35));
+    ctx.font = `bold ${fs}px Inter,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillText(g.name, 1, -ts * 0.6 + 1);
+    ctx.fillStyle = '#b4ffa8';
+    ctx.fillText(g.name, 0, -ts * 0.6);
+  }
   ctx.scale(g.facing, 1);
 
   const walking = g.state === 'walking' || g.state === 'leaving';

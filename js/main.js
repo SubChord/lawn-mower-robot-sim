@@ -33,6 +33,14 @@ function init() {
   resizeCanvas();
   if (!loaded) initWorld();
   ensureRobotCount();
+  if (state._savedRobots) {
+    const sr = state._savedRobots;
+    for (let i = 0; i < Math.min(robots.length, sr.length); i++) {
+      robots[i].x = sr[i][0]; robots[i].y = sr[i][1]; robots[i].angle = sr[i][2];
+    if (sr[i][3]) robots[i].name = sr[i][3];
+    }
+    delete state._savedRobots;
+  }
   ensureBeesFromHives();
   const muteBtn = document.getElementById('muteBtn');
   muteBtn.textContent = state.muted ? '🔇 Muted' : '🔊 Sound';

@@ -39,6 +39,24 @@ const T = {
 };
 const OBSTACLE = new Set([T.TREE, T.ROCK, T.POND, T.FLOWER, T.BEEHIVE, T.FOUNTAIN, T.SHED, T.GNOME]);
 
+const ROBOT_NAMES = [
+  'Chompski', 'Sir Mows-a-Lot', 'Blades McGee', 'Lawnald',
+  'Clippington', 'Mowzilla', 'Herbinator', 'Snip Snip',
+  'Grassy K', 'Bladerunner', 'Grassassin', 'Whirly Boi',
+  'Blade Pitt', 'Clint Eastweed', 'Jeff Bezgrass', 'Lawn Skywalker',
+  'Cliposaurus', 'Turf McGurk', 'Mowbius', 'Rumble Clippings',
+  'Grassy McFly', 'Snip Lord', 'The Clipster', 'Chop Chop',
+  'Bartholomew', 'Unit Zero', 'Vroom Vroom', 'Hedge Fondler',
+  'Ol\' Rusty', 'Doomba',
+];
+
+const GNOME_NAMES = [
+  'Grimble', 'Snorky', 'Twigsworth', 'Plonkus', 'Old Mungus',
+  'Borfle', 'Sneaky Pete', 'Grumio', 'Wobblekin', 'Big Herbert',
+  'Crunchwhistle', 'Flopsworth', 'Grumblebottom', 'Eeek', 'Norbertus',
+  'Wee Spriggins', 'Dinkleworth', 'Bogsworth', 'Smudge', 'Toadbriar',
+];
+
 const FLOWER_PALETTE = [
   ['#ff7fb4', '#ffe24b'],
   ['#ffd447', '#ff7a1f'],
