@@ -28,6 +28,8 @@ const CFG = {
   treasureLifetime: 75, // seconds before a treasure vanishes
   treasureSkinChance: 0.045, // 4.5% chance a treasure contains a skin
   scoutAutoDelay: 8,   // seconds scout employee waits before grabbing
+  playerBaseRadiusTiles: 0.6, // starter-tool cutting radius, in tile units
+  playerBaseMowRate: 2.4,     // grass units/sec cut by the starter tool
 };
 
 // Tile types

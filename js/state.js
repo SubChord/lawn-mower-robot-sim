@@ -12,7 +12,7 @@ let state = {
   muted: false,
   upgrades: {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, fuelType: 0,
+    fuelEff: 0, fuelType: 0, tool: 0,
   },
   fuel: 100,
   garden: {
@@ -32,6 +32,17 @@ const FUEL_TYPES = [
   { name: 'Electric', icon: '⚡', drainMult: 0.25, recharge: 1.5, refuelable: false, upgradeCost: null,  barColor: 'linear-gradient(90deg,#3bd4ff,#72f2ff)' },
 ];
 
+// ---------- Player tools (progressive tiers) ----------
+// rateMult multiplies CFG.playerBaseMowRate; radiusTiles is cutting radius in tile units.
+const TOOL_TYPES = [
+  { name: 'Rusty Scissors',   icon: '🪒', rateMult: 1.0,  radiusTiles: 0.6, upgradeCost: null },
+  { name: 'Hedge Shears',     icon: '✂️', rateMult: 2.0,  radiusTiles: 0.8, upgradeCost: 250 },
+  { name: 'Push Mower',       icon: '🌾', rateMult: 3.6,  radiusTiles: 1.0, upgradeCost: 1800 },
+  { name: 'Electric Trimmer', icon: '⚡', rateMult: 6.0,  radiusTiles: 1.2, upgradeCost: 9000 },
+  { name: 'Pro Mower X1',     icon: '🏎️', rateMult: 10.0, radiusTiles: 1.5, upgradeCost: 45000 },
+  { name: 'Industrial Beast', icon: '🚜', rateMult: 18.0, radiusTiles: 2.0, upgradeCost: 200000 },
+];
+
 const COST = {
   robots:   (n) => Math.ceil(25   * Math.pow(1.45, n - 1)),
   speed:    (n) => Math.ceil(40   * Math.pow(1.35, n)),
@@ -42,10 +53,11 @@ const COST = {
   crit:     (n) => Math.ceil(500  * Math.pow(1.55, n)),
   fuelEff:  (n) => Math.ceil(80   * Math.pow(1.45, n)),
   fuelType: (n) => FUEL_TYPES[n]?.upgradeCost ?? Infinity,
+  tool:     (n) => TOOL_TYPES[n + 1]?.upgradeCost ?? Infinity,
 };
 const MAX = {
   robots: 50, speed: 120, range: 60, value: 120, growth: 80, rate: 80, crit: 40,
-  fuelEff: 10, fuelType: 3,
+  fuelEff: 10, fuelType: 3, tool: TOOL_TYPES.length - 1,
 };
 
 const GARDEN_DEFS = [
@@ -181,6 +193,10 @@ function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth 
 function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
 function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus()); }
 function critMult()    { return 5; }
+
+function activeTool()  { return TOOL_TYPES[state.upgrades.tool] || TOOL_TYPES[0]; }
+function playerMowRate()   { return CFG.playerBaseMowRate * activeTool().rateMult * crewMowRateMult(); }
+function playerMowRadius() { return tileSize * activeTool().radiusTiles; }
 
 // ---------- Formatting ----------
 const SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];

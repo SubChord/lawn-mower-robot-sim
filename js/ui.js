@@ -102,6 +102,7 @@ function renderShop() {
   if (activeTab === 'garden')   { renderGarden(list);   return; }
   if (activeTab === 'crew')     { renderCrew(list);     return; }
   if (activeTab === 'skins')    { renderSkins(list);    return; }
+  if (activeTab === 'tools')    { renderTools(list);    return; }
 
   for (const up of UPGRADE_DEFS) {
     if (up.show && !up.show()) continue;
@@ -185,6 +186,69 @@ function buyGarden(key) {
   saveGame();
 }
 
+function renderTools(list) {
+  const cur = activeTool();
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Your character follows the mouse and mows grass where the cursor stands.<br>
+      <b style="color:var(--grass-xlight);">Equipped:</b> ${cur.icon} ${cur.name}
+      — ${playerMowRate().toFixed(1)} grass/sec · radius ${cur.radiusTiles.toFixed(1)} tiles.
+    </p>`;
+  list.appendChild(header);
+
+  for (let i = 0; i < TOOL_TYPES.length; i++) {
+    const tool = TOOL_TYPES[i];
+    const owned = state.upgrades.tool >= i;
+    const isNext = i === state.upgrades.tool + 1;
+    const cost = tool.upgradeCost ?? 0;
+    const affordable = isNext && state.coins >= cost;
+    const row = document.createElement('div');
+    const classes = ['upgrade'];
+    if (affordable) classes.push('affordable');
+    if (i === state.upgrades.tool) classes.push('active');
+    row.className = classes.join(' ');
+    let btn;
+    if (owned) {
+      btn = `<button class="buy" disabled>${i === state.upgrades.tool ? '✔ EQUIPPED' : 'OWNED'}</button>`;
+    } else if (isNext) {
+      btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Buy<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+    } else {
+      btn = `<button class="buy" disabled>🔒 LOCKED</button>`;
+    }
+    row.innerHTML = `
+      <div class="icon">${tool.icon}</div>
+      <div class="info">
+        <div class="name">${tool.name}</div>
+        <div class="lvl">${tool.rateMult.toFixed(1)}× rate · ${tool.radiusTiles.toFixed(1)}-tile radius</div>
+        <div class="effect">${i === 0 ? 'Starter tool — always owned' : `+${(((tool.rateMult / TOOL_TYPES[i-1].rateMult) - 1) * 100) | 0}% faster than prev`}</div>
+      </div>
+      ${btn}
+    `;
+    const buyBtn = row.querySelector('.buy');
+    if (buyBtn && isNext && affordable) buyBtn.addEventListener('click', () => buyTool(i));
+    list.appendChild(row);
+  }
+}
+
+function buyTool(idx) {
+  if (idx !== state.upgrades.tool + 1) return;
+  const tool = TOOL_TYPES[idx];
+  if (!tool) return;
+  const cost = tool.upgradeCost;
+  if (state.coins < cost) return;
+  state.coins -= cost;
+  state.upgrades.tool = idx;
+  beep(700 + idx * 40, 0.08, 'sine', 0.07);
+  setTimeout(() => beep(1040 + idx * 50, 0.1, 'triangle', 0.06), 90);
+  toast(`${tool.icon} Equipped: ${tool.name}!`, '#8ff09e');
+  addParticle(canvas.width / 2, canvas.height / 2, {
+    text: tool.icon + ' ' + tool.name, color: '#8ff09e', size: 22,
+  });
+  renderShop();
+  saveGame();
+}
+
 function renderPrestige(list) {
   const can = state.totalEarnedThisRun >= CFG.prestigeThreshold;
   const gain = CFG.prestigeFormula(state.totalEarnedThisRun);
@@ -239,7 +303,7 @@ function doPrestige() {
   state.gems += gain;
   state.coins = 0;
   state.totalEarnedThisRun = 0;
-  state.upgrades = { robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0 };
+  state.upgrades = { robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0, tool: 0 };
   state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
   state.crew     = [];
   state.fuel     = CFG.fuelMax;
@@ -520,12 +584,15 @@ function wireUIEvents() {
     const rect = canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+    player.x = x; player.y = y; player.active = true;
     let hover = false;
     for (const t of treasures) {
       if (Math.hypot(t.x - x, t.y - y) < tileSize * 0.8) { hover = true; break; }
     }
-    canvas.style.cursor = hover ? 'pointer' : 'default';
+    canvas.style.cursor = hover ? 'pointer' : 'none';
   });
+  canvas.addEventListener('mouseleave', () => { player.active = false; canvas.style.cursor = 'default'; });
+  canvas.addEventListener('mouseenter', () => { player.active = true; canvas.style.cursor = 'none'; });
 
   document.getElementById('refuelBtn').addEventListener('click', () => {
     if (isElectric()) return;

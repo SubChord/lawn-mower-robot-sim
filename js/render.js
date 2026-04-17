@@ -613,6 +613,52 @@ function drawParticles(dt) {
   ctx.restore();
 }
 
+function drawPlayer() {
+  if (!player.active) return;
+  const ts = tileSize;
+  const rad = playerMowRadius();
+  const px = player.x, py = player.y;
+
+  // cutting-radius glow
+  const g = ctx.createRadialGradient(px, py, 0, px, py, rad);
+  g.addColorStop(0, 'rgba(143,240,158,0.30)');
+  g.addColorStop(0.75, 'rgba(143,240,158,0.10)');
+  g.addColorStop(1, 'rgba(143,240,158,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(143,240,158,0.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.stroke();
+
+  // spinning blades inside the circle
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(player.bladePhase);
+  ctx.fillStyle = 'rgba(220,220,220,0.85)';
+  const br = Math.max(4, rad * 0.35);
+  ctx.beginPath(); ctx.arc(0, 0, br, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a7a7a';
+  for (let i = 0; i < 3; i++) {
+    ctx.save(); ctx.rotate((i / 3) * Math.PI * 2);
+    ctx.fillRect(-br * 0.9, -1.2, br * 1.8, 2.4);
+    ctx.restore();
+  }
+  ctx.fillStyle = '#ffd34e';
+  ctx.beginPath(); ctx.arc(0, 0, Math.max(2, br * 0.25), 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // tool icon floating above cursor
+  const tool = activeTool();
+  ctx.save();
+  ctx.font = `bold ${Math.max(14, ts * 0.9)}px Inter, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 6;
+  ctx.fillText(tool.icon, px, py - rad - ts * 0.5);
+  ctx.restore();
+}
+
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawGrass();
@@ -625,5 +671,6 @@ function render() {
   for (const r of robots) drawRobot(r);
   for (const b of bees) drawBee(b);
   for (const g of visitorGnomes) drawVisitorGnome(g);
+  drawPlayer();
   drawParticles(1/60);
 }

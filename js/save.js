@@ -50,7 +50,7 @@ function loadGame() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     Object.assign(state, data.state);
-    state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0 }, state.upgrades || {});
+    state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0, tool: 0 }, state.upgrades || {});
     if (state.upgrades.electric != null) {
       if (state.upgrades.fuelType === 0 && state.upgrades.electric >= 1) state.upgrades.fuelType = 3;
       delete state.upgrades.electric;

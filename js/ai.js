@@ -75,6 +75,51 @@ function updateFuel(dt) {
   state.fuel = Math.min(CFG.fuelMax, Math.max(0, state.fuel + net));
 }
 
+function updatePlayer(dt) {
+  player.bladePhase += dt * 30;
+  if (!player.active) return;
+  const ts = tileSize;
+  const rad = playerMowRadius();
+  const rate = playerMowRate();
+  const cellRad = Math.ceil(rad / ts) + 1;
+  const ccx = Math.floor(player.x / ts);
+  const ccy = Math.floor(player.y / ts);
+  let mowedThisTick = 0;
+  let critHit = false;
+  for (let dy = -cellRad; dy <= cellRad; dy++) {
+    for (let dx = -cellRad; dx <= cellRad; dx++) {
+      const gx = ccx + dx, gy = ccy + dy;
+      if (!inBounds(gx, gy)) continue;
+      const k = idx(gx, gy);
+      if (tiles[k] !== T.GRASS) continue;
+      const tcx = (gx + 0.5) * ts, tcy = (gy + 0.5) * ts;
+      const d = Math.hypot(tcx - player.x, tcy - player.y);
+      if (d > rad) continue;
+      const prev = grass[k];
+      if (prev <= 0) continue;
+      const cut = Math.min(prev, rate * dt * (1 - d / rad * 0.4));
+      grass[k] = Math.max(0, prev - cut);
+      mowedThisTick += cut;
+      if (prev > 0.9 && grass[k] <= 0.9) state.totalTilesMowed++;
+    }
+  }
+  if (mowedThisTick > 0) {
+    player.lastMowed = performance.now();
+    let coins = mowedThisTick * CFG.coinPerUnitBase * coinMult();
+    if (Math.random() < critChance()) { coins *= critMult(); critHit = true; }
+    state.coins += coins;
+    state.totalEarnedAllTime += coins;
+    state.totalEarnedThisRun += coins;
+    if (Math.random() < 0.06 + (critHit ? 0.9 : 0)) {
+      addParticle(player.x, player.y - 6, {
+        text: (critHit ? 'CRIT! +' : '+') + formatShort(coins),
+        color: critHit ? '#ff6bcf' : '#ffd34e',
+        size: critHit ? 22 : 18,
+      });
+    }
+  }
+}
+
 function updateRobot(r, dt) {
   if (state.fuel <= 0) return;
   const ts = tileSize;
@@ -160,7 +205,7 @@ function updateRobot(r, dt) {
       addParticle(r.x, r.y - 4, {
         text: (critHit ? 'CRIT! +' : '+') + formatShort(coins),
         color: critHit ? '#ff6bcf' : '#ffd34e',
-        size: critHit ? 14 : 11,
+        size: critHit ? 22 : 18,
       });
     }
   }
@@ -215,7 +260,7 @@ function updateBee(b, dt) {
         state.coins += coins;
         state.totalEarnedAllTime += coins;
         state.totalEarnedThisRun += coins;
-        if (Math.random() < 0.35) addParticle(b.x, b.y - 4, { text: '+' + formatShort(coins), color: '#fff4a8', size: 10 });
+        if (Math.random() < 0.35) addParticle(b.x, b.y - 4, { text: '+' + formatShort(coins), color: '#fff4a8', size: 16 });
         beep(900 + Math.random() * 400, 0.02, 'triangle', 0.015);
       }
       b.state = 'flying';
@@ -363,7 +408,7 @@ function updateFlowerIncome(dt) {
       if (tiles[i] === T.FLOWER && Math.random() < 0.02) {
         const fx = i % CFG.gridW, fy = Math.floor(i / CFG.gridW);
         const ts = tileSize;
-        addParticle((fx + 0.5) * ts, (fy + 0.2) * ts, { text: '+' + formatShort(flowerIncomeAccum), color: '#ffb6ef', size: 10 });
+        addParticle((fx + 0.5) * ts, (fy + 0.2) * ts, { text: '+' + formatShort(flowerIncomeAccum), color: '#ffb6ef', size: 16 });
         flowerIncomeAccum = 0;
         break;
       }

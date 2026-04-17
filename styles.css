@@ -209,6 +209,7 @@ aside.shop {
 }
 .upgrade:hover { border-color: rgba(143,240,158,0.4); }
 .upgrade.affordable { border-color: rgba(255,211,78,0.45); box-shadow: 0 0 0 1px rgba(255,211,78,0.15), 0 0 16px rgba(255,211,78,0.08); }
+.upgrade.active { border-color: rgba(143,240,158,0.55); box-shadow: 0 0 0 1px rgba(143,240,158,0.25), 0 0 16px rgba(143,240,158,0.12); }
 .upgrade .icon {
   font-size: 28px; text-align: center;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));

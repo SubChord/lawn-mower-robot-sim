@@ -58,6 +58,14 @@ function tileNearRobot(tx, ty) {
   return false;
 }
 
+// ---------- Player (mouse-controlled mower) ----------
+let player = {
+  x: 0, y: 0,
+  active: false,        // true while cursor is over canvas
+  bladePhase: 0,
+  lastMowed: 0,         // timestamp of last non-zero cut (for trail effects)
+};
+
 // ---------- Robots ----------
 let robots = [];
 
