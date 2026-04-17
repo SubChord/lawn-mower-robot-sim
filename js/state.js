@@ -148,19 +148,23 @@ const QUEST_BY_ID = Object.fromEntries(QUEST_TYPES.map(q => [q.id, q]));
 const GRASS_TYPES = [
   { key: 'normal',  name: 'Regular Grass', icon: '🌱',
     coinMult: 1.0, toughness: 1.0, unlockCost: null, spawnBase: 0,
-    color: null },
+    color: null, accent: null },
+  // Vivid jade-teal — clearly cooler than normal grass.
   { key: 'clover',  name: 'Lucky Clover',  icon: '☘️',
     coinMult: 2.2, toughness: 1.6, unlockCost: 3500, spawnBase: 12,
-    color: [70, 180, 90] },
+    color: [25, 200, 140], accent: [180, 255, 220] },
+  // Warm amber/khaki — clearly yellow-brown, not green.
   { key: 'thick',   name: 'Thick Turf',    icon: '🌾',
     coinMult: 4.0, toughness: 2.4, unlockCost: 18000, spawnBase: 7,
-    color: [120, 160, 40] },
+    color: [190, 140, 30], accent: [255, 220, 120] },
+  // Magenta/violet — completely off the green spectrum.
   { key: 'crystal', name: 'Crystal Grass', icon: '💎',
     coinMult: 9.0, toughness: 4.0, unlockCost: 110000, spawnBase: 3,
-    color: [120, 230, 255] },
+    color: [180, 90, 230], accent: [230, 200, 255] },
+  // Bright saturated gold.
   { key: 'golden',  name: 'Golden Grass',  icon: '🌟',
     coinMult: 22.0, toughness: 7.0, unlockCost: 650000, spawnBase: 1,
-    color: [255, 210, 80] },
+    color: [255, 200, 30], accent: [255, 245, 180] },
 ];
 const GRASS_BY_KEY = Object.fromEntries(GRASS_TYPES.map((g, i) => [g.key, { ...g, idx: i }]));
 // Cost to bump a species' spawn rate (per level, with growth).

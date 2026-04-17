@@ -12,13 +12,18 @@ function getTileImage(heightBucket, speciesIdx = 0) {
   const c = off.getContext('2d');
   const h = heightBucket / 10;
   const spec = (typeof GRASS_TYPES !== 'undefined' && GRASS_TYPES[speciesIdx]) || null;
-  let baseR = 30 + h * 24;
-  let baseG = 70 + h * 110;
-  let baseB = 28 + h * 44;
+  let baseR, baseG, baseB;
   if (spec && spec.color) {
-    baseR = baseR * 0.25 + spec.color[0] * 0.75;
-    baseG = baseG * 0.25 + spec.color[1] * 0.75;
-    baseB = baseB * 0.25 + spec.color[2] * 0.75;
+    // Species tiles ignore the green base entirely — full species colour
+    // with a brightness ramp from the growth bucket.
+    const dim = 0.55 + h * 0.45; // 0.55..1.0
+    baseR = spec.color[0] * dim;
+    baseG = spec.color[1] * dim;
+    baseB = spec.color[2] * dim;
+  } else {
+    baseR = 30 + h * 24;
+    baseG = 70 + h * 110;
+    baseB = 28 + h * 44;
   }
   c.fillStyle = `rgb(${baseR|0},${baseG|0},${baseB|0})`;
   c.fillRect(0, 0, tileSize, tileSize);
@@ -29,21 +34,47 @@ function getTileImage(heightBucket, speciesIdx = 0) {
       const bh = (0.2 + Math.random() * 0.8) * h * tileSize * 0.7;
       const bw = 1;
       const gr = c.createLinearGradient(bx, tileSize, bx, tileSize - bh);
-      gr.addColorStop(0, `rgba(20,60,25,0.9)`);
-      const topR = spec && spec.color ? (spec.color[0] + 40) : (140 + h * 50);
-      const topG = spec && spec.color ? (spec.color[1] + 40) : 220;
-      const topB = spec && spec.color ? (spec.color[2] + 40) : 120;
-      gr.addColorStop(1, `rgba(${topR|0},${topG|0},${topB|0},0.9)`);
+      let botR, botG, botB, topR, topG, topB;
+      if (spec && spec.color) {
+        botR = spec.color[0] * 0.45; botG = spec.color[1] * 0.45; botB = spec.color[2] * 0.45;
+        const acc = spec.accent || spec.color;
+        topR = acc[0]; topG = acc[1]; topB = acc[2];
+      } else {
+        botR = 20; botG = 60; botB = 25;
+        topR = 140 + h * 50; topG = 220; topB = 120;
+      }
+      gr.addColorStop(0, `rgba(${botR|0},${botG|0},${botB|0},0.9)`);
+      gr.addColorStop(1, `rgba(${topR|0},${topG|0},${topB|0},0.95)`);
       c.fillStyle = gr;
       c.fillRect(bx, tileSize - bh, bw, bh);
     }
   }
   c.fillStyle = 'rgba(255,255,255,0.02)';
   c.fillRect(0, 0, tileSize, tileSize / 2);
-  if (speciesIdx === 3 || speciesIdx === 4) {
-    c.fillStyle = speciesIdx === 4 ? 'rgba(255,245,180,0.85)' : 'rgba(220,250,255,0.85)';
-    c.fillRect(tileSize * 0.6 | 0, tileSize * 0.25 | 0, 1, 1);
-    c.fillRect(tileSize * 0.3 | 0, tileSize * 0.65 | 0, 1, 1);
+  // Species-specific accent marks so each is instantly recognisable.
+  if (spec && spec.accent) {
+    const [ar, ag, ab] = spec.accent;
+    c.fillStyle = `rgba(${ar},${ag},${ab},0.9)`;
+    if (speciesIdx === 1) {
+      // Clover: tiny 3-dot shamrock.
+      const cx = tileSize * 0.5, cy = tileSize * 0.55;
+      c.fillRect((cx - 1.5) | 0, cy | 0, 1, 1);
+      c.fillRect((cx + 0.5) | 0, cy | 0, 1, 1);
+      c.fillRect(cx | 0, (cy - 1.5) | 0, 1, 1);
+    } else if (speciesIdx === 2) {
+      // Thick turf: a small amber "X" to break up the field.
+      c.fillRect((tileSize * 0.35) | 0, (tileSize * 0.45) | 0, 2, 1);
+      c.fillRect((tileSize * 0.45) | 0, (tileSize * 0.6) | 0, 1, 2);
+    } else if (speciesIdx === 3) {
+      // Crystal: two bright sparkles.
+      c.fillRect((tileSize * 0.6) | 0, (tileSize * 0.25) | 0, 1, 1);
+      c.fillRect((tileSize * 0.3) | 0, (tileSize * 0.65) | 0, 1, 1);
+    } else if (speciesIdx === 4) {
+      // Golden: sparkle cluster.
+      c.fillRect((tileSize * 0.5) | 0, (tileSize * 0.3) | 0, 1, 1);
+      c.fillRect((tileSize * 0.7) | 0, (tileSize * 0.55) | 0, 1, 1);
+      c.fillRect((tileSize * 0.3) | 0, (tileSize * 0.7) | 0, 1, 1);
+    }
   }
   tileCache[key] = off;
   return off;
