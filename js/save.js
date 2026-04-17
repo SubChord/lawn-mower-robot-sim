@@ -2,27 +2,67 @@
    Save / Load / offline earnings / reset
    ============================================================ */
 
-const SAVE_KEY = 'lawnbotTycoonSave_v4';
+const SAVE_KEY = 'lawnbotTycoonSave_v5';
 let lastSave = 0;
+
+// Base64-encode a typed array using a per-element mapper (value → 0..255 int).
+function encodeBase64Bytes(arr, mapFn) {
+  if (!arr) return null;
+  let bin = '';
+  for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(mapFn(arr[i]) & 0xff);
+  try { return btoa(bin); } catch (e) { return null; }
+}
+
+// Decode base64 string back into a typed-array `target` (in place), with
+// optional postFn applied per byte. Returns the target.
+function decodeBase64Into(target, b64, postFn) {
+  if (!b64) return target;
+  try {
+    const bin = atob(b64);
+    const len = Math.min(target.length, bin.length);
+    for (let i = 0; i < len; i++) target[i] = postFn ? postFn(bin.charCodeAt(i)) : bin.charCodeAt(i);
+  } catch (e) { /* leave zeroed */ }
+  return target;
+}
+
+// Sparse tilePack: [type, x, y] or [type, x, y, flowerColor] for FLOWER.
+function encodeTilePack(tilesArr, flowerArr, gw, gh) {
+  const pack = [];
+  if (!tilesArr) return pack;
+  for (let y = 0; y < gh; y++) {
+    for (let x = 0; x < gw; x++) {
+      const t = tilesArr[y * gw + x];
+      if (t === T.GRASS) continue;
+      const entry = [t, x, y];
+      if (t === T.FLOWER) entry.push((flowerArr && flowerArr[y * gw + x]) || 0);
+      pack.push(entry);
+    }
+  }
+  return pack;
+}
+
+function serializeHouse(h) {
+  return {
+    owned: !!h.owned,
+    gridW: h.gridW,
+    gridH: h.gridH,
+    initialized: !!h.initialized,
+    totalTilesMowed: h.totalTilesMowed || 0,
+    tiles: encodeTilePack(h.tiles, h.flowerColors, h.gridW, h.gridH),
+    grass: encodeBase64Bytes(h.grass, v => Math.round(v * 255)),
+    grassSpecies: encodeBase64Bytes(h.grassSpecies, v => v),
+    zones: encodeBase64Bytes(h.zones, v => v),
+    robots: (h.robots || []).map(r => [+r.x.toFixed(1), +r.y.toFixed(1), +r.angle.toFixed(3), r.name || '']),
+    bees: (h.bees || []).map(b => [+b.x.toFixed(1), +b.y.toFixed(1), b.homeX ?? 0, b.homeY ?? 0]),
+  };
+}
 
 function saveGame() {
   // While in Zen Mode the world is a temporary screensaver snapshot. Don't
   // overwrite the real save with zen state — the real game is restored on exit.
   if (state.zenMode) return;
-  const tilePack = [];
-  if (tiles) {
-    for (let y = 0; y < CFG.gridH; y++) {
-      for (let x = 0; x < CFG.gridW; x++) {
-        const t = tiles[idx(x, y)];
-        if (t !== T.GRASS) {
-          const entry = [t, x, y];
-          if (t === T.FLOWER) entry.push(flowerColors[idx(x, y)] || 0);
-          tilePack.push(entry);
-        }
-      }
-    }
-  }
   const payload = {
+    version: 5,
     state: {
       coins: state.coins,
       gems: state.gems,
@@ -53,20 +93,14 @@ function saveGame() {
       questHistory: state.questHistory,
     },
     achieved: [...achieved],
-    tiles: tilePack,
-    grass: (() => {
-      if (!grass) return null;
-      let bin = '';
-      for (let i = 0; i < grass.length; i++) bin += String.fromCharCode(Math.round(grass[i] * 255));
-      return btoa(bin);
-    })(),
-    grassSpecies: (() => {
-      if (!grassSpecies) return null;
-      let bin = '';
-      for (let i = 0; i < grassSpecies.length; i++) bin += String.fromCharCode(grassSpecies[i]);
-      return btoa(bin);
-    })(),
-    robots: robots.map(r => [+r.x.toFixed(1), +r.y.toFixed(1), +r.angle.toFixed(3), r.name || '']),
+    town: {
+      unlocked: !!state.town.unlocked,
+      activeHouseKey: state.town.activeHouseKey || 'starter',
+      // inTownView intentionally NOT saved; always load in house view.
+      houses: Object.fromEntries(
+        Object.entries(state.town.houses).map(([k, h]) => [k, serializeHouse(h)])
+      ),
+    },
     ts: Date.now(),
   };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(payload)); } catch(e) {}
@@ -80,6 +114,7 @@ function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
+    if (!data || data.version !== 5) return false;
     Object.assign(state, data.state);
     state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0, tool: 0 }, state.upgrades || {});
     if (state.upgrades.electric != null) {
@@ -116,24 +151,6 @@ function loadGame() {
     state.zenConfig = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
     state.zenMode = false; // session-only: always start outside Zen after reload
     if (Array.isArray(data.achieved)) data.achieved.forEach(id => achieved.add(id));
-    grass = new Float32Array(CFG.gridW * CFG.gridH);
-    tiles = new Uint8Array(CFG.gridW * CFG.gridH);
-    flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
-    grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
-    if (data.grass) {
-      try {
-        const bin = atob(data.grass);
-        for (let i = 0; i < grass.length && i < bin.length; i++) grass[i] = bin.charCodeAt(i) / 255;
-      } catch(e) { for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3; }
-    } else {
-      for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
-    }
-    if (data.grassSpecies) {
-      try {
-        const bin = atob(data.grassSpecies);
-        for (let i = 0; i < grassSpecies.length && i < bin.length; i++) grassSpecies[i] = bin.charCodeAt(i);
-      } catch(e) { /* leave zeroed */ }
-    }
     state.grassTypes = Object.assign({
       clover:   { unlocked: false, spawnLevel: 0 },
       thick:    { unlocked: false, spawnLevel: 0 },
@@ -151,16 +168,57 @@ function loadGame() {
     applyGemGrassUnlocks();
     // Back-fill totalGemsEarned for saves predating the field.
     if (!isFinite(state.totalGemsEarned)) state.totalGemsEarned = state.gems || 0;
-    if (Array.isArray(data.robots)) state._savedRobots = data.robots;
-    if (Array.isArray(data.tiles)) {
-      for (const entry of data.tiles) {
-        const [t, x, y, col] = entry;
-        if (!inBounds(x, y)) continue;
-        tiles[idx(x, y)] = t;
-        grass[idx(x, y)] = 0;
-        if (t === T.FLOWER) flowerColors[idx(x, y)] = col || 0;
+
+    // ---------- Town / per-house rehydration ----------
+    state.town.unlocked = !!(data.town && data.town.unlocked);
+    state.town.activeHouseKey = (data.town && data.town.activeHouseKey) || 'starter';
+    state.town.inTownView = false;
+    state.town.houses = {};
+    if (data.town && data.town.houses) {
+      for (const [k, sh] of Object.entries(data.town.houses)) {
+        if (!HOUSE_BY_KEY[k]) continue; // unknown house def — drop
+        const fresh = makePerHouseState(k);
+        fresh.owned = !!sh.owned;
+        fresh.initialized = !!sh.initialized;
+        fresh.totalTilesMowed = sh.totalTilesMowed || 0;
+        decodeBase64Into(fresh.grass, sh.grass, byte => byte / 255);
+        decodeBase64Into(fresh.grassSpecies, sh.grassSpecies);
+        decodeBase64Into(fresh.zones, sh.zones);
+        // tilePack → tiles + flowerColors
+        if (Array.isArray(sh.tiles)) {
+          for (const [t, x, y, col] of sh.tiles) {
+            if (x < 0 || y < 0 || x >= fresh.gridW || y >= fresh.gridH) continue;
+            fresh.tiles[y * fresh.gridW + x] = t;
+            fresh.grass[y * fresh.gridW + x] = 0;
+            if (t === T.FLOWER) fresh.flowerColors[y * fresh.gridW + x] = col || 0;
+          }
+        }
+        // Rehydrate robots with all runtime fields spawnRobot would set.
+        fresh.robots = (sh.robots || []).map(r => ({
+          x: r[0], y: r[1], angle: r[2],
+          target: null, lastTargetCheck: 0,
+          bladePhase: Math.random() * Math.PI * 2,
+          bob: Math.random() * Math.PI * 2,
+          name: r[3] || ROBOT_NAMES[Math.floor(Math.random() * ROBOT_NAMES.length)],
+          dragging: false,
+        }));
+        // Bees: minimal rehydration; ensureBeesFromHives() will reconcile count.
+        fresh.bees = (sh.bees || []).map(b => ({
+          x: b[0], y: b[1],
+          homeX: b[2] || 0, homeY: b[3] || 0,
+          angle: Math.random() * Math.PI * 2,
+          target: null, state: 'flying', stateTime: 0,
+          wingPhase: Math.random() * 10, jitter: Math.random() * 10,
+        }));
+        state.town.houses[k] = fresh;
       }
     }
+    // Guarantee starter exists (defensive for corrupt saves).
+    if (!state.town.houses.starter) {
+      state.town.houses.starter = Object.assign(makePerHouseState('starter'), { owned: true });
+    }
+    switchHouseBindings(state.town.activeHouseKey in state.town.houses ? state.town.activeHouseKey : 'starter');
+
     const elapsed = Math.min(12 * 3600, (Date.now() - data.ts) / 1000);
     if (elapsed > 10) {
       const ts = 16;
