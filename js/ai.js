@@ -473,7 +473,12 @@ function failQuest() {
 function updateGnomeSpawnTimer(dt) {
   state.gnomeTimer -= dt;
   if (state.gnomeTimer <= 0) {
-    if (visitorGnomes.length < 2) spawnVisitorGnome();
+    if (visitorGnomes.length < 2) {
+      // 25% roll for an evil gnome, but only if there's actually a treasure
+      // on the ground to steal — otherwise fall through to a normal gnome.
+      if (treasures.length > 0 && Math.random() < 0.25) spawnEvilGnome();
+      else spawnVisitorGnome();
+    }
     const mult = gnomeSpawnIntervalMult();
     state.gnomeTimer = (CFG.gnomeSpawnMin + Math.random() * (CFG.gnomeSpawnMax - CFG.gnomeSpawnMin)) * mult;
   }
@@ -481,7 +486,7 @@ function updateGnomeSpawnTimer(dt) {
 
 function updateVisitorGnome(g, dt) {
   const ts = tileSize;
-  const speed = CFG.gnomeWalkSpeed;
+  const speed = CFG.gnomeWalkSpeed * (g.evil ? 1.15 : 1);
   const moveTo = (tx, ty) => {
     const dx = tx - g.x, dy = ty - g.y;
     const dist = Math.hypot(dx, dy);
@@ -492,6 +497,8 @@ function updateVisitorGnome(g, dt) {
     if (Math.abs(dx) > 0.5) g.facing = dx > 0 ? 1 : -1;
     return false;
   };
+
+  if (g.evil) { updateEvilGnome(g, dt, moveTo); return; }
 
   if (g.state === 'walking') {
     g.walkPhase += dt * 9;
@@ -522,6 +529,70 @@ function updateVisitorGnome(g, dt) {
     }
   } else if (g.state === 'leaving') {
     g.walkPhase += dt * 10;
+    if (moveTo(g.exitX, g.exitY)) {
+      g.state = 'gone';
+    }
+  }
+}
+
+// Evil gnome behaviour: chase down the targeted treasure, grab it, flee.
+// If the treasure is already gone (collected/expired) when the gnome arrives,
+// it gives up and leaves empty-handed.
+function updateEvilGnome(g, dt, moveTo) {
+  const findTarget = () => treasures.find(t => t.tileX === g.targetTileX && t.tileY === g.targetTileY);
+  if (g.state === 'walking') {
+    g.walkPhase += dt * 11;
+    const target = findTarget();
+    if (!target) {
+      // Treasure already collected — sulk and leave.
+      g.state = 'leaving';
+      g.stateTime = 0;
+      return;
+    }
+    // Keep tracking the treasure position in case it moves (it doesn't today
+    // but keeps the gnome aimed at the exact tile centre).
+    g.targetX = target.x; g.targetY = target.y;
+    if (moveTo(g.targetX, g.targetY)) {
+      g.state = 'stealing';
+      g.stateTime = 0;
+    }
+  } else if (g.state === 'stealing') {
+    g.stateTime += dt;
+    g.walkPhase += dt * 4;
+    if (!g.hasStolen && g.stateTime > 0.35) {
+      const idx = treasures.findIndex(t => t.tileX === g.targetTileX && t.tileY === g.targetTileY);
+      if (idx >= 0) {
+        const stolen = treasures.splice(idx, 1)[0];
+        g.hasStolen = true;
+        g.stolenType = stolen.type;
+        if (typeof addParticle === 'function') {
+          addParticle(stolen.x, stolen.y - 6, {
+            text: '👿 MINE!', color: '#ff6bcf', size: 16, gravity: -30,
+          });
+          for (let i = 0; i < 10; i++) {
+            addParticle(stolen.x + (Math.random() - 0.5) * 14, stolen.y + (Math.random() - 0.5) * 10, {
+              text: '✦', color: '#ff4e7a', size: 10 + Math.random() * 4, gravity: -10,
+            });
+          }
+        }
+        if (typeof toast === 'function') toast(`💢 ${g.name} snatched a ${stolen.type === 'skin' ? 'skin chest' : stolen.type === 'pattern' ? 'pattern chest' : 'coin chest'}!`, '#ff8fa0');
+        if (typeof beep === 'function') {
+          beep(220, 0.08, 'sawtooth', 0.06);
+          setTimeout(() => beep(160, 0.12, 'sawtooth', 0.05), 80);
+        }
+      } else {
+        // Disappeared mid-grab (rare). Abandon.
+        g.state = 'leaving';
+        g.stateTime = 0;
+        return;
+      }
+    }
+    if (g.stateTime > 0.9) {
+      g.state = 'leaving';
+      g.stateTime = 0;
+    }
+  } else if (g.state === 'leaving') {
+    g.walkPhase += dt * 12;
     if (moveTo(g.exitX, g.exitY)) {
       g.state = 'gone';
     }

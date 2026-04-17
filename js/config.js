@@ -77,6 +77,12 @@ const GNOME_NAMES = [
   'Wee Spriggins', 'Dinkleworth', 'Bogsworth', 'Smudge', 'Toadbriar',
 ];
 
+const EVIL_GNOME_NAMES = [
+  'Blackwart', 'Grimshade', 'Mordrex', 'Hex Vulgo', 'Malgrub',
+  'Rotwhistle', 'Sir Scowl', 'Vexgore', 'Knavish Cob', 'Snarlfang',
+  'Ickus Drear', 'Grimclaw', 'Spite', 'Nasty Norbert', 'Crooksworth',
+];
+
 const FLOWER_PALETTE = [
   ['#ff7fb4', '#ffe24b'],
   ['#ffd447', '#ff7a1f'],

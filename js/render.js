@@ -686,6 +686,152 @@ function drawVisitorGnome(g) {
   ctx.restore();
 }
 
+// ---------- Evil Visitor Gnome ----------
+// Dark-robed counterpart to the wandering gnome. Same silhouette so players
+// instantly recognise "gnome" but colour-coded as a threat.
+function drawEvilGnome(g) {
+  const ts = tileSize;
+  const scale = ts / 16;
+  ctx.save();
+  ctx.translate(g.x, g.y);
+
+  // Menacing red shadow
+  ctx.fillStyle = 'rgba(120,10,20,0.45)';
+  ctx.beginPath(); ctx.ellipse(0, ts * 0.42, ts * 0.32, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+
+  if (g.name && getSetting('showGnomeNames')) {
+    const fs = Math.max(6, Math.round(tileSize * 0.35));
+    ctx.font = `bold ${fs}px Inter,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillText(g.name, 1, -ts * 0.6 + 1);
+    ctx.fillStyle = '#ff8fa0';
+    ctx.fillText(g.name, 0, -ts * 0.6);
+  }
+  ctx.scale(g.facing, 1);
+
+  const walking = g.state === 'walking' || g.state === 'leaving';
+  const step = walking ? Math.sin(g.walkPhase) : 0;
+  const bob = walking ? Math.abs(Math.cos(g.walkPhase)) * -1.8 : 0;
+  ctx.translate(0, bob);
+
+  // Legs (black trousers, dark boots)
+  const legSwing = step * ts * 0.12;
+  ctx.fillStyle = '#1a0f12';
+  roundRect(ctx, -ts * 0.14, ts * 0.08, ts * 0.12, ts * 0.24, 1); ctx.fill();
+  roundRect(ctx,  ts * 0.02 + legSwing * 0.3, ts * 0.08, ts * 0.12, ts * 0.24 - Math.abs(legSwing) * 0.3, 1); ctx.fill();
+  ctx.fillStyle = '#0b0406';
+  roundRect(ctx, -ts * 0.16, ts * 0.30, ts * 0.18, ts * 0.08, 1); ctx.fill();
+  roundRect(ctx,  ts * 0.00 + legSwing * 0.3, ts * 0.30, ts * 0.18, ts * 0.08, 1); ctx.fill();
+
+  // Tattered purple/black robe
+  const bodyGrad = ctx.createLinearGradient(0, -ts * 0.1, 0, ts * 0.16);
+  bodyGrad.addColorStop(0, '#4a1538');
+  bodyGrad.addColorStop(1, '#1f0614');
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, -ts * 0.24, -ts * 0.1, ts * 0.48, ts * 0.3, ts * 0.06); ctx.fill();
+  // Ragged hem — uneven teeth poking down
+  ctx.fillStyle = '#1f0614';
+  for (let i = -3; i <= 3; i++) {
+    const px = i * ts * 0.07;
+    ctx.beginPath();
+    ctx.moveTo(px - ts * 0.03, ts * 0.18);
+    ctx.lineTo(px, ts * 0.24 + Math.sin(i) * 1.5);
+    ctx.lineTo(px + ts * 0.03, ts * 0.18);
+    ctx.closePath(); ctx.fill();
+  }
+  // Bone belt buckle
+  ctx.fillStyle = '#0a0306';
+  ctx.fillRect(-ts * 0.24, ts * 0.10, ts * 0.48, ts * 0.05);
+  ctx.fillStyle = '#e6d9c4';
+  ctx.fillRect(-ts * 0.04, ts * 0.10, ts * 0.08, ts * 0.05);
+
+  // Arms — if stealing, both arms forward clutching treasure; else swinging.
+  const armSwing = step * ts * 0.18;
+  if (g.state === 'stealing') {
+    ctx.fillStyle = '#c8a88f';
+    roundRect(ctx, -ts * 0.02, ts * 0.02, ts * 0.14, ts * 0.12, 1); ctx.fill();
+    roundRect(ctx,  ts * 0.14, ts * 0.02, ts * 0.14, ts * 0.12, 1); ctx.fill();
+    // Loot glow where hands meet
+    const loot = g.stolenType === 'skin' ? '#ff6bcf' : g.stolenType === 'pattern' ? '#8ff09e' : '#ffd34e';
+    ctx.fillStyle = loot;
+    ctx.beginPath(); ctx.arc(ts * 0.16, ts * 0.08, ts * 0.07, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.arc(ts * 0.14, ts * 0.05, ts * 0.025, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = '#c8a88f';
+    roundRect(ctx, -ts * 0.30, -ts * 0.02 - armSwing, ts * 0.1, ts * 0.18, 1); ctx.fill();
+    // Carrying the sack on leaving
+    if (g.state === 'leaving' && g.hasStolen) {
+      ctx.fillStyle = '#2a1020';
+      roundRect(ctx, ts * 0.18, ts * 0.0, ts * 0.18, ts * 0.2, ts * 0.04); ctx.fill();
+      ctx.strokeStyle = '#0a0306'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(ts * 0.22, ts * 0.02); ctx.lineTo(ts * 0.32, ts * 0.02); ctx.stroke();
+      const loot = g.stolenType === 'skin' ? '#ff6bcf' : g.stolenType === 'pattern' ? '#8ff09e' : '#ffd34e';
+      ctx.fillStyle = loot;
+      ctx.beginPath(); ctx.arc(ts * 0.27, ts * 0.12, ts * 0.04, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = '#c8a88f';
+      roundRect(ctx,  ts * 0.18, -ts * 0.02 + armSwing, ts * 0.1, ts * 0.18, 1); ctx.fill();
+    }
+  }
+
+  // Head (greyish-pale)
+  ctx.fillStyle = '#c8a88f';
+  ctx.beginPath(); ctx.arc(0, -ts * 0.16, ts * 0.14, 0, Math.PI * 2); ctx.fill();
+
+  // Black scraggly beard
+  ctx.fillStyle = '#0a0306';
+  ctx.beginPath();
+  ctx.moveTo(-ts * 0.14, -ts * 0.14);
+  ctx.quadraticCurveTo(-ts * 0.11, ts * 0.08, 0, ts * 0.06);
+  ctx.quadraticCurveTo( ts * 0.11, ts * 0.08, ts * 0.14, -ts * 0.14);
+  ctx.quadraticCurveTo( ts * 0.00, -ts * 0.04, -ts * 0.14, -ts * 0.14);
+  ctx.closePath(); ctx.fill();
+
+  // Hooked nose
+  ctx.fillStyle = '#a07560';
+  ctx.beginPath();
+  ctx.moveTo(0, -ts * 0.16);
+  ctx.lineTo(ts * 0.04, -ts * 0.08);
+  ctx.lineTo(-ts * 0.01, -ts * 0.10);
+  ctx.closePath(); ctx.fill();
+
+  // Glowing red eyes
+  ctx.fillStyle = '#ff2a44';
+  ctx.beginPath(); ctx.arc(-ts * 0.05, -ts * 0.18, 1.5 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( ts * 0.05, -ts * 0.18, 1.5 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,120,120,0.45)';
+  ctx.beginPath(); ctx.arc(-ts * 0.05, -ts * 0.18, 2.8 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( ts * 0.05, -ts * 0.18, 2.8 * scale, 0, Math.PI * 2); ctx.fill();
+
+  // Black pointed hat with torn tip
+  const hatSway = Math.sin(g.walkPhase * 0.7) * 0.16;
+  ctx.save();
+  ctx.translate(0, -ts * 0.26);
+  ctx.rotate(hatSway);
+  ctx.fillStyle = '#0a0306';
+  ctx.beginPath();
+  ctx.moveTo(-ts * 0.18, 0);
+  ctx.lineTo(ts * 0.18, 0);
+  ctx.quadraticCurveTo(ts * 0.08, -ts * 0.26, ts * 0.14, -ts * 0.38);
+  ctx.lineTo(ts * 0.02, -ts * 0.30);
+  ctx.quadraticCurveTo(-ts * 0.06, -ts * 0.24, -ts * 0.18, 0);
+  ctx.closePath(); ctx.fill();
+  // Hat band — blood-red
+  ctx.fillStyle = '#6b0718';
+  ctx.fillRect(-ts * 0.18, -ts * 0.02, ts * 0.36, ts * 0.04);
+  // Small skull charm
+  ctx.fillStyle = '#f0e4d0';
+  ctx.beginPath(); ctx.arc(0, -ts * 0.04, ts * 0.035, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0a0306';
+  ctx.fillRect(-ts * 0.012, -ts * 0.05, 1.2, 1.2);
+  ctx.fillRect(ts * 0.003, -ts * 0.05, 1.2, 1.2);
+  ctx.restore();
+
+  ctx.restore();
+}
+
 // ---------- Treasure (animated chest) ----------
 function drawTreasure(t) {
   const ts = tileSize;
@@ -866,7 +1012,7 @@ function render() {
   for (const t of treasures) drawTreasure(t);
   for (const r of robots) drawRobot(r);
   for (const b of bees) drawBee(b);
-  for (const g of visitorGnomes) drawVisitorGnome(g);
+  for (const g of visitorGnomes) (g.evil ? drawEvilGnome(g) : drawVisitorGnome(g));
   drawPlayer();
   drawParticles(1/60);
   // Atmosphere last: darken the scene for night, then layer weather on top so

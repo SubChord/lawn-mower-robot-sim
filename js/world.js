@@ -165,6 +165,37 @@ function spawnVisitorGnome() {
   });
 }
 
+// Evil gnome: enters from edge, walks to an existing treasure, steals it, leaves.
+// Only meaningful when at least one treasure is on the lawn.
+function spawnEvilGnome() {
+  if (!treasures || treasures.length === 0) return null;
+  // Pick the oldest treasure so players who ignore pickups lose those first.
+  const target = treasures.reduce((a, b) => (a.born > b.born ? a : b), treasures[0]);
+  const ts = getTileSize();
+  const gw = CFG.gridW, gh = CFG.gridH;
+  const edge = Math.floor(Math.random() * 4);
+  let sx, sy, ex, ey;
+  if (edge === 0)      { sx = -1;      sy = 2 + Math.random() * (gh - 4); ex = gw + 1; ey = 2 + Math.random() * (gh - 4); }
+  else if (edge === 1) { sx = gw + 1;  sy = 2 + Math.random() * (gh - 4); ex = -1;     ey = 2 + Math.random() * (gh - 4); }
+  else if (edge === 2) { sx = 2 + Math.random() * (gw - 4); sy = -1;      ex = 2 + Math.random() * (gw - 4); ey = gh + 1; }
+  else                 { sx = 2 + Math.random() * (gw - 4); sy = gh + 1;  ex = 2 + Math.random() * (gw - 4); ey = -1;     }
+  visitorGnomes.push({
+    x: sx * ts, y: sy * ts,
+    targetX: target.x, targetY: target.y,
+    exitX: ex * ts, exitY: ey * ts,
+    targetTileX: target.tileX, targetTileY: target.tileY,
+    facing: 1,
+    state: 'walking',
+    stateTime: 0,
+    walkPhase: Math.random() * 10,
+    hasStolen: false,
+    evil: true,
+    name: EVIL_GNOME_NAMES[Math.floor(Math.random() * EVIL_GNOME_NAMES.length)],
+  });
+  if (typeof toast === 'function') toast('👿 An evil gnome eyes your treasure!', '#ff8fa0');
+  return visitorGnomes[visitorGnomes.length - 1];
+}
+
 function rollTreasurePayload() {
   // Skins come first — rarest drop. Fall through to pattern blueprints, then
   // coins. Each branch is guarded: if the player already owns every item in
