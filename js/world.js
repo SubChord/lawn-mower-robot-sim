@@ -71,6 +71,37 @@ function paintHouseLayout(h, def) {
   return true;
 }
 
+// Assigns each grass tile a zone id (1..n). Zones are separated by any
+// OBSTACLE tile. Non-grass walkable tiles (PATH/DRIVEWAY/PATIO) count as
+// transit but are not themselves assigned zones — they get zone 0.
+function computeZones(h, def) {
+  const { gridW: w, gridH: gh } = def;
+  h.zones.fill(0);
+  let next = 1;
+  const queue = [];
+  for (let sy = 0; sy < gh; sy++) {
+    for (let sx = 0; sx < w; sx++) {
+      const sk = sy * w + sx;
+      if (h.tiles[sk] !== T.GRASS || h.zones[sk] !== 0) continue;
+      const id = next++;
+      queue.length = 0;
+      queue.push(sx, sy);
+      h.zones[sk] = id;
+      while (queue.length) {
+        const y = queue.pop(), x = queue.pop();
+        for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= gh) continue;
+          const nk = ny * w + nx;
+          if (h.tiles[nk] !== T.GRASS || h.zones[nk] !== 0) continue;
+          h.zones[nk] = id;
+          queue.push(nx, ny);
+        }
+      }
+    }
+  }
+}
+
 // Initialize a house's world on first entry. Binds world globals to the
 // target house, then either paints its ASCII layout or runs the procedural
 // initWorld() path (used by the starter lawn, which has no layout).
@@ -85,6 +116,7 @@ function ensureHouseInitialized(key) {
   } else {
     initWorld();  // sets h.initialized = true itself
   }
+  computeZones(h, def);
 }
 
 function initWorld() {
