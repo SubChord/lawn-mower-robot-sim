@@ -1,7 +1,7 @@
 # LAWNBOT TYCOON — KNOWLEDGE BASE
 
 **Generated:** 2026-04-17
-**Commit:** 68cad27
+**Commit:** 2dafe94
 **Branch:** main
 
 ## OVERVIEW
@@ -23,7 +23,7 @@ Browser-based idle game. Robots mow a grid-based lawn for coins, player buys upg
     ├── ai.js        # updateRobot, updateBee, updateGrass, updateFlowerIncome, gnome/mole hazards (tick logic)
     ├── render.js    # drawGrass, tile sprites (tree/rock/pond/flower/beehive/fountain/shed/gnome/mole-mound), drawRobot, drawBee, render()
     ├── save.js      # localStorage save/load (SAVE_KEY = lawnbotTycoonSave_v2), offline earnings modal, resetGame
-    ├── ui.js        # HUD, shop rendering (bots/tools/grass/garden/crew/skins/quests/gems/rubies/prestige tabs), buy/doAscend/doPrestige handlers, toast, achievements, wireUIEvents
+    ├── ui.js        # HUD, shop rendering (bots/tools/grass/garden/crew/skins/quests/stats/gems/rubies/prestige tabs), renderStats (statsScope toggle), buy/doAscend/doPrestige handlers, toast, achievements, wireUIEvents
     └── main.js      # loop (fixed-step 1/60), init — called once at end of main.js
 ```
 
@@ -72,6 +72,8 @@ for f in js/*.js; do node --check "$f"; done
 - **Prestige formula:** `floor((totalThisRun / 2500) ^ 0.55)`. Threshold: 10 000 coins/run. Each gem = +10% coin income forever.
 - **Ascend** (ruby tier) wipes gems + coin-tier upgrades/garden but keeps rubies and ruby-shop perks. Gain = `CFG.ascendFormula(totalGemsEarned) × rubyShopAscendMult()`. UI tab hidden until player can first Ascend (or already has rubies) — see `revealAscend` in `ui.js`. Reset also wipes rubies (see `resetGame` in `save.js`).
 - **Bees** only exist when beehives placed; `ensureBeesFromHives()` reconciles `bees[]` to `garden.beehive × CFG.beePerHive`.
-- **Gnomes & moles** are hazard actors in `world.js` (`gnomes[]`, `moles[]`), driven by `ai.js` spawn timers. Evil gnomes steal dropped treasure; moles leave mounds that block tiles until Pest Control / Mole Warden crew handles them.
+- **Gnomes & moles** are hazard actors in `world.js` (`gnomes[]`, `moles[]`), driven by `ai.js` spawn timers. Evil gnomes steal dropped treasure; moles leave mounds that block tiles until Pest Control / Mole Warden crew handles them. Gnome timer is gated — `updateGnomeSpawnTimer` early-returns until `state.garden.gnome > 0` (first Garden Gnome purchased).
+- **Lifetime counters** `state.prestigeCount` / `state.ascendCount` increment in `doPrestige` / `doAscend`; surfaced in the 📊 Stats tab (Current Prestige vs Lifetime scopes).
+- **`Open Door Policy` gem upgrade** (`gemUpgrades.autoQuest`) makes `showQuestOfferModal` auto-accept and skip the popup.
 - **Resize handler rescales robot/bee positions** when tile size changes — avoids teleporting after window resize.
 - **Crit chance capped at 75%** (`critChance()` in `state.js`). Sums gnome/crew/gem/ruby bonuses. Crit multiplier is fixed at 5×.
