@@ -927,56 +927,80 @@ function openZenSetupModal() {
   const cfg = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
   const back = document.createElement('div');
   back.className = 'modal-backdrop zen-setup-backdrop';
-  const rows = ZEN_SLIDERS.map(s => `
-    <div class="zen-slider-row" data-key="${s.key}">
+
+  const sliderRow = (s) => `
+    <div class="zen-slider" data-key="${s.key}">
       <div class="zen-slider-head">
         <span class="zen-slider-ico">${s.icon}</span>
         <span class="zen-slider-label">${s.label}</span>
         <span class="zen-slider-value" data-val="${s.key}">${cfg[s.key]}</span>
       </div>
       <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${cfg[s.key]}" data-key="${s.key}">
-    </div>`).join('');
-
-  // Skin + mowing pattern chip pickers. In zen we let the player preview any
-  // skin or pattern regardless of their real-game unlock state — it's a
-  // screensaver, not a progression tab.
-  const skinChips = SKIN_DEFS.map(s => {
-    const active = cfg.skin === s.key;
-    return `<button type="button" class="settings-chip${active ? ' active' : ''}" data-zen-key="skin" data-value="${s.key}" title="${(s.name || '').replace(/"/g,'&quot;')}">${s.name}</button>`;
-  }).join('');
-  const patternChips = MOW_PATTERN_DEFS.map(p => {
-    const active = cfg.pattern === p.key;
-    return `<button type="button" class="settings-chip${active ? ' active' : ''}" data-zen-key="pattern" data-value="${p.key}" title="${(p.desc || '').replace(/"/g,'&quot;')}">${p.icon} ${p.name}</button>`;
-  }).join('');
-  const extraRows = `
-    <div class="zen-slider-row">
-      <div class="zen-slider-head">
-        <span class="zen-slider-ico">🎨</span>
-        <span class="zen-slider-label">Mower Skin</span>
-      </div>
-      <div class="settings-chips">${skinChips}</div>
-    </div>
-    <div class="zen-slider-row">
-      <div class="zen-slider-head">
-        <span class="zen-slider-ico">🪚</span>
-        <span class="zen-slider-label">Mowing Pattern</span>
-      </div>
-      <div class="settings-chips">${patternChips}</div>
     </div>`;
+  const sliderGrid = ZEN_SLIDERS.map(sliderRow).join('');
 
   back.innerHTML = `
     <div class="modal zen-modal">
       <h2>🧘 ZEN MODE</h2>
-      <p>Compose your garden screensaver. No fuel, no shopping — just watch.<br>
-         <span style="opacity:0.7; font-size:11px;">Your real game is paused and untouched.</span></p>
-      <div class="zen-sliders">${rows}${extraRows}</div>
+      <p class="zen-tagline">Compose your garden screensaver.<br>
+        <span class="zen-subnote">No fuel, no shopping — your real game is paused and untouched.</span></p>
+
+      <div class="zen-body">
+        <section class="zen-section">
+          <div class="zen-section-head">Garden</div>
+          <div class="zen-slider-grid">${sliderGrid}</div>
+        </section>
+
+        <section class="zen-section">
+          <div class="zen-section-head">Mower Skin</div>
+          <div class="zen-skin-grid" id="zenSkinGrid"></div>
+        </section>
+
+        <section class="zen-section">
+          <div class="zen-section-head">Mowing Pattern</div>
+          <div class="zen-pattern-grid" id="zenPatternGrid"></div>
+        </section>
+      </div>
+
       <div class="zen-actions">
         <button id="zenResetBtn" class="ghost">Defaults</button>
         <button id="zenCancelBtn" class="ghost">Cancel</button>
-        <button id="zenStartBtn">Start Zen</button>
+        <button id="zenStartBtn">▶ Start Zen</button>
       </div>
     </div>`;
   document.body.appendChild(back);
+
+  // Visual skin swatches (use the same chip preview the Skins tab draws).
+  const skinGrid = back.querySelector('#zenSkinGrid');
+  for (const skin of SKIN_DEFS) {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'zen-skin-tile' + (cfg.skin === skin.key ? ' active' : '');
+    tile.dataset.zenKey = 'skin';
+    tile.dataset.value = skin.key;
+    tile.title = skin.name + ' · ' + (skin.rarity || 'base');
+    tile.innerHTML = `
+      ${skinPreviewHTML(skin, true)}
+      <span class="zen-skin-name">${skin.name}</span>`;
+    skinGrid.appendChild(tile);
+  }
+
+  // Pattern thumbnails (live canvas preview, same helper as the shop).
+  const patternGrid = back.querySelector('#zenPatternGrid');
+  for (const pat of MOW_PATTERN_DEFS) {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'zen-pattern-tile' + (cfg.pattern === pat.key ? ' active' : '');
+    tile.dataset.zenKey = 'pattern';
+    tile.dataset.value = pat.key;
+    tile.title = pat.desc;
+    tile.appendChild(patternPreviewCanvas(pat.key));
+    const label = document.createElement('span');
+    label.className = 'zen-pattern-name';
+    label.textContent = pat.name;
+    tile.appendChild(label);
+    patternGrid.appendChild(tile);
+  }
 
   back.querySelectorAll('input[type="range"]').forEach(input => {
     input.addEventListener('input', () => {
@@ -986,13 +1010,14 @@ function openZenSetupModal() {
       back.querySelector(`[data-val="${key}"]`).textContent = val;
     });
   });
-  back.querySelectorAll('.settings-chip[data-zen-key]').forEach(btn => {
+  back.querySelectorAll('[data-zen-key]').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.zenKey;
       state.zenConfig[key] = btn.dataset.value;
-      back.querySelectorAll(`.settings-chip[data-zen-key="${key}"]`).forEach(s => s.classList.toggle('active', s === btn));
+      back.querySelectorAll(`[data-zen-key="${key}"]`).forEach(s => s.classList.toggle('active', s === btn));
     });
   });
+
   const close = () => back.remove();
   back.querySelector('#zenCancelBtn').addEventListener('click', close);
   back.querySelector('#zenResetBtn').addEventListener('click', () => {
@@ -1002,7 +1027,7 @@ function openZenSetupModal() {
       input.value = state.zenConfig[key];
       back.querySelector(`[data-val="${key}"]`).textContent = state.zenConfig[key];
     });
-    back.querySelectorAll('.settings-chip[data-zen-key]').forEach(btn => {
+    back.querySelectorAll('[data-zen-key]').forEach(btn => {
       const key = btn.dataset.zenKey;
       btn.classList.toggle('active', btn.dataset.value === state.zenConfig[key]);
     });

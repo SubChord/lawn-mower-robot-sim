@@ -699,61 +699,180 @@ footer button.danger:hover { background: rgba(216,58,58,0.2); border-color: rgba
 }
 
 /* ---------- Zen Setup ---------- */
-.zen-modal { max-width: 480px; text-align: left; padding: 22px 22px 18px; }
-.zen-modal h2 { text-align: center; }
-.zen-modal > p { text-align: center; color: var(--ink-dim); line-height: 1.4; margin-bottom: 14px; }
-.zen-sliders { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
-.zen-slider-row {
+.zen-modal {
+  max-width: 560px;
+  width: 100%;
+  max-height: 88vh;
+  text-align: left;
+  padding: 20px 20px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.zen-modal h2 { text-align: center; margin-bottom: 6px; }
+.zen-modal .zen-tagline {
+  text-align: center; color: var(--ink-dim);
+  line-height: 1.4; margin-bottom: 14px;
+}
+.zen-modal .zen-subnote { opacity: 0.7; font-size: 11px; }
+
+.zen-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-right: -6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(143,240,158,0.35) transparent;
+}
+.zen-body::-webkit-scrollbar { width: 6px; }
+.zen-body::-webkit-scrollbar-thumb { background: rgba(143,240,158,0.35); border-radius: 3px; }
+
+.zen-section { margin-bottom: 14px; }
+.zen-section:last-child { margin-bottom: 4px; }
+.zen-section-head {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--grass-xlight);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+/* Two-column slider grid for the Garden section */
+.zen-slider-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.zen-slider {
   background: rgba(0,0,0,0.28);
   border: 1px solid rgba(143,240,158,0.18);
   border-radius: 10px;
-  padding: 8px 12px 10px;
+  padding: 8px 10px 10px;
 }
 .zen-slider-head {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 4px;
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 5px;
 }
-.zen-slider-ico { font-size: 18px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
-.zen-slider-label { font-weight: 700; font-size: 13px; color: var(--ink); flex: 1; }
+.zen-slider-ico { font-size: 15px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+.zen-slider-label { font-weight: 700; font-size: 12px; color: var(--ink); flex: 1; }
 .zen-slider-value {
-  font-weight: 900; font-size: 14px; color: var(--gold);
-  min-width: 28px; text-align: right;
+  font-weight: 900; font-size: 13px; color: var(--gold);
+  min-width: 22px; text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.zen-slider-row input[type="range"] {
+.zen-slider input[type="range"] {
   width: 100%; margin: 0;
   -webkit-appearance: none; appearance: none;
   background: transparent;
 }
-.zen-slider-row input[type="range"]::-webkit-slider-runnable-track {
-  height: 6px;
+.zen-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 5px;
   background: linear-gradient(90deg, rgba(143,240,158,0.4), rgba(143,240,158,0.15));
   border-radius: 999px;
 }
-.zen-slider-row input[type="range"]::-moz-range-track {
-  height: 6px;
+.zen-slider input[type="range"]::-moz-range-track {
+  height: 5px;
   background: linear-gradient(90deg, rgba(143,240,158,0.4), rgba(143,240,158,0.15));
   border-radius: 999px;
 }
-.zen-slider-row input[type="range"]::-webkit-slider-thumb {
+.zen-slider input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 16px; height: 16px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: var(--grass-xlight);
   border: 2px solid #0a2612;
-  margin-top: -5px;
+  margin-top: -4.5px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 8px rgba(143,240,158,0.4);
   cursor: grab;
 }
-.zen-slider-row input[type="range"]::-moz-range-thumb {
-  width: 16px; height: 16px;
+.zen-slider input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: var(--grass-xlight);
   border: 2px solid #0a2612;
   box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 8px rgba(143,240,158,0.4);
   cursor: grab;
 }
-.zen-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Mower skin picker — visual swatches */
+.zen-skin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.zen-skin-tile {
+  background: rgba(0,0,0,0.28);
+  border: 1.5px solid rgba(143,240,158,0.18);
+  border-radius: 10px;
+  padding: 6px 4px 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: transform .08s, border-color .15s, box-shadow .15s;
+}
+.zen-skin-tile:hover { transform: translateY(-1px); border-color: rgba(143,240,158,0.5); }
+.zen-skin-tile.active {
+  border-color: rgba(143,240,158,0.85);
+  box-shadow: 0 0 0 1px rgba(143,240,158,0.3), 0 0 14px rgba(143,240,158,0.25);
+}
+.zen-skin-tile .skin-chip { width: 40px; height: 26px; }
+.zen-skin-name {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-align: center;
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.zen-skin-tile.active .zen-skin-name { color: var(--ink); }
+
+/* Pattern picker — canvas thumbnails */
+.zen-pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.zen-pattern-tile {
+  background: rgba(0,0,0,0.28);
+  border: 1.5px solid rgba(143,240,158,0.18);
+  border-radius: 10px;
+  padding: 6px 4px 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform .08s, border-color .15s, box-shadow .15s;
+}
+.zen-pattern-tile:hover { transform: translateY(-1px); border-color: rgba(143,240,158,0.5); }
+.zen-pattern-tile.active {
+  border-color: rgba(143,240,158,0.85);
+  box-shadow: 0 0 0 1px rgba(143,240,158,0.3), 0 0 14px rgba(143,240,158,0.25);
+}
+.zen-pattern-tile canvas.pattern-preview {
+  width: 48px; height: 48px;
+}
+.zen-pattern-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  text-align: center;
+}
+.zen-pattern-tile.active .zen-pattern-name { color: var(--ink); }
+
+.zen-actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(143,240,158,0.15);
+}
 .zen-actions button {
   min-width: 100px;
   padding: 10px 16px;
@@ -775,6 +894,12 @@ footer button.danger:hover { background: rgba(216,58,58,0.2); border-color: rgba
 }
 .zen-actions button.ghost:hover { color: var(--ink); border-color: rgba(143,240,158,0.5); }
 .zen-actions button:hover:not(.ghost) { background: var(--btn-hover); }
+
+@media (max-width: 520px) {
+  .zen-slider-grid { grid-template-columns: 1fr; }
+  .zen-skin-grid { grid-template-columns: repeat(3, 1fr); }
+  .zen-pattern-grid { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* ---------- Zen Mode ---------- */
 #zenExit {
