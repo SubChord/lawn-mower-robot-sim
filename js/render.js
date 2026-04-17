@@ -458,7 +458,6 @@ function skinBodyColors(skinKey, t) {
 
 function drawRobot(r) {
   ctx.save();
-  if (state.fuel <= 0) ctx.globalAlpha = 0.35;
   ctx.translate(r.x, r.y + Math.sin(r.bob) * 0.6);
   const rivalryOn = !(state.settings && state.settings.rivalry === false);
   if (r.name && getSetting('showRobotNames')) {

@@ -77,7 +77,6 @@ function saveGame() {
       activeSkin: state.activeSkin,
       treasuresCollected: state.treasuresCollected,
       gnomeTimer: state.gnomeTimer,
-      fuel: state.fuel,
       patternsUnlocked: state.patternsUnlocked,
       activeMowPattern: state.activeMowPattern,
       settings: state.settings,
@@ -116,11 +115,10 @@ function loadGame() {
     const data = JSON.parse(raw);
     if (!data || data.version !== 5) return false;
     Object.assign(state, data.state);
-    state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0, tool: 0 }, state.upgrades || {});
-    if (state.upgrades.electric != null) {
-      if (state.upgrades.fuelType === 0 && state.upgrades.electric >= 1) state.upgrades.fuelType = 3;
-      delete state.upgrades.electric;
-    }
+    state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, tool: 0 }, state.upgrades || {});
+    delete state.upgrades.fuelEff;
+    delete state.upgrades.fuelType;
+    delete state.upgrades.electric;
     state.garden   = Object.assign({ tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 }, state.garden || {});
     if (!Array.isArray(state.crew)) state.crew = [];
     if (!Array.isArray(state.skinsUnlocked) || state.skinsUnlocked.length === 0) state.skinsUnlocked = ['default'];
@@ -128,7 +126,6 @@ function loadGame() {
     if (state.skinsUnlocked.indexOf(state.activeSkin) < 0) state.activeSkin = 'default';
     if (!isFinite(state.treasuresCollected)) state.treasuresCollected = 0;
     if (!isFinite(state.gnomeTimer)) state.gnomeTimer = 60 + Math.random() * 30;
-    if (state.fuel == null) state.fuel = CFG.fuelMax;
     if (state.questTimer == null || !isFinite(state.questTimer)) state.questTimer = 80 + Math.random() * 60;
     if (!isFinite(state.questsCompleted)) state.questsCompleted = 0;
     if (state.activeQuest && !QUEST_BY_ID[state.activeQuest.id]) state.activeQuest = null;

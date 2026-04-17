@@ -19,8 +19,6 @@ const CFG = {
   flowerCoinPerSec: 0.35,
   beeRewardPerVisit: 2.2,
   beeVisitDuration: 0.55,
-  fuelDrainBase: 0.25,  // fuel per robot per second (benzine)
-  fuelMax: 100,
   gnomeSpawnMin: 75,   // seconds between wandering gnome visits (min)
   gnomeSpawnMax: 180,  // seconds between wandering gnome visits (max)
   gnomeWalkSpeed: 34,  // px/sec

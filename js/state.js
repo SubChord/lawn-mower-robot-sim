@@ -12,9 +12,8 @@ let state = {
   muted: false,
   upgrades: {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, fuelType: 0, tool: 0,
+    tool: 0,
   },
-  fuel: 100,
   garden: {
     tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0,
   },
@@ -123,13 +122,6 @@ function getSetting(key) {
   if (!state.settings) state.settings = {};
   return state.settings[key];
 }
-
-const FUEL_TYPES = [
-  { name: 'Benzine',  icon: '⛽', drainMult: 1.00, recharge: 0.0, refuelable: true,  upgradeCost: 2000,  barColor: 'linear-gradient(90deg,#ff8c00,#ffb830)' },
-  { name: 'Diesel',   icon: '🛢️', drainMult: 0.75, recharge: 0.0, refuelable: true,  upgradeCost: 8000,  barColor: 'linear-gradient(90deg,#c8a000,#f0c800)' },
-  { name: 'Hybrid',   icon: '🔋', drainMult: 0.50, recharge: 0.8, refuelable: true,  upgradeCost: 20000, barColor: 'linear-gradient(90deg,#00b86e,#3affa0)' },
-  { name: 'Electric', icon: '⚡', drainMult: 0.25, recharge: 1.5, refuelable: false, upgradeCost: null,  barColor: 'linear-gradient(90deg,#3bd4ff,#72f2ff)' },
-];
 
 // ---------- Neighbor quests ----------
 // Each quest has a generator for the goal number, a progress function, a duration,
@@ -390,13 +382,11 @@ const COST = {
   growth:   (n) => Math.ceil(120  * Math.pow(1.45, n)),
   rate:     (n) => Math.ceil(150  * Math.pow(1.40, n)),
   crit:     (n) => Math.ceil(500  * Math.pow(1.55, n)),
-  fuelEff:  (n) => Math.ceil(80   * Math.pow(1.45, n)),
-  fuelType: (n) => FUEL_TYPES[n]?.upgradeCost ?? Infinity,
   tool:     (n) => TOOL_TYPES[n + 1]?.upgradeCost ?? Infinity,
 };
 const MAX = {
   robots: 50, speed: 120, range: 60, value: 120, growth: 80, rate: 80, crit: 40,
-  fuelEff: 10, fuelType: 3, tool: TOOL_TYPES.length - 1,
+  tool: TOOL_TYPES.length - 1,
 };
 
 const GARDEN_DEFS = [
@@ -438,9 +428,6 @@ const SKILL_TREE = [
     desc: 'Recruit your first hand. +5% robot speed.',
     cost: 1200, req: null },
 
-  { id: 'mechanic',   tier: 1, col: 0, icon: '🧰', name: 'Apprentice Mechanic', crewName: 'Grease McFix',
-    desc: 'Refuel costs -25% and drain -5%.',
-    cost: 3500, req: 'foreman' },
   { id: 'keenEye',    tier: 1, col: 1, icon: '👁️', name: 'Keen Eye',           crewName: 'Eagle-Eye Brenda',
     desc: 'Gnomes visit 35% more often · +60% skin drop chance.',
     cost: 4500, req: 'foreman' },
@@ -448,9 +435,6 @@ const SKILL_TREE = [
     desc: '+4% crit chance (stacks with gnomes).',
     cost: 5000, req: 'foreman' },
 
-  { id: 'autoRefuel', tier: 2, col: 0, icon: '⛽', name: 'Auto-Refueler',      crewName: 'Nozzle Dave',
-    desc: 'Automatically refuel when fuel hits 25%.',
-    cost: 12000, req: 'mechanic' },
   { id: 'scout',      tier: 2, col: 1, icon: '🔍', name: 'Treasure Scout',     crewName: 'Sneaky Steve',
     desc: 'Auto-collects gnome treasures after 8s.',
     cost: 15000, req: 'keenEye' },
@@ -523,26 +507,6 @@ function gemShopGrowthMult() { return 1 + gemLvl('growth') * 0.03; }
 function gemShopCritBonus()  { return gemLvl('crit') * 0.01; }
 function gemShopOfflineMult(){ return 1 + gemLvl('offline') * 0.10; }
 function gemShopPrestigeMult(){ return 1 + gemLvl('prestigeBoost') * 0.10; }
-function activeFuelType(){ return FUEL_TYPES[state.upgrades.fuelType] || FUEL_TYPES[0]; }
-function isElectric()   { return !activeFuelType().refuelable; }
-function fuelEffMult()  {
-  const mechanic = hasCrew('mechanic') ? 0.95 : 1;
-  return Math.max(0.1, (1 - state.upgrades.fuelEff * 0.08) * mechanic);
-}
-function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult; }
-// Refuel price scales with how empty the tank is. A full-tank fill-up costs
-// the old flat rate; a nearly-full tank costs almost nothing. Minimum 1 coin
-// whenever there's anything at all to top up.
-function fuelRefillCostFull(){
-  const mechanicDisc = hasCrew('mechanic') ? 0.75 : 1;
-  return Math.ceil(25 * state.upgrades.robots * fuelEffMult() * mechanicDisc);
-}
-function fuelRefillCost(){
-  const missing = Math.max(0, CFG.fuelMax - state.fuel);
-  if (missing <= 0) return 0;
-  const pct = missing / CFG.fuelMax;
-  return Math.max(1, Math.ceil(fuelRefillCostFull() * pct));
-}
 function shedMult()    { return 1 + state.garden.shed * 0.05; }
 function fountainMult(){ return 1 + state.garden.fountain * 0.08; }
 function rockMult()    { return 1 + state.garden.rock * 0.005; }

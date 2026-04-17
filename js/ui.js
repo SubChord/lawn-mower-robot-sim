@@ -27,21 +27,6 @@ function updateHUD() {
     document.getElementById('coinRate').textContent = `+${formatShort(displayedRate)} / sec`;
   }
 
-  const fuelPct = state.fuel / CFG.fuelMax;
-  const ft = activeFuelType();
-  const fuelBar = document.getElementById('hudFuelBar');
-  const fuelLabel = document.getElementById('hudFuelLabel');
-  const refuelBtn = document.getElementById('refuelBtn');
-  fuelBar.style.width = (fuelPct * 100) + '%';
-  fuelBar.style.background = fuelPct < 0.25 ? 'linear-gradient(90deg,#ff2222,#ff6644)' : ft.barColor;
-  const netRate = ft.recharge - fuelDrainRate();
-  const rateStr = (netRate >= 0 ? '+' : '') + netRate.toFixed(2) + '/s';
-  fuelLabel.textContent = ft.icon + ' ' + ft.name + ' ' + Math.round(fuelPct * 100) + '% (' + rateStr + ')';
-  refuelBtn.style.display = ft.refuelable ? '' : 'none';
-  const refillCost = fuelRefillCost();
-  refuelBtn.disabled = state.coins < refillCost || state.fuel >= CFG.fuelMax;
-  document.getElementById('refuelCost').textContent = '💰' + formatShort(refillCost);
-
   document.getElementById('hudRobots').textContent = state.upgrades.robots;
   let total = 0, count = 0;
   for (let i = 0; i < grass.length; i++) {
@@ -148,20 +133,6 @@ const UPGRADE_DEFS = [
   { key: 'crit',    icon: '🎯', name: 'Lucky Mower',
     desc: () => `Crit ${(critChance()*100).toFixed(1)}% · ×${critMult()}`,
     effect: () => `+2% crit chance` },
-  { key: 'fuelEff', icon: '🔩', name: 'Fuel Efficiency',
-    desc: () => `Drain ${fuelDrainRate().toFixed(2)}/s`,
-    effect: () => `-8% fuel consumption` },
-  { key: 'fuelType', icon: '⛽', name: 'Fuel Type',
-    desc: (s) => {
-      const cur = FUEL_TYPES[s.upgrades.fuelType];
-      const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
-      return nxt ? `${cur.icon} ${cur.name} → ${nxt.icon} ${nxt.name}` : `${cur.icon} ${cur.name} · MAX`;
-    },
-    effect: (s) => {
-      const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
-      return nxt ? `${(nxt.drainMult*100)|0}% drain · ${nxt.recharge}/s regen${nxt.refuelable ? '' : ' · no refuel needed'}` : '';
-    },
-  },
 ];
 
 let activeTab = 'upgrades';
@@ -733,12 +704,10 @@ function doPrestige() {
   state.upgrades = {
     robots: 1 + gemLvl('startRobot'),
     speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, fuelType: 0,
     tool: Math.min(gemLvl('startTool'), TOOL_TYPES.length - 1),
   };
   state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
   state.crew     = [];
-  state.fuel     = CFG.fuelMax;
   state.gnomeTimer = 60 + Math.random() * 30;
   state.activeQuest = null;
   state.questTimer = 80 + Math.random() * 60;
@@ -792,10 +761,8 @@ function renderCrew(list) {
   const COL_X = [16.67, 50, 83.33];
   const TIER_Y = [14, 50, 86];
   const lines = [
-    { from: [COL_X[1], TIER_Y[0]], to: [COL_X[0], TIER_Y[1]], id: 'mechanic' },
     { from: [COL_X[1], TIER_Y[0]], to: [COL_X[1], TIER_Y[1]], id: 'keenEye' },
     { from: [COL_X[1], TIER_Y[0]], to: [COL_X[2], TIER_Y[1]], id: 'qualityControl' },
-    { from: [COL_X[0], TIER_Y[1]], to: [COL_X[0], TIER_Y[2]], id: 'autoRefuel', parent: 'mechanic' },
     { from: [COL_X[1], TIER_Y[1]], to: [COL_X[1], TIER_Y[2]], id: 'scout', parent: 'keenEye' },
     { from: [COL_X[2], TIER_Y[1]], to: [COL_X[2], TIER_Y[2]], id: 'efficiency', parent: 'qualityControl' },
   ];
@@ -1185,7 +1152,7 @@ function openZenSetupModal() {
     <div class="modal zen-modal">
       <h2>🧘 ZEN MODE</h2>
       <p class="zen-tagline">Compose your garden screensaver.<br>
-        <span class="zen-subnote">No fuel, no shopping — your real game is paused and untouched.</span></p>
+        <span class="zen-subnote">No shopping — your real game is paused and untouched.</span></p>
 
       <div class="zen-body">
         <section class="zen-section">
@@ -1340,7 +1307,6 @@ function enterZenMode() {
     totalEarnedAllTime: state.totalEarnedAllTime,
     totalEarnedThisRun: state.totalEarnedThisRun,
     totalTilesMowed: state.totalTilesMowed,
-    fuel: state.fuel,
     upgrades: Object.assign({}, state.upgrades),
     garden: Object.assign({}, state.garden),
     gnomeTimer: state.gnomeTimer,
@@ -1384,7 +1350,6 @@ function exitZenMode() {
   state.totalEarnedAllTime = zenSnapshot.totalEarnedAllTime;
   state.totalEarnedThisRun = zenSnapshot.totalEarnedThisRun;
   state.totalTilesMowed = zenSnapshot.totalTilesMowed;
-  state.fuel = zenSnapshot.fuel;
   state.upgrades = zenSnapshot.upgrades;
   state.garden = zenSnapshot.garden;
   state.gnomeTimer = zenSnapshot.gnomeTimer;
@@ -1446,7 +1411,6 @@ function buildZenWorld(cfg) {
   });
   ensureRobotCount();
   ensureBeesFromHives();
-  state.fuel = CFG.fuelMax;
 
   // Apply zen-only cosmetic overrides. Any skin/pattern is fair game in zen,
   // regardless of the player's real unlocks — it's a preview space.
@@ -1614,17 +1578,6 @@ function wireUIEvents() {
     player.active = false; canvas.style.cursor = 'default';
   });
   canvas.addEventListener('mouseenter', () => { player.active = true; canvas.style.cursor = 'none'; });
-
-  document.getElementById('refuelBtn').addEventListener('click', () => {
-    if (isElectric()) return;
-    const cost = fuelRefillCost();
-    if (state.coins < cost || state.fuel >= CFG.fuelMax) return;
-    state.coins -= cost;
-    state.fuel = CFG.fuelMax;
-    beep(440, 0.06, 'sine', 0.05);
-    toast('⛽ Robots refueled!', '#ff9f1c');
-    saveGame();
-  });
 
   document.getElementById('saveBtn').addEventListener('click', () => { saveGame(); toast('💾 Game saved!', '#8ff09e'); });
   document.getElementById('resetBtn').addEventListener('click', resetGame);

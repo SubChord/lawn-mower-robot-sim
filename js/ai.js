@@ -106,14 +106,6 @@ function obstacleRepulsion(px, py) {
   return { ax, ay };
 }
 
-function updateFuel(dt) {
-  // Zen Mode: infinite fuel, no drain, no refueling needed.
-  if (state.zenMode) { state.fuel = CFG.fuelMax; return; }
-  const ft = activeFuelType();
-  const net = (ft.recharge - fuelDrainRate()) * dt;
-  state.fuel = Math.min(CFG.fuelMax, Math.max(0, state.fuel + net));
-}
-
 function updatePlayer(dt) {
   player.bladePhase += dt * 30;
   if (!player.active) return;
@@ -170,7 +162,6 @@ function updateRobot(r, dt) {
     r.bob += dt * 10;
     return;
   }
-  if (state.fuel <= 0) return;
   const ts = tileSize;
   if (!r.target) pickTarget(r);
   r.lastTargetCheck += dt;
@@ -574,21 +565,6 @@ function updateTreasures(dt) {
 }
 
 function updateCrew(dt) {
-  // Auto-refueler
-  if (hasCrew('autoRefuel') && !isElectric()) {
-    const pct = state.fuel / CFG.fuelMax;
-    if (pct < 0.25) {
-      const cost = fuelRefillCost();
-      if (state.coins >= cost) {
-        state.coins -= cost;
-        state.fuel = CFG.fuelMax;
-        beep(380, 0.05, 'sine', 0.04);
-        addParticle(canvas.width * 0.5, 24, {
-          text: '⛽ Auto-refueled', color: '#ff9f1c', size: 13, gravity: 40,
-        });
-      }
-    }
-  }
   // Treasure scout
   if (hasCrew('scout')) {
     for (let i = treasures.length - 1; i >= 0; i--) {

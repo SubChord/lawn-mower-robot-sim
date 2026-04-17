@@ -15,7 +15,6 @@ function loop(now) {
     // Global updates — run in both town and house views.
     updateDayNight(TICK);
     updateWeather(TICK);
-    updateFuel(TICK);
     if (state.town.inTownView) {
       // Town view: only idle houses tick (no active-house skip).
       tickIdleHouses(TICK);
