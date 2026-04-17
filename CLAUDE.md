@@ -18,6 +18,7 @@ Browser-based idle game. Robots mow a grid-based lawn for coins, player buys upg
     ├── world.js     # grass/tiles/flowerColors typed arrays, robots[], bees[], spawn helpers
     ├── canvas.js    # canvas + ctx, tileSize, resize handler, particles[], beep() synth, flashCoin()
     ├── assets.js    # optional image/json/audio registry (Assets.register/preloadAll/image)
+    ├── atmosphere.js# day/night cycle, weather (rain/snow/storm/fog), robot rivalry, takeZenPhoto
     ├── ai.js        # updateRobot, updateBee, updateGrass, updateFlowerIncome (tick logic)
     ├── render.js    # drawGrass, tile sprites (tree/rock/pond/flower/beehive/fountain/shed/gnome), drawRobot, drawBee, render()
     ├── save.js      # localStorage save/load (SAVE_KEY = lawnbotTycoonSave_v2), offline earnings modal, resetGame
@@ -47,7 +48,7 @@ Browser-based idle game. Robots mow a grid-based lawn for coins, player buys upg
 ## ANTI-PATTERNS (THIS PROJECT)
 - **Don't `import`/`export`.** Breaks the classic-script global-sharing pattern. If you need a module system, convert all 9 files together.
 - **Don't move `init()` out of `main.js`** without also moving it after every `<script>` tag. It relies on every prior script having executed and registered its globals.
-- **Don't reorder `<script>` tags casually.** `canvas.js` must come before any code using `tileSize`/`ctx` at call time (currently it's 4th). Order: config → state → world → canvas → assets → ai → render → save → ui → main.
+- **Don't reorder `<script>` tags casually.** `canvas.js` must come before any code using `tileSize`/`ctx` at call time (currently it's 4th). Order: config → state → themes → world → canvas → assets → atmosphere → ai → render → save → ui → main.
 - **Don't add obstacle tile types without updating `OBSTACLE` set** in `config.js` — robots will path through them.
 - **Don't use `amend` on save-format changes.** Bump `SAVE_KEY` version instead or handle both shapes in `loadGame`.
 

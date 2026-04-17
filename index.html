@@ -44,6 +44,7 @@
           <div class="hud-pill">🌸 Flowers: <b id="hudFlowers">0</b></div>
           <div class="hud-pill">🐝 Bees: <b id="hudBees">0</b></div>
           <div class="hud-pill">🏆 Total Mowed: <b id="hudTotal">0</b></div>
+          <div class="hud-pill" id="hudAtmo" title="Weather and time of day">☀️ Clear</div>
         </div>
       </div>
       <div class="stage-hud-bottom">
@@ -82,7 +83,7 @@
         <button id="resetBtn" class="danger">Reset</button>
       </div>
     </footer>
-    <button id="zenExit" title="Exit Zen (Esc)">✕ Exit Zen</button>
+    <button id="zenExit" title="Exit Zen (Esc) · Press P to save a snapshot">✕ Exit Zen</button>
   </div>
 
   <div id="toasts"></div>
@@ -93,6 +94,7 @@
   <script src="js/world.js"></script>
   <script src="js/canvas.js"></script>
   <script src="js/assets.js"></script>
+  <script src="js/atmosphere.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/render.js"></script>
   <script src="js/save.js"></script>

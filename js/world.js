@@ -166,17 +166,30 @@ function spawnVisitorGnome() {
 }
 
 function rollTreasurePayload() {
+  // Skins come first — rarest drop. Fall through to pattern blueprints, then
+  // coins. Each branch is guarded: if the player already owns every item in
+  // a pool, we skip that branch and try the next.
   if (Math.random() < skinDropChance()) {
     const locked = SKIN_DEFS.filter(s => state.skinsUnlocked.indexOf(s.key) < 0);
     if (locked.length > 0) {
       const pick = locked[Math.floor(Math.random() * locked.length)];
-      return { type: 'skin', skinKey: pick.key, amount: 0 };
+      return { type: 'skin', skinKey: pick.key, patternKey: null, amount: 0 };
+    }
+  }
+  // Pattern blueprints: roughly double the base rate, still rare. Locked-only.
+  const patternChance = (typeof CFG !== 'undefined' && CFG.treasurePatternChance != null)
+    ? CFG.treasurePatternChance : 0.09;
+  if (Math.random() < patternChance * (hasCrew('keenEye') ? 1.6 : 1)) {
+    const lockedPat = MOW_PATTERN_DEFS.filter(p => state.patternsUnlocked.indexOf(p.key) < 0);
+    if (lockedPat.length > 0) {
+      const pick = lockedPat[Math.floor(Math.random() * lockedPat.length)];
+      return { type: 'pattern', skinKey: null, patternKey: pick.key, amount: 0 };
     }
   }
   const ref = typeof displayedRate === 'number' && displayedRate > 0 ? displayedRate : 4;
   const base = Math.max(60, Math.floor(ref * (25 + Math.random() * 90)));
   const withGems = Math.floor(base * (1 + state.gems * 0.05));
-  return { type: 'coin', amount: withGems, skinKey: null };
+  return { type: 'coin', amount: withGems, skinKey: null, patternKey: null };
 }
 
 function spawnTreasureAt(tx, ty) {
@@ -189,6 +202,7 @@ function spawnTreasureAt(tx, ty) {
     type: pay.type,
     amount: pay.amount,
     skinKey: pay.skinKey,
+    patternKey: pay.patternKey,
     life: CFG.treasureLifetime,
     born: 0,
     phase: Math.random() * 10,

@@ -5,18 +5,18 @@ a roadmap — sort in-flight ideas into the "Short list" at the top when they
 earn a priority.
 
 ## Short list (near-term)
-- **Pattern blueprints from treasures.** Extend gnome treasures to sometimes
-  drop mowing-pattern blueprints instead of skins/coins. Uses the existing
-  treasure pipeline (`rollTreasurePayload`, `collectTreasureIndex`). Rare
-  patterns become unlocks rather than coin purchases.
+- ~~**Pattern blueprints from treasures.**~~ Shipped (atmosphere-pack).
+  Gnome chests can drop pattern unlocks; rolled after skin with ~9% base
+  chance (×1.6 with Keen Eye crew).
 - **Seasonal theme rotation.** Auto-swap the theme based on real-world month
   (Autumn in Oct/Nov, Moonlit at night, Zen Sand mid-summer). Add an opt-out
   toggle in settings next to the theme picker.
-- **Weather layer.** Light rain/snow particles with a soft audio loop. Rain
-  +20% grass regrowth; snow slows robots, pauses flower income. Wire via a
-  `state.weather` field and a new `updateWeather` tick in `ai.js`.
-- **Photo mode.** In Zen Mode, hide the exit button and press `P` to copy the
-  canvas to clipboard / download a PNG. Nice for sharing screensavers.
+- ~~**Weather layer.**~~ Shipped (atmosphere-pack). Clear / rain / snow /
+  storm / fog with gameplay effects on growth, robot speed, flower income
+  and bee activity. Auto-cycle or manual pin via Settings; Zen Mode has
+  its own override.
+- ~~**Photo mode.**~~ Shipped (atmosphere-pack). `P` while in Zen downloads
+  the current canvas as a timestamped PNG.
 - **Crew portraits.** Replace the crew icon emoji with hand-drawn (or
   AI-generated) portraits loaded through the Assets registry. Fall back to
   emoji until assets load.
@@ -28,8 +28,9 @@ earn a priority.
 - **Daily goals.** Lightweight objectives ("mow 500 tiles today", "collect 2
   treasures") granting a gem or temporary multiplier. Reset at local
   midnight; store last-reset timestamp.
-- **Robot rivalry.** Tag the top-mowing bot each minute with a 🥇 crown and a
-  small speed bonus — encourages watching the fleet.
+- ~~**Robot rivalry.**~~ Shipped (atmosphere-pack). Top earner of each 30s
+  period wears a 👑 and gets +5% speed until the next reckoning. Opt-out
+  toggle in Settings.
 - **Permanent prestige tracks.** After fertilizing, let the player spend a gem
   to unlock one of three tracks (economy / mechanical / mystical) that each
   grant passive bonuses.
@@ -40,8 +41,9 @@ earn a priority.
 ## World
 - **More biomes.** Meadow, desert cactus patch, swamp with reeds. Each biome
   swaps obstacle palettes and adds one unique feature tile.
-- **Day/night cycle.** Smooth 3-minute cycle tint over the canvas, stars at
-  night. Pairs with the Moonlit theme.
+- ~~**Day/night cycle.**~~ Shipped (atmosphere-pack). Five-minute 24-hour
+  loop, tinted overlay, twinkling stars at night. Pins to Dawn / Day /
+  Dusk / Night via Settings or can be turned off entirely.
 - **Wildlife.** Ambient butterflies, ladybugs, the occasional frog near ponds
   — purely cosmetic.
 - **Pathed bot routes.** Let the player draw a path on the grid for an

@@ -45,6 +45,8 @@ function saveGame() {
       gemUpgrades: state.gemUpgrades,
       totalGemsEarned: state.totalGemsEarned,
       zenConfig: state.zenConfig,
+      timeOfDay: state.timeOfDay,
+      weather: state.weather,
       activeQuest: state.activeQuest,
       questTimer: state.questTimer,
       questsCompleted: state.questsCompleted,
@@ -96,7 +98,18 @@ function loadGame() {
     if (!isFinite(state.questsCompleted)) state.questsCompleted = 0;
     if (state.activeQuest && !QUEST_BY_ID[state.activeQuest.id]) state.activeQuest = null;
     if (!Array.isArray(state.questHistory)) state.questHistory = [];
-    state.settings = Object.assign({ showRobotNames: true, showGnomeNames: true, showParticles: true, theme: 'classic' }, state.settings || {});
+    state.settings = Object.assign({
+      showRobotNames: true, showGnomeNames: true, showParticles: true,
+      theme: 'classic', dayNight: 'auto', weather: 'auto', rivalry: true,
+    }, state.settings || {});
+    if (!isFinite(state.timeOfDay)) state.timeOfDay = 12;
+    if (!state.weather || typeof state.weather !== 'object') {
+      state.weather = { id: 'clear', intensity: 0, cycleTimer: 90 };
+    } else {
+      if (typeof state.weather.id !== 'string') state.weather.id = 'clear';
+      if (!isFinite(state.weather.intensity)) state.weather.intensity = 0;
+      if (!isFinite(state.weather.cycleTimer)) state.weather.cycleTimer = 90;
+    }
     if (!Array.isArray(state.patternsUnlocked) || state.patternsUnlocked.length === 0) state.patternsUnlocked = ['plain'];
     if (!state.activeMowPattern || !MOW_PATTERN_BY_KEY[state.activeMowPattern]) state.activeMowPattern = 'plain';
     if (state.patternsUnlocked.indexOf(state.activeMowPattern) < 0) state.activeMowPattern = 'plain';

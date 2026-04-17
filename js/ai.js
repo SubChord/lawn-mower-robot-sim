@@ -178,7 +178,7 @@ function updateRobot(r, dt) {
   while (angDiff < -Math.PI) angDiff += 2 * Math.PI;
   r.angle += angDiff * Math.min(1, dt * 10);
 
-  const speed = robotSpeed();
+  const speed = robotSpeed() * (typeof rivalrySpeedBonus === 'function' ? rivalrySpeedBonus(r) : 1);
   if (dist > 2) {
     const nx = r.x + Math.cos(r.angle) * speed * dt;
     const ny = r.y + Math.sin(r.angle) * speed * dt;
@@ -231,6 +231,7 @@ function updateRobot(r, dt) {
     state.coins += coins;
     state.totalEarnedAllTime += coins;
     state.totalEarnedThisRun += coins;
+    if (typeof trackRivalryEarnings === 'function') trackRivalryEarnings(r, coins);
     if (Math.random() < 0.04 + (critHit ? 0.9 : 0)) {
       addParticle(r.x, r.y - 4, {
         text: (critHit ? 'CRIT! +' : '+') + formatShort(coins),
@@ -264,6 +265,24 @@ function pickBeeTarget(b) {
 function updateBee(b, dt) {
   b.wingPhase += dt * 28;
   b.jitter += dt;
+  // Rain/snow/storm: bees retreat to the hive and hide. They stop flying and
+  // don't generate pollination rewards.
+  if (typeof beesAreActive === 'function' && !beesAreActive()) {
+    const ts = tileSize;
+    const homeX = (b.homeX + 0.5) * ts;
+    const homeY = (b.homeY + 0.5) * ts;
+    const dx = homeX - b.x, dy = homeY - b.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 2) {
+      b.x += (dx / d) * CFG.beeSpeed * 0.7 * dt;
+      b.y += (dy / d) * CFG.beeSpeed * 0.7 * dt;
+      b.angle = Math.atan2(dy, dx);
+    }
+    b.state = 'flying'; // don't count a visit toward coins
+    b.stateTime = 0;
+    b.target = null;
+    return;
+  }
   if (!b.target) pickBeeTarget(b);
   const t = b.target;
   const ts = tileSize;
@@ -562,7 +581,9 @@ let flowerIncomeAccum = 0;
 function updateFlowerIncome(dt) {
   const flowers = state.garden.flower;
   if (flowers <= 0) return;
-  const perSec = flowers * CFG.flowerCoinPerSec * coinMult();
+  const wMult = typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1;
+  if (wMult <= 0) return; // snow (heavy) can pause flower income entirely
+  const perSec = flowers * CFG.flowerCoinPerSec * coinMult() * wMult;
   const earned = perSec * dt;
   state.coins += earned;
   state.totalEarnedAllTime += earned;

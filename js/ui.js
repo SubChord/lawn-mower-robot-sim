@@ -53,6 +53,22 @@ function updateHUD() {
   document.getElementById('hudBees').textContent = bees.length;
   document.getElementById('hudTotal').textContent = formatShort(state.totalTilesMowed);
 
+  // Atmosphere pill: weather icon + name, plus a small clock when relevant.
+  const atmoEl = document.getElementById('hudAtmo');
+  if (atmoEl && typeof activeWeather === 'function') {
+    const w = activeWeather();
+    const hour = Math.floor(state.timeOfDay || 12);
+    const mode = (state.settings && state.settings.dayNight) || 'auto';
+    let timeIco = '';
+    if (mode !== 'off') {
+      if (hour < 5 || hour >= 20) timeIco = ' 🌙';
+      else if (hour < 7)          timeIco = ' 🌅';
+      else if (hour < 17)         timeIco = '';        // daytime — no icon clutter
+      else if (hour < 20)         timeIco = ' 🌇';
+    }
+    atmoEl.textContent = `${w.icon} ${w.name}${timeIco}`;
+  }
+
   const qBanner = document.getElementById('questBanner');
   if (qBanner) {
     const q = state.activeQuest;
@@ -997,10 +1013,17 @@ function collectTreasureIndex(i, silent) {
     beep(660, 0.10, 'triangle', 0.09);
     setTimeout(() => beep(990, 0.10, 'triangle', 0.08), 90);
     setTimeout(() => beep(1320, 0.18, 'triangle', 0.08), 200);
+  } else if (t.type === 'pattern' && t.patternKey && state.patternsUnlocked.indexOf(t.patternKey) < 0) {
+    state.patternsUnlocked.push(t.patternKey);
+    const pat = MOW_PATTERN_BY_KEY[t.patternKey];
+    showPatternUnlockModal(pat);
+    beep(560, 0.10, 'triangle', 0.09);
+    setTimeout(() => beep(880, 0.10, 'triangle', 0.08), 90);
+    setTimeout(() => beep(1180, 0.18, 'triangle', 0.08), 200);
   } else {
-    // fallback if the skin was already owned or for coin treasure
+    // fallback if the skin/pattern was already owned or for coin treasure
     let coins = t.amount;
-    if (!coins || t.type === 'skin') {
+    if (!coins || t.type === 'skin' || t.type === 'pattern') {
       coins = Math.max(120, Math.floor((displayedRate || 4) * 60));
     }
     state.coins += coins;
@@ -1014,6 +1037,26 @@ function collectTreasureIndex(i, silent) {
     setTimeout(() => beep(1100, 0.1, 'triangle', 0.06), 80);
   }
   saveGame();
+}
+
+function showPatternUnlockModal(pat) {
+  if (!pat) return;
+  const preview = patternPreviewCanvas(pat.key);
+  preview.style.cssText = 'width:120px; height:120px; display:block; margin:8px auto; border-radius:8px; border:1px solid rgba(0,0,0,0.45); box-shadow: inset 0 -8px 12px rgba(0,0,0,0.25);';
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop';
+  back.innerHTML = `
+    <div class="modal skin-modal">
+      <h2>🧙 GNOME'S BLUEPRINT!</h2>
+      <p style="color:#8ff09e; font-weight:800; letter-spacing:1px;">MOWING PATTERN UNLOCKED</p>
+      <div class="skin-modal-preview" id="patUnlockPreview"></div>
+      <div class="big" style="color:#8ff09e;">${pat.icon} ${pat.name}</div>
+      <p>${pat.desc}<br>Equip it now from the 🎨 Skins tab.</p>
+      <button id="okBtn">Sweet!</button>
+    </div>`;
+  document.body.appendChild(back);
+  back.querySelector('#patUnlockPreview').appendChild(preview);
+  back.querySelector('#okBtn').addEventListener('click', () => back.remove());
 }
 
 function showSkinUnlockModal(skin) {
@@ -1159,6 +1202,24 @@ function openZenSetupModal() {
           <div class="zen-section-head">Mowing Pattern</div>
           <div class="zen-pattern-grid" id="zenPatternGrid"></div>
         </section>
+
+        <section class="zen-section">
+          <div class="zen-section-head">Atmosphere</div>
+          <div class="zen-atmosphere">
+            <div class="zen-atmo-row" id="zenWeatherRow">
+              <span class="zen-atmo-label">Weather</span>
+              <div class="zen-atmo-chips" id="zenWeatherChips"></div>
+            </div>
+            <div class="zen-atmo-row" id="zenTimeRow">
+              <span class="zen-atmo-label">Time of day</span>
+              <div class="zen-atmo-chips" id="zenTimeChips"></div>
+            </div>
+            <div class="zen-atmo-row" id="zenRivalryRow">
+              <span class="zen-atmo-label">Rivalry crown</span>
+              <span class="toggle ${cfg.rivalry ? 'on' : ''}" id="zenRivalryToggle"><span class="knob"></span></span>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div class="zen-actions">
@@ -1195,6 +1256,43 @@ function openZenSetupModal() {
     patternGrid.appendChild(tile);
   }
 
+  // Weather chips: Auto + each weather type with icon.
+  const weatherChips = back.querySelector('#zenWeatherChips');
+  const weatherOptions = [{ id: 'auto', name: 'Auto', icon: '🔁' }, ...WEATHER_TYPES];
+  for (const w of weatherOptions) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'settings-chip' + (cfg.weather === w.id ? ' active' : '');
+    chip.dataset.zenKey = 'weather';
+    chip.dataset.value = w.id;
+    chip.title = w.name;
+    chip.innerHTML = `${w.icon || ''} ${w.name}`.trim();
+    weatherChips.appendChild(chip);
+  }
+
+  // Time-of-day chips: auto/dawn/day/dusk/night/off.
+  const timeChips = back.querySelector('#zenTimeChips');
+  const timeIcons = { auto: '🔁', dawn: '🌅', day: '☀️', dusk: '🌇', night: '🌙', off: '🚫' };
+  for (const key of DAY_TIME_KEYS) {
+    const preset = DAY_TIME_PRESETS[key];
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'settings-chip' + (cfg.dayTime === key ? ' active' : '');
+    chip.dataset.zenKey = 'dayTime';
+    chip.dataset.value = key;
+    chip.title = preset.label || key;
+    chip.innerHTML = `${timeIcons[key] || ''} ${preset.label || key}`.trim();
+    timeChips.appendChild(chip);
+  }
+
+  // Rivalry toggle (zen-local).
+  const rivalryToggle = back.querySelector('#zenRivalryToggle');
+  rivalryToggle.addEventListener('click', () => {
+    state.zenConfig.rivalry = !state.zenConfig.rivalry;
+    rivalryToggle.classList.toggle('on', !!state.zenConfig.rivalry);
+    beep(state.zenConfig.rivalry ? 720 : 520, 0.05, 'sine', 0.04);
+  });
+
   back.querySelectorAll('input[type="range"]').forEach(input => {
     input.addEventListener('input', () => {
       const key = input.dataset.key;
@@ -1224,6 +1322,7 @@ function openZenSetupModal() {
       const key = btn.dataset.zenKey;
       btn.classList.toggle('active', btn.dataset.value === state.zenConfig[key]);
     });
+    rivalryToggle.classList.toggle('on', !!state.zenConfig.rivalry);
   });
   back.querySelector('#zenStartBtn').addEventListener('click', () => {
     close();
@@ -1250,6 +1349,9 @@ function enterZenMode() {
     activeMowPattern: state.activeMowPattern,
     patternsUnlocked: state.patternsUnlocked.slice(),
     treasuresCollected: state.treasuresCollected,
+    settings: Object.assign({}, state.settings),
+    timeOfDay: state.timeOfDay,
+    weather: state.weather && { id: state.weather.id, intensity: state.weather.intensity, cycleTimer: state.weather.cycleTimer },
     grass: new Float32Array(grass),
     tiles: new Uint8Array(tiles),
     flowerColors: new Uint8Array(flowerColors),
@@ -1291,6 +1393,9 @@ function exitZenMode() {
   state.activeMowPattern = zenSnapshot.activeMowPattern;
   state.patternsUnlocked = zenSnapshot.patternsUnlocked;
   state.treasuresCollected = zenSnapshot.treasuresCollected;
+  if (zenSnapshot.settings) state.settings = zenSnapshot.settings;
+  if (zenSnapshot.timeOfDay != null) state.timeOfDay = zenSnapshot.timeOfDay;
+  if (zenSnapshot.weather) state.weather = zenSnapshot.weather;
   grass = zenSnapshot.grass;
   tiles = zenSnapshot.tiles;
   flowerColors = zenSnapshot.flowerColors;
@@ -1347,6 +1452,17 @@ function buildZenWorld(cfg) {
   // regardless of the player's real unlocks — it's a preview space.
   if (cfg.skin && SKIN_BY_KEY[cfg.skin]) state.activeSkin = cfg.skin;
   if (cfg.pattern && MOW_PATTERN_BY_KEY[cfg.pattern]) state.activeMowPattern = cfg.pattern;
+
+  // Atmosphere overrides: mutate the live `state.settings` so the update
+  // functions pick them up. The snapshot's original settings are restored on
+  // exit, so this isn't destructive to the main game.
+  if (cfg.weather && (typeof WEATHER_BY_ID === 'undefined' || cfg.weather === 'auto' || WEATHER_BY_ID[cfg.weather])) {
+    state.settings.weather = cfg.weather;
+  }
+  if (cfg.dayTime && (typeof DAY_TIME_PRESETS === 'undefined' || DAY_TIME_PRESETS[cfg.dayTime])) {
+    state.settings.dayNight = cfg.dayTime;
+  }
+  if (typeof cfg.rivalry === 'boolean') state.settings.rivalry = cfg.rivalry;
 
   // Suppress visitor gnomes & their treasure popups — zen stays peaceful.
   state.gnomeTimer = Number.POSITIVE_INFINITY;
@@ -1459,6 +1575,17 @@ function wireUIEvents() {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.zenMode) exitZenMode();
+    // Photo mode: `P` snapshots the canvas to a PNG download while in Zen.
+    // Ignore when typing in an input and require no modifier keys so we
+    // don't clash with browser shortcuts.
+    if (state.zenMode && (e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const tgt = e.target;
+      const typing = tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable);
+      if (!typing) {
+        e.preventDefault();
+        takeZenPhoto();
+      }
+    }
     updateBuyMult(e);
   });
   document.addEventListener('keyup', updateBuyMult);

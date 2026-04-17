@@ -12,6 +12,8 @@ function loop(now) {
   lastFrame = now;
   accumulator += dt;
   while (accumulator >= TICK) {
+    updateDayNight(TICK);
+    updateWeather(TICK);
     updateGrass(TICK);
     updateGrassSpawn(TICK);
     updateFlowerIncome(TICK);
@@ -19,6 +21,7 @@ function loop(now) {
     updatePlayer(TICK);
     for (const r of robots) updateRobot(r, TICK);
     for (const b of bees) updateBee(b, TICK);
+    updateRivalry(TICK);
     updateQuestTimer(TICK);
     updateGnomeSpawnTimer(TICK);
     updateVisitorGnomes(TICK);

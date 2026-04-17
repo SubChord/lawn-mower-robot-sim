@@ -403,6 +403,7 @@ function drawRobot(r) {
   ctx.save();
   if (state.fuel <= 0) ctx.globalAlpha = 0.35;
   ctx.translate(r.x, r.y + Math.sin(r.bob) * 0.6);
+  const rivalryOn = !(state.settings && state.settings.rivalry === false);
   if (r.name && getSetting('showRobotNames')) {
     const s = Math.max(10, tileSize * 0.9);
     const fs = Math.max(6, Math.round(tileSize * 0.38));
@@ -410,8 +411,17 @@ function drawRobot(r) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.fillText(r.name, 1, -s * 0.62 + 1);
-    ctx.fillStyle = '#fffde0';
+    ctx.fillStyle = r.isChampion && rivalryOn ? '#ffd34e' : '#fffde0';
     ctx.fillText(r.name, 0, -s * 0.62);
+  }
+  if (r.isChampion && rivalryOn) {
+    const s = Math.max(10, tileSize * 0.9);
+    const fs = Math.max(9, Math.round(tileSize * 0.7));
+    const nameOffset = (r.name && getSetting('showRobotNames')) ? s * 0.9 : s * 0.7;
+    const bob = Math.sin(performance.now() / 220 + r.bob) * 1.5;
+    ctx.font = `${fs}px Inter,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('👑', 0, -nameOffset + bob);
   }
   ctx.rotate(r.angle);
 
@@ -637,10 +647,13 @@ function drawTreasure(t) {
   ctx.beginPath(); ctx.ellipse(0, ts * 0.3, ts * 0.3, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
 
   const isSkin = t.type === 'skin';
-  const chestBody = isSkin ? '#6d2fbd' : '#8a5a1f';
-  const chestDark = isSkin ? '#2d0f5a' : '#4a2f10';
-  const chestLight = isSkin ? '#b94dff' : '#c58620';
-  const trim = isSkin ? '#ff6bcf' : '#ffd34e';
+  const isPattern = t.type === 'pattern';
+  // Pattern chests: emerald/green to echo the mowed-grass tint you'd see
+  // once the pattern equips. Keeps the three chest types instantly readable.
+  const chestBody  = isSkin ? '#6d2fbd' : isPattern ? '#1f7a44' : '#8a5a1f';
+  const chestDark  = isSkin ? '#2d0f5a' : isPattern ? '#0b3820' : '#4a2f10';
+  const chestLight = isSkin ? '#b94dff' : isPattern ? '#58d07c' : '#c58620';
+  const trim       = isSkin ? '#ff6bcf' : isPattern ? '#8ff09e' : '#ffd34e';
 
   // chest body
   const bodyGrad = ctx.createLinearGradient(0, 0, 0, ts * 0.28);
@@ -678,7 +691,9 @@ function drawTreasure(t) {
   const shineAlpha = 0.7 + Math.sin(t.phase * 6) * 0.25;
   ctx.fillStyle = isSkin
     ? `rgba(255, 170, 240, ${shineAlpha})`
-    : `rgba(255, 220, 80, ${shineAlpha})`;
+    : isPattern
+      ? `rgba(170, 255, 200, ${shineAlpha})`
+      : `rgba(255, 220, 80, ${shineAlpha})`;
   ctx.beginPath(); ctx.ellipse(0, ts * 0.02, ts * 0.22, ts * 0.05, 0, 0, Math.PI * 2); ctx.fill();
 
   // sparkle icon above
@@ -688,7 +703,7 @@ function drawTreasure(t) {
   ctx.textAlign = 'center';
   ctx.strokeStyle = 'rgba(0,0,0,0.8)';
   ctx.lineWidth = 3;
-  const label = isSkin ? '?' : '✦';
+  const label = isSkin ? '?' : isPattern ? '🪚' : '✦';
   ctx.strokeText(label, 0, iconY);
   ctx.fillText(label, 0, iconY);
 
@@ -806,4 +821,8 @@ function render() {
   for (const g of visitorGnomes) drawVisitorGnome(g);
   drawPlayer();
   drawParticles(1/60);
+  // Atmosphere last: darken the scene for night, then layer weather on top so
+  // rain/snow stays visible even at night. Lightning still punches through.
+  if (typeof drawDayNightOverlay === 'function') drawDayNightOverlay();
+  if (typeof drawWeather === 'function') drawWeather();
 }

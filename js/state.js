@@ -48,7 +48,13 @@ let state = {
     showGnomeNames: true,
     showParticles: true,
     theme: 'classic',
+    dayNight: 'auto',   // auto | off | dawn | day | dusk | night
+    weather: 'auto',    // auto | clear | rain | snow | storm | fog
+    rivalry: true,      // crown the top-earning robot each 30s
   },
+  timeOfDay: 12,                // 0..24, advances in auto mode
+  weather: { id: 'clear', intensity: 0, cycleTimer: 90 },
+  rivalryTimer: 30,
   zenMode: false,
   zenConfig: {
     robots: 6,
@@ -60,6 +66,9 @@ let state = {
     gnomes: 2,
     skin: 'default',
     pattern: 'plain',
+    weather: 'auto',
+    dayTime: 'auto',
+    rivalry: true,
   },
   activeQuest: null,                    // { id, neighbor, title, goal, duration, elapsed, reward, rewardType, startVal }
   questTimer: 80 + Math.random() * 60,  // seconds until next neighbor knocks
@@ -79,7 +88,7 @@ const ZEN_SLIDERS = [
   { key: 'ponds',    icon: '💧', label: 'Ponds',    min: 0, max: 6,  step: 1 },
   { key: 'gnomes',   icon: '🧙', label: 'Gnomes',   min: 0, max: 10, step: 1 },
 ];
-const ZEN_CONFIG_DEFAULT = { robots: 6, flowers: 14, beehives: 3, trees: 10, rocks: 6, ponds: 2, gnomes: 2, skin: 'default', pattern: 'plain' };
+const ZEN_CONFIG_DEFAULT = { robots: 6, flowers: 14, beehives: 3, trees: 10, rocks: 6, ponds: 2, gnomes: 2, skin: 'default', pattern: 'plain', weather: 'auto', dayTime: 'auto', rivalry: true };
 
 // ---------- Settings ----------
 // Each entry is a toggle in the settings modal. Add more here; they render
@@ -88,8 +97,17 @@ const SETTING_DEFS = [
   { type: 'toggle', key: 'showRobotNames', label: 'Show robot names', hint: 'Display nameplates above each mower.' },
   { type: 'toggle', key: 'showGnomeNames', label: 'Show gnome names', hint: 'Display names above visiting gnomes.' },
   { type: 'toggle', key: 'showParticles',  label: 'Floating numbers', hint: 'Show +coin pop-ups over the lawn.' },
+  { type: 'toggle', key: 'rivalry',        label: 'Robot rivalry',    hint: 'Crown the top-earning robot every 30s (+5% speed).' },
   { type: 'select', key: 'theme',          label: 'Theme pack',       hint: 'Swap the lawn palette and stage background.',
     options: () => (typeof THEMES !== 'undefined' ? THEMES.map(t => ({ value: t.id, label: t.name, desc: t.desc })) : [{ value: 'classic', label: 'Classic' }]) },
+  { type: 'select', key: 'dayNight',       label: 'Day / Night',      hint: 'Tint the lawn by time of day — or pin a specific hour.',
+    options: () => (typeof DAY_TIME_PRESETS !== 'undefined'
+      ? DAY_TIME_KEYS.map(k => ({ value: k, label: DAY_TIME_PRESETS[k].label || k }))
+      : [{ value: 'auto', label: 'Cycle' }]) },
+  { type: 'select', key: 'weather',        label: 'Weather',          hint: 'Let weather auto-cycle, or pin one kind.',
+    options: () => (typeof WEATHER_TYPES !== 'undefined'
+      ? [{ value: 'auto', label: 'Auto' }, ...WEATHER_TYPES.map(w => ({ value: w.id, label: `${w.icon} ${w.name}`, desc: `growth ×${w.growthMult} · speed ×${w.speedMult}` }))]
+      : [{ value: 'auto', label: 'Auto' }]) },
 ];
 function getSetting(key) {
   if (!state.settings) state.settings = {};
@@ -467,10 +485,13 @@ function crewCoinMult(){ return hasCrew('efficiency') ? 1.10 : 1; }
 function crewMowRateMult(){ return hasCrew('efficiency') ? 1.20 : 1; }
 function crewCritBonus(){ return hasCrew('qualityControl') ? 0.04 : 0; }
 
-function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult(); }
+function weatherSafeSpeed()  { return typeof weatherSpeedMult  === 'function' ? weatherSpeedMult()  : 1; }
+function weatherSafeGrowth() { return typeof weatherGrowthMult === 'function' ? weatherGrowthMult() : 1; }
+function weatherSafeFlower() { return typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1; }
+function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
 function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult(); }
-function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult(); }
+function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth(); }
 function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
 function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus()); }
 function critMult()    { return 5; }

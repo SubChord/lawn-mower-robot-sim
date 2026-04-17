@@ -867,6 +867,29 @@ footer button.danger:hover { background: rgba(216,58,58,0.2); border-color: rgba
   display: block;
 }
 
+/* Atmosphere section inside Zen setup */
+.zen-atmosphere { display: flex; flex-direction: column; gap: 6px; }
+.zen-atmo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(143,240,158,0.18);
+  border-radius: 9px;
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+.zen-atmo-label {
+  font-weight: 700; font-size: 11px;
+  color: var(--ink);
+  flex: 0 0 88px;
+}
+.zen-atmo-chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.zen-atmo-chips .settings-chip {
+  padding: 4px 8px; font-size: 10.5px;
+}
+#zenRivalryRow .toggle { flex-shrink: 0; }
+
 .zen-actions {
   display: flex; gap: 8px; justify-content: flex-end;
   margin-top: 10px;
