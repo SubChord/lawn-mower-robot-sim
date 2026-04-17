@@ -27,35 +27,52 @@ function pickTarget(r) {
   const cx = Math.floor(r.x / ts);
   const cy = Math.floor(r.y / ts);
   const searchR = 10;
-  let best = null; let bestScore = -Infinity;
-  for (let dy = -searchR; dy <= searchR; dy++) {
-    for (let dx = -searchR; dx <= searchR; dx++) {
-      const x = cx + dx, y = cy + dy;
-      if (!inBounds(x, y)) continue;
-      if (tiles[idx(x, y)] !== T.GRASS) continue;
-      const h = grass[idx(x, y)];
-      if (h < 0.2) continue;
-      const dist = Math.hypot(dx, dy) + 0.1;
-      const score = h * h / dist + patternScoreBonus(r, x, y) - Math.random() * 0.05;
-      if (score > bestScore) { bestScore = score; best = { x, y }; }
-    }
-  }
-  if (!best) {
-    let bh = 0, bi = -1;
-    for (let i = 0; i < grass.length; i++) {
-      if (tiles[i] !== T.GRASS) continue;
-      if (grass[i] > bh) { bh = grass[i]; bi = i; }
-    }
-    if (bi >= 0) best = { x: bi % CFG.gridW, y: Math.floor(bi / CFG.gridW) };
-    else {
-      for (let i = 0; i < 20; i++) {
-        const rx = Math.floor(Math.random() * CFG.gridW);
-        const ry = Math.floor(Math.random() * CFG.gridH);
-        if (tiles[idx(rx, ry)] === T.GRASS) { best = { x: rx, y: ry }; break; }
+  const robotZone = (zones && inBounds(cx, cy)) ? zones[idx(cx, cy)] : 0;
+  let best = null;
+  // Two-pass: first prefer same-zone grass, then fall back to any grass.
+  for (const sameZoneOnly of [true, false]) {
+    let bestScore = -Infinity;
+    best = null;
+    for (let dy = -searchR; dy <= searchR; dy++) {
+      for (let dx = -searchR; dx <= searchR; dx++) {
+        const x = cx + dx, y = cy + dy;
+        if (!inBounds(x, y)) continue;
+        const i = idx(x, y);
+        if (tiles[i] !== T.GRASS) continue;
+        if (sameZoneOnly && robotZone && zones && zones[i] !== robotZone) continue;
+        const h = grass[i];
+        if (h < 0.2) continue;
+        const dist = Math.hypot(dx, dy) + 0.1;
+        const score = h * h / dist + patternScoreBonus(r, x, y) - Math.random() * 0.05;
+        if (score > bestScore) { bestScore = score; best = { x, y }; }
       }
-      if (!best) best = { x: cx, y: cy };
     }
+    if (!best) {
+      let bh = 0, bi = -1;
+      for (let i = 0; i < grass.length; i++) {
+        if (tiles[i] !== T.GRASS) continue;
+        if (sameZoneOnly && robotZone && zones && zones[i] !== robotZone) continue;
+        if (grass[i] > bh) { bh = grass[i]; bi = i; }
+      }
+      if (bi >= 0) best = { x: bi % CFG.gridW, y: Math.floor(bi / CFG.gridW) };
+      else {
+        for (let i = 0; i < 20; i++) {
+          const rx = Math.floor(Math.random() * CFG.gridW);
+          const ry = Math.floor(Math.random() * CFG.gridH);
+          const ri = idx(rx, ry);
+          if (tiles[ri] !== T.GRASS) continue;
+          if (sameZoneOnly && robotZone && zones && zones[ri] !== robotZone) continue;
+          best = { x: rx, y: ry };
+          break;
+        }
+      }
+    }
+    if (best) break;
+    // If robotZone is 0 or zones missing, the filter was a no-op; don't bother
+    // with pass 2 — it would produce identical results.
+    if (!robotZone || !zones) break;
   }
+  if (!best) best = { x: cx, y: cy };
   r.target = best;
   r.lastTargetCheck = 0;
 }
