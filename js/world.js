@@ -5,6 +5,7 @@
 let grass;        // Float32Array (height 0..1)
 let tiles;        // Uint8Array (tile type)
 let flowerColors; // Uint8Array (palette index per flower)
+let grassSpecies; // Uint8Array (index into GRASS_TYPES — 0 = normal)
 
 function idx(x, y) { return y * CFG.gridW + x; }
 function inBounds(x, y) { return x >= 0 && y >= 0 && x < CFG.gridW && y < CFG.gridH; }
@@ -13,6 +14,7 @@ function initWorld() {
   grass = new Float32Array(CFG.gridW * CFG.gridH);
   tiles = new Uint8Array(CFG.gridW * CFG.gridH);
   flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
+  grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
   for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
 
   const treeCount = 8 + Math.floor(Math.random() * 4);

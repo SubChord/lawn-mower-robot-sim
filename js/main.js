@@ -13,6 +13,7 @@ function loop(now) {
   accumulator += dt;
   while (accumulator >= TICK) {
     updateGrass(TICK);
+    updateGrassSpawn(TICK);
     updateFlowerIncome(TICK);
     updateFuel(TICK);
     updatePlayer(TICK);

@@ -36,6 +36,7 @@ function saveGame() {
       gnomeTimer: state.gnomeTimer,
       fuel: state.fuel,
       settings: state.settings,
+      grassTypes: state.grassTypes,
     },
     achieved: [...achieved],
     tiles: tilePack,
@@ -43,6 +44,12 @@ function saveGame() {
       if (!grass) return null;
       let bin = '';
       for (let i = 0; i < grass.length; i++) bin += String.fromCharCode(Math.round(grass[i] * 255));
+      return btoa(bin);
+    })(),
+    grassSpecies: (() => {
+      if (!grassSpecies) return null;
+      let bin = '';
+      for (let i = 0; i < grassSpecies.length; i++) bin += String.fromCharCode(grassSpecies[i]);
       return btoa(bin);
     })(),
     robots: robots.map(r => [+r.x.toFixed(1), +r.y.toFixed(1), +r.angle.toFixed(3), r.name || '']),
@@ -79,6 +86,7 @@ function loadGame() {
     grass = new Float32Array(CFG.gridW * CFG.gridH);
     tiles = new Uint8Array(CFG.gridW * CFG.gridH);
     flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
+    grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
     if (data.grass) {
       try {
         const bin = atob(data.grass);
@@ -87,6 +95,18 @@ function loadGame() {
     } else {
       for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
     }
+    if (data.grassSpecies) {
+      try {
+        const bin = atob(data.grassSpecies);
+        for (let i = 0; i < grassSpecies.length && i < bin.length; i++) grassSpecies[i] = bin.charCodeAt(i);
+      } catch(e) { /* leave zeroed */ }
+    }
+    state.grassTypes = Object.assign({
+      clover:  { unlocked: false, spawnLevel: 0 },
+      thick:   { unlocked: false, spawnLevel: 0 },
+      crystal: { unlocked: false, spawnLevel: 0 },
+      golden:  { unlocked: false, spawnLevel: 0 },
+    }, state.grassTypes || {});
     if (Array.isArray(data.robots)) state._savedRobots = data.robots;
     if (Array.isArray(data.tiles)) {
       for (const entry of data.tiles) {

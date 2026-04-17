@@ -104,6 +104,7 @@ function renderShop() {
   if (activeTab === 'crew')     { renderCrew(list);     return; }
   if (activeTab === 'skins')    { renderSkins(list);    return; }
   if (activeTab === 'tools')    { renderTools(list);    return; }
+  if (activeTab === 'grass')    { renderGrassShop(list); return; }
 
   for (const up of UPGRADE_DEFS) {
     if (up.show && !up.show()) continue;
@@ -250,6 +251,95 @@ function buyTool(idx) {
   saveGame();
 }
 
+// ---------- Grass shop ----------
+function countSpecies() {
+  const counts = new Array(GRASS_TYPES.length).fill(0);
+  if (!grassSpecies) return counts;
+  for (let i = 0; i < grassSpecies.length; i++) {
+    if (tiles[i] !== T.GRASS) continue;
+    counts[grassSpecies[i]]++;
+  }
+  return counts;
+}
+
+function renderGrassShop(list) {
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Unlock rare grass species that spawn randomly on your lawn.
+      They pay more coins per mow but are tougher to cut.
+      <b style="color:var(--grass-xlight);">Buy spawn-rate upgrades</b> to see them more often.
+    </p>`;
+  list.appendChild(header);
+
+  const counts = countSpecies();
+  for (let i = 1; i < GRASS_TYPES.length; i++) {
+    const def = GRASS_TYPES[i];
+    const st = state.grassTypes[def.key];
+    const unlocked = !!st?.unlocked;
+    const cost = unlocked ? grassSpawnCost(def.key) : def.unlockCost;
+    const maxed = unlocked && st.spawnLevel >= GRASS_SPAWN_MAX_LEVEL;
+    const affordable = !maxed && state.coins >= cost;
+    const row = document.createElement('div');
+    const cls = ['upgrade'];
+    if (affordable) cls.push('affordable');
+    if (maxed) cls.push('maxed');
+    row.className = cls.join(' ');
+    const lvlBadge = unlocked ? `<span class="lvl">Lv ${st.spawnLevel}/${GRASS_SPAWN_MAX_LEVEL}</span>` : `<span class="lvl">🔒</span>`;
+    const effectText = unlocked
+      ? `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough · on lawn: <b>${counts[i]}</b>`
+      : `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough — unlock to spawn`;
+    let btn;
+    if (maxed) btn = `<button class="buy" disabled>MAX</button>`;
+    else if (!unlocked) btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Unlock<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+    else btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Spawn +<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+    row.innerHTML = `
+      <div class="icon">${def.icon}</div>
+      <div class="info">
+        <div class="name">${def.name} ${lvlBadge}</div>
+        <div class="effect">${effectText}</div>
+      </div>
+      ${btn}
+    `;
+    const btnEl = row.querySelector('.buy');
+    if (btnEl && affordable) {
+      btnEl.addEventListener('click', () => unlocked ? upgradeGrassSpawn(def.key) : unlockGrass(def.key));
+    }
+    list.appendChild(row);
+  }
+}
+
+function unlockGrass(key) {
+  const def = GRASS_BY_KEY[key]; if (!def) return;
+  const st = state.grassTypes[key];
+  if (!st || st.unlocked) return;
+  if (state.coins < def.unlockCost) return;
+  state.coins -= def.unlockCost;
+  st.unlocked = true;
+  beep(600, 0.08, 'sine', 0.07);
+  setTimeout(() => beep(960, 0.10, 'triangle', 0.06), 90);
+  toast(`${def.icon} Unlocked ${def.name}!`, '#8ff09e');
+  addParticle(canvas.width / 2, canvas.height / 2, {
+    text: def.icon + ' ' + def.name, color: '#8ff09e', size: 22,
+  });
+  renderShop();
+  saveGame();
+}
+
+function upgradeGrassSpawn(key) {
+  const def = GRASS_BY_KEY[key]; if (!def) return;
+  const st = state.grassTypes[key];
+  if (!st?.unlocked) return;
+  if (st.spawnLevel >= GRASS_SPAWN_MAX_LEVEL) return;
+  const cost = grassSpawnCost(key);
+  if (state.coins < cost) return;
+  state.coins -= cost;
+  st.spawnLevel += 1;
+  beep(700 + st.spawnLevel * 20, 0.06, 'triangle', 0.06);
+  renderShop();
+  saveGame();
+}
+
 function renderPrestige(list) {
   const can = state.totalEarnedThisRun >= CFG.prestigeThreshold;
   const gain = CFG.prestigeFormula(state.totalEarnedThisRun);
@@ -309,6 +399,12 @@ function doPrestige() {
   state.crew     = [];
   state.fuel     = CFG.fuelMax;
   state.gnomeTimer = 60 + Math.random() * 30;
+  state.grassTypes = {
+    clover:  { unlocked: false, spawnLevel: 0 },
+    thick:   { unlocked: false, spawnLevel: 0 },
+    crystal: { unlocked: false, spawnLevel: 0 },
+    golden:  { unlocked: false, spawnLevel: 0 },
+  };
   robots = [];
   bees = [];
   visitorGnomes = [];

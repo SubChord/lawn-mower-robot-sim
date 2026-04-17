@@ -88,6 +88,7 @@ function updatePlayer(dt) {
   const ccy = Math.floor(player.y / ts);
   let mowedThisTick = 0;
   let critHit = false;
+  let coinUnits = 0;
   for (let dy = -cellRad; dy <= cellRad; dy++) {
     for (let dx = -cellRad; dx <= cellRad; dx++) {
       const gx = ccx + dx, gy = ccy + dy;
@@ -99,15 +100,18 @@ function updatePlayer(dt) {
       if (d > rad) continue;
       const prev = grass[k];
       if (prev <= 0) continue;
-      const cut = Math.min(prev, rate * dt * (1 - d / rad * 0.4));
+      const spec = GRASS_TYPES[grassSpecies[k]] || GRASS_TYPES[0];
+      const cut = Math.min(prev, (rate * dt * (1 - d / rad * 0.4)) / spec.toughness);
       grass[k] = Math.max(0, prev - cut);
       mowedThisTick += cut;
+      coinUnits += cut * spec.coinMult;
       if (prev > 0.9 && grass[k] <= 0.9) state.totalTilesMowed++;
+      if (grass[k] <= 0 && grassSpecies[k] !== 0) grassSpecies[k] = 0;
     }
   }
   if (mowedThisTick > 0) {
     player.lastMowed = performance.now();
-    let coins = mowedThisTick * CFG.coinPerUnitBase * coinMult();
+    let coins = coinUnits * CFG.coinPerUnitBase * coinMult();
     if (Math.random() < critChance()) { coins *= critMult(); critHit = true; }
     state.coins += coins;
     state.totalEarnedAllTime += coins;
@@ -179,6 +183,7 @@ function updateRobot(r, dt) {
   const ccx = Math.floor(r.x / ts);
   const ccy = Math.floor(r.y / ts);
   let mowedThisTick = 0;
+  let coinUnits = 0;
   let critHit = false;
   for (let dy2 = -cellRad; dy2 <= cellRad; dy2++) {
     for (let dx2 = -cellRad; dx2 <= cellRad; dx2++) {
@@ -191,14 +196,17 @@ function updateRobot(r, dt) {
       if (d > rad) continue;
       const prev = grass[k];
       if (prev <= 0) continue;
-      const cut = Math.min(prev, rate * dt * (1 - d / rad * 0.4));
+      const spec = GRASS_TYPES[grassSpecies[k]] || GRASS_TYPES[0];
+      const cut = Math.min(prev, (rate * dt * (1 - d / rad * 0.4)) / spec.toughness);
       grass[k] = Math.max(0, prev - cut);
       mowedThisTick += cut;
+      coinUnits += cut * spec.coinMult;
       if (prev > 0.9 && grass[k] <= 0.9) state.totalTilesMowed++;
+      if (grass[k] <= 0 && grassSpecies[k] !== 0) grassSpecies[k] = 0;
     }
   }
   if (mowedThisTick > 0) {
-    let coins = mowedThisTick * CFG.coinPerUnitBase * coinMult();
+    let coins = coinUnits * CFG.coinPerUnitBase * coinMult();
     if (Math.random() < critChance()) { coins *= critMult(); critHit = true; }
     state.coins += coins;
     state.totalEarnedAllTime += coins;
@@ -272,6 +280,57 @@ function updateBee(b, dt) {
 }
 
 // ---------- Grass + Flower income ----------
+// ---------- Special grass spawning ----------
+// Attempts to convert one fully-grown grass tile per call into a rare species,
+// weighted by each species' base weight + (spawnLevel * 0.5) bonus per level.
+// Called on a timer from updateGrassSpawn.
+function trySpawnSpecialGrass() {
+  if (!grass || !grassSpecies) return;
+  // Gather weights for unlocked species
+  const weights = [];
+  let total = 0;
+  for (let i = 1; i < GRASS_TYPES.length; i++) {
+    const def = GRASS_TYPES[i];
+    const st = state.grassTypes?.[def.key];
+    if (!st?.unlocked) continue;
+    const w = def.spawnBase * (1 + st.spawnLevel * 0.5);
+    weights.push([i, w]);
+    total += w;
+  }
+  if (total <= 0) return;
+  // Pick a random fully-grown normal grass tile (a few tries)
+  for (let i = 0; i < 12; i++) {
+    const k = Math.floor(Math.random() * grass.length);
+    if (tiles[k] !== T.GRASS) continue;
+    if (grass[k] < 0.85) continue;
+    if (grassSpecies[k] !== 0) continue;
+    // Roll species
+    let r = Math.random() * total;
+    for (const [idx, w] of weights) {
+      r -= w;
+      if (r <= 0) { grassSpecies[k] = idx; return; }
+    }
+    return;
+  }
+}
+
+let grassSpawnTimer = 0;
+function updateGrassSpawn(dt) {
+  grassSpawnTimer += dt;
+  // Try every ~1.5s; each unlocked species with spawnLevel accelerates further
+  let totalLevels = 0;
+  for (let i = 1; i < GRASS_TYPES.length; i++) {
+    const st = state.grassTypes?.[GRASS_TYPES[i].key];
+    if (st?.unlocked) totalLevels += 1 + st.spawnLevel;
+  }
+  if (totalLevels === 0) return;
+  const interval = Math.max(0.25, 1.8 / Math.sqrt(totalLevels));
+  while (grassSpawnTimer >= interval) {
+    grassSpawnTimer -= interval;
+    trySpawnSpecialGrass();
+  }
+}
+
 function updateGrass(dt) {
   const rate = growthRate() * dt;
   for (let i = 0; i < grass.length; i++) {

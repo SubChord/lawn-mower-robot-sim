@@ -2,18 +2,24 @@
    Rendering + tile sprites
    ============================================================ */
 
-// Pre-render grass tile gradients via offscreen caches keyed by height buckets
+// Pre-render grass tile gradients via offscreen caches keyed by (bucket, species, tileSize)
 const tileCache = {};
-function getTileImage(heightBucket) {
-  const key = heightBucket + '_' + tileSize;
+function getTileImage(heightBucket, speciesIdx = 0) {
+  const key = heightBucket + '_' + speciesIdx + '_' + tileSize;
   if (tileCache[key]) return tileCache[key];
   const off = document.createElement('canvas');
   off.width = tileSize; off.height = tileSize;
   const c = off.getContext('2d');
   const h = heightBucket / 10;
-  const baseR = 30 + h * 24;
-  const baseG = 70 + h * 110;
-  const baseB = 28 + h * 44;
+  const spec = (typeof GRASS_TYPES !== 'undefined' && GRASS_TYPES[speciesIdx]) || null;
+  let baseR = 30 + h * 24;
+  let baseG = 70 + h * 110;
+  let baseB = 28 + h * 44;
+  if (spec && spec.color) {
+    baseR = baseR * 0.25 + spec.color[0] * 0.75;
+    baseG = baseG * 0.25 + spec.color[1] * 0.75;
+    baseB = baseB * 0.25 + spec.color[2] * 0.75;
+  }
   c.fillStyle = `rgb(${baseR|0},${baseG|0},${baseB|0})`;
   c.fillRect(0, 0, tileSize, tileSize);
   if (h > 0.2) {
@@ -24,13 +30,21 @@ function getTileImage(heightBucket) {
       const bw = 1;
       const gr = c.createLinearGradient(bx, tileSize, bx, tileSize - bh);
       gr.addColorStop(0, `rgba(20,60,25,0.9)`);
-      gr.addColorStop(1, `rgba(${140 + h * 50},${220},${120},0.9)`);
+      const topR = spec && spec.color ? (spec.color[0] + 40) : (140 + h * 50);
+      const topG = spec && spec.color ? (spec.color[1] + 40) : 220;
+      const topB = spec && spec.color ? (spec.color[2] + 40) : 120;
+      gr.addColorStop(1, `rgba(${topR|0},${topG|0},${topB|0},0.9)`);
       c.fillStyle = gr;
       c.fillRect(bx, tileSize - bh, bw, bh);
     }
   }
   c.fillStyle = 'rgba(255,255,255,0.02)';
   c.fillRect(0, 0, tileSize, tileSize / 2);
+  if (speciesIdx === 3 || speciesIdx === 4) {
+    c.fillStyle = speciesIdx === 4 ? 'rgba(255,245,180,0.85)' : 'rgba(220,250,255,0.85)';
+    c.fillRect(tileSize * 0.6 | 0, tileSize * 0.25 | 0, 1, 1);
+    c.fillRect(tileSize * 0.3 | 0, tileSize * 0.65 | 0, 1, 1);
+  }
   tileCache[key] = off;
   return off;
 }
@@ -43,7 +57,8 @@ function drawGrass() {
       if (tiles[k] === T.GRASS) {
         const h = grass[k];
         const bucket = Math.min(10, Math.max(0, Math.round(h * 10)));
-        ctx.drawImage(getTileImage(bucket), x * ts, y * ts);
+        const spec = grassSpecies ? grassSpecies[k] : 0;
+        ctx.drawImage(getTileImage(bucket, spec), x * ts, y * ts);
       } else {
         ctx.drawImage(getTileImage(2), x * ts, y * ts);
       }

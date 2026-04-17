@@ -23,6 +23,14 @@ let state = {
   activeSkin: 'default',
   gnomeTimer: 60 + Math.random() * 30, // seconds until next wandering gnome
   treasuresCollected: 0,
+  // Per-species unlock + spawn-rate upgrade levels. Entries keyed by GRASS_TYPES.key.
+  // 'normal' is always the default (idx 0) and doesn't live in here.
+  grassTypes: {
+    clover:  { unlocked: false, spawnLevel: 0 },
+    thick:   { unlocked: false, spawnLevel: 0 },
+    crystal: { unlocked: false, spawnLevel: 0 },
+    golden:  { unlocked: false, spawnLevel: 0 },
+  },
   settings: {
     showRobotNames: true,
     showGnomeNames: true,
@@ -50,6 +58,38 @@ const FUEL_TYPES = [
   { name: 'Hybrid',   icon: '🔋', drainMult: 0.50, recharge: 0.8, refuelable: true,  upgradeCost: 20000, barColor: 'linear-gradient(90deg,#00b86e,#3affa0)' },
   { name: 'Electric', icon: '⚡', drainMult: 0.25, recharge: 1.5, refuelable: false, upgradeCost: null,  barColor: 'linear-gradient(90deg,#3bd4ff,#72f2ff)' },
 ];
+
+// ---------- Grass species ----------
+// Index 0 is normal; others are unlockable rare species that randomly spawn
+// on existing grass tiles. Higher coinMult = more coins per mow unit.
+// toughness divides mow rate, so tougher grass takes longer to cut.
+// spawnBase is the relative weight before any spawn-rate upgrades.
+// Colors: [baseR, baseG, baseB] for the tile tint (blended with grass bucket).
+const GRASS_TYPES = [
+  { key: 'normal',  name: 'Regular Grass', icon: '🌱',
+    coinMult: 1.0, toughness: 1.0, unlockCost: null, spawnBase: 0,
+    color: null },
+  { key: 'clover',  name: 'Lucky Clover',  icon: '☘️',
+    coinMult: 2.2, toughness: 1.6, unlockCost: 3500, spawnBase: 12,
+    color: [70, 180, 90] },
+  { key: 'thick',   name: 'Thick Turf',    icon: '🌾',
+    coinMult: 4.0, toughness: 2.4, unlockCost: 18000, spawnBase: 7,
+    color: [120, 160, 40] },
+  { key: 'crystal', name: 'Crystal Grass', icon: '💎',
+    coinMult: 9.0, toughness: 4.0, unlockCost: 110000, spawnBase: 3,
+    color: [120, 230, 255] },
+  { key: 'golden',  name: 'Golden Grass',  icon: '🌟',
+    coinMult: 22.0, toughness: 7.0, unlockCost: 650000, spawnBase: 1,
+    color: [255, 210, 80] },
+];
+const GRASS_BY_KEY = Object.fromEntries(GRASS_TYPES.map((g, i) => [g.key, { ...g, idx: i }]));
+// Cost to bump a species' spawn rate (per level, with growth).
+function grassSpawnCost(key) {
+  const def = GRASS_BY_KEY[key]; if (!def || !def.unlockCost) return Infinity;
+  const lvl = state.grassTypes?.[key]?.spawnLevel ?? 0;
+  return Math.ceil(def.unlockCost * 0.4 * Math.pow(1.6, lvl));
+}
+const GRASS_SPAWN_MAX_LEVEL = 12;
 
 // ---------- Player tools (progressive tiers) ----------
 // rateMult multiplies CFG.playerBaseMowRate; radiusTiles is cutting radius in tile units.
@@ -221,6 +261,8 @@ function playerMowRadius() { return tileSize * activeTool().radiusTiles; }
 const SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
 function formatShort(n) {
   if (!isFinite(n)) return '∞';
+  if (n > 0 && n < 1) return n.toFixed(2);
+  if (n < 10)  return n.toFixed(1).replace(/\.0$/, '');
   if (n < 1000) return (n | 0).toString();
   let i = 0;
   while (n >= 1000 && i < SUFFIX.length - 1) { n /= 1000; i++; }
