@@ -613,6 +613,17 @@ function ownedHouseKeys() {
 
 // --- Town helper stubs (filled in Tasks 11/14/16) ---
 function houseIdleCoinsPerSec(key) { return 0; }
-function enterHouse(key) { /* filled in Task 11 */ }
+function enterTownView() {
+  state.town.inTownView = true;
+}
+function enterHouse(key) {
+  const h = state.town.houses[key];
+  if (!h || !h.owned) return;
+  ensureHouseInitialized(key);
+  switchHouseBindings(key);
+  if (typeof ensureRobotCount === 'function') ensureRobotCount();
+  if (typeof ensureBeesFromHives === 'function') ensureBeesFromHives();
+  state.town.inTownView = false;
+}
 function buyHouse(key) { toast('(buy not wired yet)', '#f88'); }
 

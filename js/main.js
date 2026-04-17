@@ -12,24 +12,33 @@ function loop(now) {
   lastFrame = now;
   accumulator += dt;
   while (accumulator >= TICK) {
+    // Global updates — run in both town and house views.
     updateDayNight(TICK);
     updateWeather(TICK);
-    updateGrass(TICK);
-    updateGrassSpawn(TICK);
-    updateFlowerIncome(TICK);
     updateFuel(TICK);
-    updatePlayer(TICK);
-    for (const r of robots) updateRobot(r, TICK);
-    for (const b of bees) updateBee(b, TICK);
-    updateRivalry(TICK);
-    updateQuestTimer(TICK);
-    updateGnomeSpawnTimer(TICK);
-    updateVisitorGnomes(TICK);
-    updateTreasures(TICK);
-    updateCrew(TICK);
+    if (state.town.inTownView) {
+      // Town view: only idle houses tick (no active-house skip).
+      tickIdleHouses(TICK);
+    } else {
+      // House view: full house-local sim.
+      updateGrass(TICK);
+      updateGrassSpawn(TICK);
+      updateFlowerIncome(TICK);
+      updatePlayer(TICK);
+      for (const r of robots) updateRobot(r, TICK);
+      for (const b of bees) updateBee(b, TICK);
+      updateRivalry(TICK);
+      updateQuestTimer(TICK);
+      updateGnomeSpawnTimer(TICK);
+      updateVisitorGnomes(TICK);
+      updateTreasures(TICK);
+      updateCrew(TICK);
+      tickIdleHouses(TICK, state.town.activeHouseKey);
+    }
     accumulator -= TICK;
   }
-  render();
+  if (state.town.inTownView) drawTown();
+  else render();
   updateHUD();
 }
 

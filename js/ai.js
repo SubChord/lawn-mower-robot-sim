@@ -625,3 +625,5 @@ function updateFlowerIncome(dt) {
     if (flowerIncomeAccum > 20) flowerIncomeAccum = 0;
   }
 }
+
+function tickIdleHouses(dt, skipKey) { /* filled in Task 17 */ }
