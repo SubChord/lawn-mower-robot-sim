@@ -605,6 +605,11 @@ function enterHouse(key) {
   if (typeof ensureRobotCount === 'function') ensureRobotCount();
   if (typeof ensureBeesFromHives === 'function') ensureBeesFromHives();
   state.town.inTownView = false;
+  // Mirror enterTownView's housekeeping: restore the in-house cursor now
+  // (rather than waiting for the first mousemove to re-sync it). player.active
+  // is intentionally left for the mousemove handler to decide, since it
+  // depends on whether the cursor is actually over the canvas.
+  if (typeof canvas !== 'undefined' && canvas) canvas.style.cursor = 'none';
 }
 function buyHouse(key) {
   if (!state.town || !state.town.unlocked) return false;
