@@ -94,6 +94,12 @@ function updateHUD() {
 
 function showQuestOfferModal(quest) {
   if (document.querySelector('.quest-offer')) return;
+  if (gemLvl('autoQuest') > 0) {
+    state.activeQuest = quest;
+    beep(660, 0.08, 'sine', 0.06);
+    toast(`📋 ${quest.neighbor}: ${quest.title}`, '#ffd34e');
+    return;
+  }
   const back = document.createElement('div');
   back.className = 'modal-backdrop quest-offer';
   const rewardStr = quest.rewardType === 'gems'
@@ -242,6 +248,7 @@ function renderShop() {
   if (activeTab === 'tools')    { renderTools(list);    return; }
   if (activeTab === 'grass')    { renderGrassShop(list); return; }
   if (activeTab === 'quests')   { renderQuests(list);    return; }
+  if (activeTab === 'stats')    { renderStats(list);     return; }
   if (activeTab === 'gemshop')  { renderGemShop(list);   return; }
   if (activeTab === 'rubyshop') { renderRubyShop(list);  return; }
 
@@ -637,6 +644,64 @@ function planGemBulk(key) {
   return { count, total };
 }
 
+// ---------- Stats ----------
+let statsScope = 'current'; // 'current' | 'lifetime'
+
+function statRow(icon, label, value) {
+  const row = document.createElement('div');
+  row.className = 'upgrade';
+  row.style.gridTemplateColumns = '34px 1fr auto';
+  row.innerHTML = `
+    <div class="icon">${icon}</div>
+    <div class="info"><div class="name">${label}</div></div>
+    <div class="effect" style="font-weight:700; font-size:13px; color:var(--grass-xlight);">${value}</div>
+  `;
+  return row;
+}
+
+function renderStats(list) {
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Stats for your ${statsScope === 'current' ? '<b>current prestige run</b>' : '<b>entire lifetime</b>'}.
+    </p>
+    <div class="tabs" style="margin-bottom:10px;">
+      <button class="tab ${statsScope === 'current'  ? 'active' : ''}" data-scope="current"><span class="tab-label">Current Prestige</span></button>
+      <button class="tab ${statsScope === 'lifetime' ? 'active' : ''}" data-scope="lifetime"><span class="tab-label">Lifetime</span></button>
+    </div>
+  `;
+  list.appendChild(header);
+  header.querySelectorAll('[data-scope]').forEach(b =>
+    b.addEventListener('click', () => { statsScope = b.dataset.scope; renderShop(); }));
+
+  const gardenTotal = Object.values(state.garden || {}).reduce((a, b) => a + b, 0);
+  const skinsTotal = (typeof SKIN_DEFS !== 'undefined') ? SKIN_DEFS.length : (state.skinsUnlocked || []).length;
+  const achievedCount = (typeof achieved !== 'undefined' && achieved.size) ? achieved.size : 0;
+
+  if (statsScope === 'current') {
+    list.appendChild(statRow('💰', 'Coins earned this run',       formatShort(state.totalEarnedThisRun || 0)));
+    list.appendChild(statRow('🌱', 'Current coins',                formatShort(state.coins || 0)));
+    list.appendChild(statRow('💎', 'Gems earned (since ascend)',   formatShort(state.totalGemsEarned || 0)));
+    list.appendChild(statRow('💎', 'Current gems',                 formatShort(state.gems || 0)));
+    list.appendChild(statRow('📋', 'Quests completed this run',    state.questsCompleted || 0));
+    list.appendChild(statRow('🤖', 'Robots',                       state.upgrades.robots || 0));
+    list.appendChild(statRow('🏡', 'Garden items placed',          gardenTotal));
+    list.appendChild(statRow('👷', 'Crew hired',                   (state.crew || []).length));
+    list.appendChild(statRow('⛽', 'Fuel',                         `${Math.round(state.fuel || 0)}%`));
+  } else {
+    list.appendChild(statRow('💰', 'Lifetime coins earned',        formatShort(state.totalEarnedAllTime || 0)));
+    list.appendChild(statRow('🌾', 'Lifetime tiles mowed',         formatShort(state.totalTilesMowed || 0)));
+    list.appendChild(statRow('🎁', 'Treasures opened',             state.treasuresCollected || 0));
+    list.appendChild(statRow('🌟', 'Prestiges performed',          state.prestigeCount || 0));
+    list.appendChild(statRow('♦️', 'Ascends performed',            state.ascendCount || 0));
+    list.appendChild(statRow('♦️', 'Lifetime rubies earned',       formatShort(state.totalRubiesEarned || 0)));
+    list.appendChild(statRow('♦️', 'Current rubies',               formatShort(state.rubies || 0)));
+    list.appendChild(statRow('🏆', 'Achievements unlocked',        achievedCount));
+    list.appendChild(statRow('🎨', 'Skins unlocked',               `${(state.skinsUnlocked || []).length} / ${skinsTotal}`));
+    list.appendChild(statRow('〽️', 'Mow patterns unlocked',        (state.patternsUnlocked || []).length));
+  }
+}
+
 function renderGemShop(list) {
   const header = document.createElement('div');
   header.innerHTML = `
@@ -865,6 +930,7 @@ function doPrestige() {
   if (!confirm(`Fertilize? You will gain ${gain} 💎 gems (permanent +${gain * 10}% bonus), but reset coins, robots, upgrades and garden.`)) return;
   state.gems += gain;
   state.totalGemsEarned = (state.totalGemsEarned || 0) + gain;
+  state.prestigeCount = (state.prestigeCount || 0) + 1;
   state.coins = startingCoinsFor(gemLvl('startCoins'));
   state.totalEarnedThisRun = 0;
   state.upgrades = {
@@ -919,6 +985,7 @@ function doAscend() {
 
   state.rubies = (state.rubies || 0) + gain;
   state.totalRubiesEarned = (state.totalRubiesEarned || 0) + gain;
+  state.ascendCount = (state.ascendCount || 0) + 1;
 
   // Full wipe of the gem tier and below.
   state.coins = 0;
@@ -929,6 +996,7 @@ function doAscend() {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
     grassObsidian: 0, grassFrost: 0, grassVoid: 0,
+    autoQuest: 0,
   };
   state.upgrades = {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,

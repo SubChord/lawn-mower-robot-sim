@@ -48,6 +48,8 @@ function saveGame() {
       grassTypes: state.grassTypes,
       gemUpgrades: state.gemUpgrades,
       totalGemsEarned: state.totalGemsEarned,
+      prestigeCount: state.prestigeCount,
+      ascendCount: state.ascendCount,
       rubies: state.rubies,
       totalRubiesEarned: state.totalRubiesEarned,
       rubyUpgrades: state.rubyUpgrades,
@@ -155,10 +157,13 @@ function loadGame() {
       startCoins: 0, coinMult: 0, growth: 0, crit: 0,
       offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
       grassObsidian: 0, grassFrost: 0, grassVoid: 0,
+      autoQuest: 0,
     }, state.gemUpgrades || {});
     applyGemGrassUnlocks();
     // Back-fill totalGemsEarned for saves predating the field.
     if (!isFinite(state.totalGemsEarned)) state.totalGemsEarned = state.gems || 0;
+    if (!isFinite(state.prestigeCount)) state.prestigeCount = 0;
+    if (!isFinite(state.ascendCount)) state.ascendCount = 0;
     // Ruby tier defaults — safe for saves that predate it.
     if (!isFinite(state.rubies)) state.rubies = 0;
     if (!isFinite(state.totalRubiesEarned)) state.totalRubiesEarned = 0;

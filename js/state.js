@@ -26,11 +26,14 @@ let state = {
   patternsUnlocked: ['plain'],
   activeMowPattern: 'plain',
   totalGemsEarned: 0,       // cumulative — drives the "+10%/gem" passive bonus
+  prestigeCount: 0,         // lifetime Prestige (🌟) actions
+  ascendCount: 0,           // lifetime Ascend (♦️) actions
   // Permanent upgrades purchased with gems. Survive prestige.
   gemUpgrades: {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
     grassObsidian: 0, grassFrost: 0, grassVoid: 0,
+    autoQuest: 0,
   },
   // Ascend (ruby) tier — survives super-prestige.
   rubies: 0,
@@ -308,6 +311,10 @@ const GEM_UPGRADES = [
     desc: '360× coin grass. End-game tier. Barely spawns.',
     max: 1, baseCost: 100, growth: 1,
     statusText: (lvl) => lvl ? '🌌 Void Grass — spawning on every run' : 'Locked' },
+  { key: 'autoQuest',     icon: '🤝', name: 'Open Door Policy',
+    desc: 'Neighbor quests auto-accept — no more modal popups.',
+    max: 1, baseCost: 8, growth: 1,
+    statusText: (lvl) => lvl ? 'Quests auto-accepted' : 'Manual accept/decline' },
 ];
 
 // Maps exotic-species keys → the gem-upgrade key that unlocks them.
