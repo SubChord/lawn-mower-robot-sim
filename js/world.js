@@ -83,6 +83,7 @@ function computeZones(h, def) {
     for (let sx = 0; sx < w; sx++) {
       const sk = sy * w + sx;
       if (h.tiles[sk] !== T.GRASS || h.zones[sk] !== 0) continue;
+      if (next > 255) { console.warn(`computeZones: >255 zones in ${def.key}, truncating`); return; }
       const id = next++;
       queue.length = 0;
       queue.push(sx, sy);
