@@ -12,7 +12,7 @@ let state = {
   muted: false,
   upgrades: {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, fuelType: 0, tool: 0,
+    fuelEff: 0, pest: 0, fuelType: 0, tool: 0,
   },
   fuel: 100,
   garden: {
@@ -404,12 +404,13 @@ const COST = {
   rate:     (n) => Math.ceil(150  * Math.pow(1.40, n)),
   crit:     (n) => Math.ceil(500  * Math.pow(1.55, n)),
   fuelEff:  (n) => Math.ceil(80   * Math.pow(1.45, n)),
+  pest:     (n) => Math.ceil(400  * Math.pow(1.48, n)),
   fuelType: (n) => FUEL_TYPES[n]?.upgradeCost ?? Infinity,
   tool:     (n) => TOOL_TYPES[n + 1]?.upgradeCost ?? Infinity,
 };
 const MAX = {
   robots: 50, speed: 120, range: 60, value: 120, growth: 80, rate: 80, crit: 40,
-  fuelEff: 10, fuelType: 3, tool: TOOL_TYPES.length - 1,
+  fuelEff: 10, pest: 10, fuelType: 3, tool: TOOL_TYPES.length - 1,
 };
 
 const GARDEN_DEFS = [
@@ -460,6 +461,9 @@ const SKILL_TREE = [
   { id: 'qualityControl', tier: 1, col: 2, icon: '🎯', name: 'Quality Control', crewName: 'Picky Patricia',
     desc: '+4% crit chance (stacks with gnomes).',
     cost: 5000, req: 'foreman' },
+  { id: 'moleWarden', tier: 1, col: 3, icon: '🐹', name: 'Mole Warden', crewName: 'Burrow Bob',
+    desc: 'Moles appear half as often and are evicted twice as fast.',
+    cost: 6000, req: 'foreman' },
 
   { id: 'autoRefuel', tier: 2, col: 0, icon: '⛽', name: 'Auto-Refueler',      crewName: 'Nozzle Dave',
     desc: 'Automatically refuel when fuel hits 25%.',
@@ -565,6 +569,18 @@ function crewSpeedMult(){ return hasCrew('foreman') ? 1.05 : 1; }
 function crewCoinMult(){ return hasCrew('efficiency') ? 1.10 : 1; }
 function crewMowRateMult(){ return hasCrew('efficiency') ? 1.20 : 1; }
 function crewCritBonus(){ return hasCrew('qualityControl') ? 0.04 : 0; }
+// Mole mitigation — stacks upgrade × crew. Larger interval = rarer moles;
+// smaller lifetime = shorter downtime per tile.
+function moleSpawnIntervalMult() {
+  const up = 1 + (state.upgrades.pest || 0) * 0.15;
+  const crew = hasCrew('moleWarden') ? 2.0 : 1;
+  return up * crew;
+}
+function moleLifetimeMult() {
+  const up = Math.max(0.2, 1 - (state.upgrades.pest || 0) * 0.08);
+  const crew = hasCrew('moleWarden') ? 0.5 : 1;
+  return up * crew;
+}
 
 function weatherSafeSpeed()  { return typeof weatherSpeedMult  === 'function' ? weatherSpeedMult()  : 1; }
 function weatherSafeGrowth() { return typeof weatherGrowthMult === 'function' ? weatherGrowthMult() : 1; }

@@ -14,7 +14,7 @@ function saveGame() {
     for (let y = 0; y < CFG.gridH; y++) {
       for (let x = 0; x < CFG.gridW; x++) {
         const t = tiles[idx(x, y)];
-        if (t !== T.GRASS) {
+        if (t !== T.GRASS && t !== T.MOLE_HOLE) {
           const entry = [t, x, y];
           if (t === T.FLOWER) entry.push(flowerColors[idx(x, y)] || 0);
           tilePack.push(entry);
@@ -84,7 +84,7 @@ function loadGame() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     Object.assign(state, data.state);
-    state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0, tool: 0 }, state.upgrades || {});
+    state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, pest: 0, fuelType: 0, tool: 0 }, state.upgrades || {});
     if (state.upgrades.electric != null) {
       if (state.upgrades.fuelType === 0 && state.upgrades.electric >= 1) state.upgrades.fuelType = 3;
       delete state.upgrades.electric;

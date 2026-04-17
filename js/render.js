@@ -349,6 +349,64 @@ function drawGnome(x, y) {
   ctx.fillRect(cx + ts * 0.025, cy - ts * 0.07, 1.5, 1.5);
 }
 
+function drawMoleHole(x, y) {
+  const ts = tileSize;
+  const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  const m = moles ? moles.find(mm => mm.tileX === x && mm.tileY === y) : null;
+  // Dirt mound ring around the hole
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.3, ts * 0.42, ts * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  const moundGrad = ctx.createRadialGradient(cx, cy, ts * 0.1, cx, cy, ts * 0.5);
+  moundGrad.addColorStop(0, '#6a4527');
+  moundGrad.addColorStop(0.7, '#8b5a2b');
+  moundGrad.addColorStop(1, '#4a2e14');
+  ctx.fillStyle = moundGrad;
+  ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.06, ts * 0.46, ts * 0.32, 0, 0, Math.PI * 2); ctx.fill();
+  // Dark hole centre
+  ctx.fillStyle = '#1a0f06';
+  ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.04, ts * 0.22, ts * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  // Dirt speckles on mound
+  ctx.fillStyle = 'rgba(40,24,12,0.9)';
+  ctx.fillRect(cx - ts * 0.32, cy - ts * 0.04, 1.5, 1.5);
+  ctx.fillRect(cx + ts * 0.22, cy - ts * 0.08, 1.5, 1.5);
+  ctx.fillRect(cx - ts * 0.12, cy - ts * 0.18, 1.5, 1.5);
+  ctx.fillRect(cx + ts * 0.28, cy + ts * 0.18, 1.5, 1.5);
+  // Mole peeks out on a slow sine — only when the mole entity is "up"
+  if (m) {
+    const peek = Math.max(0, Math.sin(m.peekPhase));
+    if (peek > 0.05) {
+      const headR = ts * 0.13;
+      const headY = cy + ts * 0.06 - peek * ts * 0.14;
+      // Body (dark brown)
+      ctx.fillStyle = '#3d2514';
+      ctx.beginPath(); ctx.arc(cx, headY, headR, 0, Math.PI * 2); ctx.fill();
+      // Nose (pink)
+      ctx.fillStyle = '#e58ba0';
+      ctx.beginPath(); ctx.arc(cx, headY + headR * 0.25, headR * 0.25, 0, Math.PI * 2); ctx.fill();
+      // Eyes (tiny black dots)
+      ctx.fillStyle = '#000';
+      ctx.fillRect(cx - headR * 0.45, headY - headR * 0.15, 1.3, 1.3);
+      ctx.fillRect(cx + headR * 0.32, headY - headR * 0.15, 1.3, 1.3);
+      // Whiskers
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(cx - headR * 0.1, headY + headR * 0.3); ctx.lineTo(cx - headR * 0.9, headY + headR * 0.35);
+      ctx.moveTo(cx + headR * 0.1, headY + headR * 0.3); ctx.lineTo(cx + headR * 0.9, headY + headR * 0.35);
+      ctx.stroke();
+    }
+    // Expiration ring when life is low
+    if (m.life < 6) {
+      const pct = Math.max(0, m.life / 6);
+      ctx.strokeStyle = `rgba(255, 140, 90, 0.85)`;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(cx, cy + ts * 0.06, ts * 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      ctx.stroke();
+    }
+  }
+}
+
 function drawFeatures() {
   for (let y = 0; y < CFG.gridH; y++) {
     for (let x = 0; x < CFG.gridW; x++) {
@@ -356,14 +414,15 @@ function drawFeatures() {
       const t = tiles[k];
       if (t === T.GRASS) continue;
       switch (t) {
-        case T.TREE:     drawTree(x, y); break;
-        case T.ROCK:     drawRock(x, y); break;
-        case T.POND:     drawPond(x, y); break;
-        case T.FLOWER:   drawFlower(x, y); break;
-        case T.BEEHIVE:  drawBeehive(x, y); break;
-        case T.FOUNTAIN: drawFountain(x, y); break;
-        case T.SHED:     drawShed(x, y); break;
-        case T.GNOME:    drawGnome(x, y); break;
+        case T.TREE:      drawTree(x, y); break;
+        case T.ROCK:      drawRock(x, y); break;
+        case T.POND:      drawPond(x, y); break;
+        case T.FLOWER:    drawFlower(x, y); break;
+        case T.BEEHIVE:   drawBeehive(x, y); break;
+        case T.FOUNTAIN:  drawFountain(x, y); break;
+        case T.SHED:      drawShed(x, y); break;
+        case T.GNOME:     drawGnome(x, y); break;
+        case T.MOLE_HOLE: drawMoleHole(x, y); break;
       }
     }
   }

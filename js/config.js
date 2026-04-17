@@ -38,14 +38,18 @@ const CFG = {
   neighborSpawnMin: 90,       // seconds between neighbor quest offers (min)
   neighborSpawnMax: 220,      // seconds between neighbor quest offers (max)
   questDeclineCooldown: 45,   // seconds after declining before next offer
+  moleSpawnMin: 25,           // seconds between mole appearances (min)
+  moleSpawnMax: 70,           // seconds between mole appearances (max)
+  moleLifetimeMin: 15,        // how long a mole-hole blocks a tile (min)
+  moleLifetimeMax: 45,        // how long a mole-hole blocks a tile (max)
 };
 
 // Tile types
 const T = {
   GRASS: 0, TREE: 1, ROCK: 2, POND: 3, FLOWER: 4,
-  BEEHIVE: 5, FOUNTAIN: 6, SHED: 7, GNOME: 8,
+  BEEHIVE: 5, FOUNTAIN: 6, SHED: 7, GNOME: 8, MOLE_HOLE: 9,
 };
-const OBSTACLE = new Set([T.TREE, T.ROCK, T.POND, T.FLOWER, T.BEEHIVE, T.FOUNTAIN, T.SHED, T.GNOME]);
+const OBSTACLE = new Set([T.TREE, T.ROCK, T.POND, T.FLOWER, T.BEEHIVE, T.FOUNTAIN, T.SHED, T.GNOME, T.MOLE_HOLE]);
 
 const ROBOT_NAMES = [
   'Chompski', 'Sir Mows-a-Lot', 'Blades McGee', 'Lawnald',

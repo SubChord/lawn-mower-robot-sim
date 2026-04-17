@@ -583,6 +583,31 @@ function updateCrew(dt) {
   }
 }
 
+// ---------- Moles ----------
+function nextMoleInterval() {
+  const mult = (typeof moleSpawnIntervalMult === 'function') ? moleSpawnIntervalMult() : 1;
+  return (CFG.moleSpawnMin + Math.random() * (CFG.moleSpawnMax - CFG.moleSpawnMin)) * mult;
+}
+let moleSpawnTimer = nextMoleInterval();
+
+function updateMoles(dt) {
+  moleSpawnTimer -= dt;
+  if (moleSpawnTimer <= 0) {
+    spawnMole();
+    moleSpawnTimer = nextMoleInterval();
+  }
+  for (let i = moles.length - 1; i >= 0; i--) {
+    const m = moles[i];
+    m.life -= dt;
+    m.phase += dt;
+    m.peekPhase += dt * 2.5;
+    if (m.life <= 0) {
+      despawnMole(m);
+      moles.splice(i, 1);
+    }
+  }
+}
+
 let flowerIncomeAccum = 0;
 function updateFlowerIncome(dt) {
   const flowers = state.garden.flower;

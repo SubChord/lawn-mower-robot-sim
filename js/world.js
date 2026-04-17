@@ -192,6 +192,55 @@ function rollTreasurePayload() {
   return { type: 'coin', amount: withGems, skinKey: null, patternKey: null };
 }
 
+// ---------- Moles ----------
+// Ephemeral hazard: a mole digs up a grass tile, blocking mowers for a random
+// lifetime. When it expires the tile reverts to GRASS with zero height.
+let moles = [];
+
+function spawnMole() {
+  if (!tiles) return null;
+  for (let i = 0; i < 40; i++) {
+    const x = 1 + Math.floor(Math.random() * (CFG.gridW - 2));
+    const y = 1 + Math.floor(Math.random() * (CFG.gridH - 2));
+    if (tiles[idx(x, y)] !== T.GRASS) continue;
+    if (tileNearRobot(x, y)) continue;
+    tiles[idx(x, y)] = T.MOLE_HOLE;
+    grass[idx(x, y)] = 0;
+    const mult = (typeof moleLifetimeMult === 'function') ? moleLifetimeMult() : 1;
+    const life = (CFG.moleLifetimeMin + Math.random() * (CFG.moleLifetimeMax - CFG.moleLifetimeMin)) * mult;
+    const m = {
+      tileX: x,
+      tileY: y,
+      life,
+      maxLife: life,
+      phase: Math.random() * 10,
+      peekPhase: Math.random() * Math.PI * 2,
+    };
+    moles.push(m);
+    const ts = getTileSize ? getTileSize() : (tileSize || 16);
+    const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+    for (let j = 0; j < 8; j++) {
+      if (typeof addParticle === 'function') {
+        addParticle(cx + (Math.random() - 0.5) * ts, cy - 2, {
+          text: '·', color: '#6a4527', size: 10 + Math.random() * 6,
+        });
+      }
+    }
+    if (typeof toast === 'function') toast('🐹 A mole dug up the lawn!', '#c5a06a');
+    if (typeof beep === 'function') beep(180, 0.08, 'square', 0.04);
+    return m;
+  }
+  return null;
+}
+
+function despawnMole(m) {
+  if (!m) return;
+  if (inBounds(m.tileX, m.tileY) && tiles[idx(m.tileX, m.tileY)] === T.MOLE_HOLE) {
+    tiles[idx(m.tileX, m.tileY)] = T.GRASS;
+    grass[idx(m.tileX, m.tileY)] = 0;
+  }
+}
+
 function spawnTreasureAt(tx, ty) {
   const ts = getTileSize();
   const pay = rollTreasurePayload();

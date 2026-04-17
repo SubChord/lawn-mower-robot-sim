@@ -26,6 +26,7 @@ function loop(now) {
     updateGnomeSpawnTimer(TICK);
     updateVisitorGnomes(TICK);
     updateTreasures(TICK);
+    updateMoles(TICK);
     updateCrew(TICK);
     accumulator -= TICK;
   }

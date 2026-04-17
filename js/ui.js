@@ -151,6 +151,9 @@ const UPGRADE_DEFS = [
   { key: 'fuelEff', icon: '🔩', name: 'Fuel Efficiency',
     desc: () => `Drain ${fuelDrainRate().toFixed(2)}/s`,
     effect: () => `-8% fuel consumption` },
+  { key: 'pest',   icon: '🐹', name: 'Pest Control',
+    desc: (s) => `Moles: +${s.upgrades.pest * 15}% interval · -${s.upgrades.pest * 8}% lifetime`,
+    effect: () => `Rarer moles, shorter dig-ins` },
   { key: 'fuelType', icon: '⛽', name: 'Fuel Type',
     desc: (s) => {
       const cur = FUEL_TYPES[s.upgrades.fuelType];
@@ -844,7 +847,7 @@ function doPrestige() {
   state.upgrades = {
     robots: 1 + gemLvl('startRobot'),
     speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, fuelType: 0,
+    fuelEff: 0, pest: 0, fuelType: 0,
     tool: Math.min(gemLvl('startTool'), TOOL_TYPES.length - 1),
   };
   state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
@@ -869,6 +872,7 @@ function doPrestige() {
   bees = [];
   visitorGnomes = [];
   treasures = [];
+  moles = [];
   initWorld();
   ensureRobotCount();
   ensureBeesFromHives();
@@ -960,12 +964,15 @@ function renderCrew(list) {
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
   // coords in percentage space (0..100)
-  const COL_X = [16.67, 50, 83.33];
+  const COL_X = [12.5, 37.5, 62.5, 87.5];
   const TIER_Y = [14, 50, 86];
+  // Foreman sits between cols 1 and 2 so the fan-out stays symmetric across 4 cols.
+  const FOREMAN_X = (COL_X[1] + COL_X[2]) / 2;
   const lines = [
-    { from: [COL_X[1], TIER_Y[0]], to: [COL_X[0], TIER_Y[1]], id: 'mechanic' },
-    { from: [COL_X[1], TIER_Y[0]], to: [COL_X[1], TIER_Y[1]], id: 'keenEye' },
-    { from: [COL_X[1], TIER_Y[0]], to: [COL_X[2], TIER_Y[1]], id: 'qualityControl' },
+    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[0], TIER_Y[1]], id: 'mechanic' },
+    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[1], TIER_Y[1]], id: 'keenEye' },
+    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[2], TIER_Y[1]], id: 'qualityControl' },
+    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[3], TIER_Y[1]], id: 'moleWarden' },
     { from: [COL_X[0], TIER_Y[1]], to: [COL_X[0], TIER_Y[2]], id: 'autoRefuel', parent: 'mechanic' },
     { from: [COL_X[1], TIER_Y[1]], to: [COL_X[1], TIER_Y[2]], id: 'scout', parent: 'keenEye' },
     { from: [COL_X[2], TIER_Y[1]], to: [COL_X[2], TIER_Y[2]], id: 'efficiency', parent: 'qualityControl' },
@@ -999,7 +1006,9 @@ function renderCrew(list) {
       + (owned ? ' owned' : '')
       + (buyable ? ' buyable' : '')
       + (locked ? ' locked' : '');
-    el.style.left = COL_X[node.col] + '%';
+    // Foreman (tier 0) centers between the 4 cols; others sit on grid cols.
+    const x = (node.tier === 0 && node.id === 'foreman') ? FOREMAN_X : COL_X[node.col];
+    el.style.left = x + '%';
     el.style.top  = TIER_Y[node.tier] + '%';
     el.innerHTML = `
       <div class="crew-icon">${node.icon}</div>
@@ -1528,8 +1537,10 @@ function enterZenMode() {
     flowerColors: new Uint8Array(flowerColors),
     grassSpecies: grassSpecies ? new Uint8Array(grassSpecies) : null,
     robots, bees, visitorGnomes, treasures,
+    moles: moles.slice(),
     particles: particles.slice(),
   };
+  moles = [];
 
   state.zenMode = true;
   document.body.classList.add('zen-mode');
@@ -1575,6 +1586,7 @@ function exitZenMode() {
   bees = zenSnapshot.bees;
   visitorGnomes = zenSnapshot.visitorGnomes;
   treasures = zenSnapshot.treasures;
+  moles = zenSnapshot.moles || [];
   particles.length = 0;
   for (const p of zenSnapshot.particles) particles.push(p);
   zenSnapshot = null;
@@ -1599,6 +1611,7 @@ function buildZenWorld(cfg) {
   bees = [];
   visitorGnomes = [];
   treasures = [];
+  moles = [];
   particles.length = 0;
 
   const placeMany = (type, n) => { for (let i = 0; i < n; i++) placeAtRandomGrass(type); };
