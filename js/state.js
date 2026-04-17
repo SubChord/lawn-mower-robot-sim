@@ -610,3 +610,9 @@ function makePerHouseState(houseKey) {
 function ownedHouseKeys() {
   return Object.keys(state.town.houses).filter(k => state.town.houses[k]?.owned);
 }
+
+// --- Town helper stubs (filled in Tasks 11/14/16) ---
+function houseIdleCoinsPerSec(key) { return 0; }
+function enterHouse(key) { /* filled in Task 11 */ }
+function buyHouse(key) { toast('(buy not wired yet)', '#f88'); }
+
