@@ -970,7 +970,7 @@ function openZenSetupModal() {
     </div>`;
   document.body.appendChild(back);
 
-  // Visual skin swatches (use the same chip preview the Skins tab draws).
+  // Visual skin swatches — compact, single-row. Name in tooltip.
   const skinGrid = back.querySelector('#zenSkinGrid');
   for (const skin of SKIN_DEFS) {
     const tile = document.createElement('button');
@@ -979,13 +979,11 @@ function openZenSetupModal() {
     tile.dataset.zenKey = 'skin';
     tile.dataset.value = skin.key;
     tile.title = skin.name + ' · ' + (skin.rarity || 'base');
-    tile.innerHTML = `
-      ${skinPreviewHTML(skin, true)}
-      <span class="zen-skin-name">${skin.name}</span>`;
+    tile.innerHTML = skinPreviewHTML(skin, true);
     skinGrid.appendChild(tile);
   }
 
-  // Pattern thumbnails (live canvas preview, same helper as the shop).
+  // Pattern thumbnails — compact, single-row. Name in tooltip.
   const patternGrid = back.querySelector('#zenPatternGrid');
   for (const pat of MOW_PATTERN_DEFS) {
     const tile = document.createElement('button');
@@ -993,12 +991,8 @@ function openZenSetupModal() {
     tile.className = 'zen-pattern-tile' + (cfg.pattern === pat.key ? ' active' : '');
     tile.dataset.zenKey = 'pattern';
     tile.dataset.value = pat.key;
-    tile.title = pat.desc;
+    tile.title = pat.name + ' — ' + pat.desc;
     tile.appendChild(patternPreviewCanvas(pat.key));
-    const label = document.createElement('span');
-    label.className = 'zen-pattern-name';
-    label.textContent = pat.name;
-    tile.appendChild(label);
     patternGrid.appendChild(tile);
   }
 
