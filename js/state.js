@@ -344,6 +344,44 @@ const HOUSE_DEFS = [
 
 const HOUSE_BY_KEY = Object.fromEntries(HOUSE_DEFS.map(h => [h.key, h]));
 
+HOUSE_DEFS.push({
+  key: 'cottage',
+  name: 'Cozy Cottage',
+  icon: '🏡',
+  unlockCost: 20,  // gems
+  gridW: 24,
+  gridH: 16,
+  featureMult: 1.45,
+  features: [
+    { icon: '🪷', name: 'Pond',     mult: 1.20 },
+    { icon: '🌳', name: 'Big Tree', mult: 1.25 },
+  ],
+  // Layout legend:
+  //   .  grass    F  fence    G  gate (grass tile, walkable)
+  //   T  tree     P  pond     W  path
+  //   D  driveway A  patio    H  house-building
+  //   O  pool
+  layout: [
+    'HHHHHWWWW...............',
+    'HHHHHWDDD..T............',
+    'HHHHHWDDD...............',
+    '....WWWWW...FFFFFFFFFFFF',
+    '....W.......F..........F',
+    '....W...T...G..........F',
+    'FFFFFFFFFFFFF..........F',
+    'F.....A....GG..PPPP....F',
+    'F.....AAA...F..PPPP....F',
+    'F.....A.....F..........F',
+    'F...........F..........F',
+    'F...........G..........F',
+    'FFFFFFFFFFFFF..........F',
+    '...........F...........F',
+    '...........FFFFFFFFFFFFF',
+    '........................',
+  ].join('\n'),
+});
+HOUSE_BY_KEY.cottage = HOUSE_DEFS[HOUSE_DEFS.length - 1];
+
 const COST = {
   robots:   (n) => Math.ceil(25   * Math.pow(1.45, n - 1)),
   speed:    (n) => Math.ceil(40   * Math.pow(1.35, n)),

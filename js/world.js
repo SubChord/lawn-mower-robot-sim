@@ -42,6 +42,51 @@ function ensureStarterHouse() {
   switchHouseBindings('starter');
 }
 
+// Map legend chars to tile IDs for ASCII-defined house layouts.
+// A gate is a grass tile punched through a fence run — walkable.
+const LAYOUT_LEGEND = {
+  '.': T.GRASS, 'F': T.FENCE,   'G': T.GRASS,
+  'T': T.TREE,  'P': T.POND,    'W': T.PATH,
+  'D': T.DRIVEWAY, 'A': T.PATIO, 'H': T.HOUSE_BUILDING,
+  'O': T.POOL,  'R': T.ROCK,
+};
+
+// Paint a house's tiles/grass from its def.layout ASCII string.
+// Called while the house's buffers are the active bindings; writes go into
+// h.tiles / h.grass directly, which are the same typed arrays as the
+// currently-bound `tiles` / `grass` globals.
+function paintHouseLayout(h, def) {
+  if (!def.layout) return false;
+  const rows = def.layout.split('\n');
+  for (let y = 0; y < def.gridH; y++) {
+    const row = rows[y] || '';
+    for (let x = 0; x < def.gridW; x++) {
+      const ch = row[x] ?? '.';
+      const tileId = LAYOUT_LEGEND[ch] ?? T.GRASS;
+      const k = y * def.gridW + x;
+      h.tiles[k] = tileId;
+      h.grass[k] = (tileId === T.GRASS) ? 0.7 + Math.random() * 0.3 : 0;
+    }
+  }
+  return true;
+}
+
+// Initialize a house's world on first entry. Binds world globals to the
+// target house, then either paints its ASCII layout or runs the procedural
+// initWorld() path (used by the starter lawn, which has no layout).
+function ensureHouseInitialized(key) {
+  const h = state.town.houses[key];
+  const def = HOUSE_BY_KEY[key];
+  if (!h || h.initialized) return;
+  switchHouseBindings(key);
+  if (def.layout) {
+    paintHouseLayout(h, def);
+    h.initialized = true;
+  } else {
+    initWorld();  // sets h.initialized = true itself
+  }
+}
+
 function initWorld() {
   const h = activeHouse();
   // Fill grass heights
