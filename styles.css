@@ -154,6 +154,46 @@ canvas#lawn {
 #refuelBtn:hover:not(:disabled) { filter: brightness(1.25); }
 #refuelBtn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+.hud-quest {
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(90deg, rgba(255,211,78,0.22), rgba(88,200,95,0.18));
+  border: 1px solid rgba(255,211,78,0.5);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px; color: var(--ink);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+  box-shadow: 0 0 12px rgba(255,211,78,0.15);
+}
+.hud-quest .q-name { font-weight: 700; color: #ffd34e; white-space: nowrap; }
+.hud-quest .q-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.hud-quest .q-bar {
+  width: 120px; height: 6px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 999px; overflow: hidden;
+}
+.hud-quest .q-fill {
+  height: 100%; background: linear-gradient(90deg, #ffd34e, #8ff09e);
+  transition: width 0.25s;
+}
+.hud-quest .q-progress, .hud-quest .q-time, .hud-quest .q-reward {
+  font-variant-numeric: tabular-nums; color: var(--ink-dim); white-space: nowrap;
+}
+.hud-quest .q-reward { color: #ffd34e; font-weight: 700; }
+
+.quest-offer .modal { border: 2px solid rgba(255,211,78,0.6); }
+.quest-offer .modal .big { color: #ffd34e; font-size: 20px; margin: 12px 0; }
+.quest-offer button#qAccept {
+  background: var(--btn); color: white; font-weight: 800;
+  border: 0; border-radius: 10px; padding: 10px 18px;
+  box-shadow: 0 2px 0 #0a2612;
+}
+.quest-offer button#qAccept:hover { background: var(--btn-hover); }
+.quest-offer button#qDecline {
+  background: var(--danger); color: white; font-weight: 800;
+  border: 0; border-radius: 10px; padding: 10px 18px;
+}
+
 aside.shop {
   grid-area: shop;
   background: var(--panel);

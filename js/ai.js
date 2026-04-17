@@ -340,6 +340,90 @@ function updateGrass(dt) {
   }
 }
 
+// ---------- Neighbor quests ----------
+function updateQuestTimer(dt) {
+  if (state.activeQuest) { updateActiveQuest(dt); return; }
+  if (document.querySelector('.quest-offer')) return; // modal already up
+  state.questTimer -= dt;
+  if (state.questTimer <= 0) {
+    offerNeighborQuest();
+    state.questTimer = CFG.neighborSpawnMin + Math.random() * (CFG.neighborSpawnMax - CFG.neighborSpawnMin);
+  }
+}
+
+function offerNeighborQuest() {
+  const tpl = QUEST_TYPES[Math.floor(Math.random() * QUEST_TYPES.length)];
+  const goal = tpl.genGoal();
+  const neighbor = NEIGHBOR_NAMES[Math.floor(Math.random() * NEIGHBOR_NAMES.length)];
+  const flavor = tpl.flavor[Math.floor(Math.random() * tpl.flavor.length)];
+  const quest = {
+    id: tpl.id,
+    neighbor,
+    flavor,
+    title: tpl.title(goal),
+    goal,
+    duration: tpl.duration,
+    elapsed: 0,
+    reward: tpl.reward(goal),
+    rewardType: tpl.rewardType,
+    startVal: tpl.getStart(),
+  };
+  showQuestOfferModal(quest);
+}
+
+function updateActiveQuest(dt) {
+  const q = state.activeQuest;
+  if (!q) return;
+  q.elapsed += dt;
+  const tpl = QUEST_BY_ID[q.id];
+  if (!tpl) { state.activeQuest = null; return; }
+  const progress = tpl.getDelta(q);
+  if (progress >= q.goal) completeQuest();
+  else if (q.elapsed >= q.duration) failQuest();
+}
+
+function recordQuest(q, outcome) {
+  if (!Array.isArray(state.questHistory)) state.questHistory = [];
+  state.questHistory.unshift({
+    neighbor: q.neighbor,
+    title: q.title,
+    rewardType: q.rewardType,
+    reward: q.reward,
+    outcome,
+    ts: Date.now(),
+  });
+  if (state.questHistory.length > QUEST_HISTORY_MAX) state.questHistory.length = QUEST_HISTORY_MAX;
+}
+
+function completeQuest() {
+  const q = state.activeQuest;
+  if (q.rewardType === 'gems') {
+    state.gems += q.reward;
+    toast(`🎉 ${q.neighbor} pays up: +${q.reward} 💎`, '#72f2ff');
+  } else {
+    state.coins += q.reward;
+    state.totalEarnedAllTime += q.reward;
+    state.totalEarnedThisRun += q.reward;
+    toast(`🎉 ${q.neighbor} pays up: +${formatShort(q.reward)} 💰`, '#8ff09e');
+  }
+  state.questsCompleted = (state.questsCompleted || 0) + 1;
+  recordQuest(q, 'success');
+  beep(880, 0.12, 'triangle', 0.1);
+  setTimeout(() => beep(1320, 0.18, 'triangle', 0.08), 120);
+  state.activeQuest = null;
+  state.questTimer = CFG.neighborSpawnMin + Math.random() * (CFG.neighborSpawnMax - CFG.neighborSpawnMin);
+  saveGame();
+}
+
+function failQuest() {
+  const q = state.activeQuest;
+  toast(`😞 ${q.neighbor} walks away disappointed`, '#ffb4b4');
+  beep(200, 0.15, 'square', 0.05);
+  recordQuest(q, 'failed');
+  state.activeQuest = null;
+  state.questTimer = CFG.neighborSpawnMin + Math.random() * (CFG.neighborSpawnMax - CFG.neighborSpawnMin);
+}
+
 // ---------- Visitor Gnome + Treasure AI ----------
 function updateGnomeSpawnTimer(dt) {
   state.gnomeTimer -= dt;

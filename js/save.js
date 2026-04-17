@@ -41,6 +41,10 @@ function saveGame() {
       settings: state.settings,
       grassTypes: state.grassTypes,
       zenConfig: state.zenConfig,
+      activeQuest: state.activeQuest,
+      questTimer: state.questTimer,
+      questsCompleted: state.questsCompleted,
+      questHistory: state.questHistory,
     },
     achieved: [...achieved],
     tiles: tilePack,
@@ -84,6 +88,10 @@ function loadGame() {
     if (!isFinite(state.treasuresCollected)) state.treasuresCollected = 0;
     if (!isFinite(state.gnomeTimer)) state.gnomeTimer = 60 + Math.random() * 30;
     if (state.fuel == null) state.fuel = CFG.fuelMax;
+    if (state.questTimer == null || !isFinite(state.questTimer)) state.questTimer = 80 + Math.random() * 60;
+    if (!isFinite(state.questsCompleted)) state.questsCompleted = 0;
+    if (state.activeQuest && !QUEST_BY_ID[state.activeQuest.id]) state.activeQuest = null;
+    if (!Array.isArray(state.questHistory)) state.questHistory = [];
     state.settings = Object.assign({ showRobotNames: true, showGnomeNames: true, showParticles: true }, state.settings || {});
     state.zenConfig = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
     state.zenMode = false; // session-only: always start outside Zen after reload

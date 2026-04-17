@@ -46,11 +46,15 @@ let state = {
     ponds: 2,
     gnomes: 2,
   },
+  activeQuest: null,                    // { id, neighbor, title, goal, duration, elapsed, reward, rewardType, startVal }
+  questTimer: 80 + Math.random() * 60,  // seconds until next neighbor knocks
+  questsCompleted: 0,
+  questHistory: [],                     // { neighbor, title, rewardType, reward, outcome: 'success'|'failed', ts }
 };
 
+const QUEST_HISTORY_MAX = 30;
+
 // ---------- Zen Mode: configurable screensaver world ----------
-// Fully decoupled from the main game: the zen screensaver has its own world
-// composition. Counts below are sliders in the zen setup modal.
 const ZEN_SLIDERS = [
   { key: 'robots',   icon: '🤖', label: 'Mowers',   min: 0, max: 20, step: 1 },
   { key: 'flowers',  icon: '🌸', label: 'Flowers',  min: 0, max: 40, step: 1 },
@@ -81,6 +85,59 @@ const FUEL_TYPES = [
   { name: 'Hybrid',   icon: '🔋', drainMult: 0.50, recharge: 0.8, refuelable: true,  upgradeCost: 20000, barColor: 'linear-gradient(90deg,#00b86e,#3affa0)' },
   { name: 'Electric', icon: '⚡', drainMult: 0.25, recharge: 1.5, refuelable: false, upgradeCost: null,  barColor: 'linear-gradient(90deg,#3bd4ff,#72f2ff)' },
 ];
+
+// ---------- Neighbor quests ----------
+// Each quest has a generator for the goal number, a progress function, a duration,
+// and a reward. Progress = getDelta(startVal) — compare against quest.goal.
+const QUEST_TYPES = [
+  { id: 'mow_tiles',
+    title: (g) => `Mow ${g} tiles of grass`,
+    flavor: [
+      'My lawn has grown way out of hand!',
+      'The HOA is breathing down my neck.',
+      'I lost my keys in the grass. Help?',
+    ],
+    genGoal: () => 60 + Math.floor(Math.random() * 180),
+    duration: 60,
+    reward: (g) => g * 6,
+    rewardType: 'coins',
+    getDelta: (q) => state.totalTilesMowed - q.startVal,
+    getStart: () => state.totalTilesMowed,
+  },
+  { id: 'earn_coins',
+    title: (g) => `Earn ${formatShort(g)} coins`,
+    flavor: [
+      'Prove you run a real business.',
+      'Times are tight. Show me the money.',
+      'Make some dough, kid.',
+    ],
+    genGoal: () => {
+      const rate = (typeof displayedRate === 'number' && displayedRate > 0) ? displayedRate : 10;
+      const base = Math.max(400, rate * 35);
+      return Math.floor(base * (0.9 + Math.random() * 0.7));
+    },
+    duration: 45,
+    reward: (g) => Math.floor(g * 0.45),
+    rewardType: 'coins',
+    getDelta: (q) => state.totalEarnedAllTime - q.startVal,
+    getStart: () => state.totalEarnedAllTime,
+  },
+  { id: 'big_mow',
+    title: (g) => `Mow ${g} tiles — marathon job`,
+    flavor: [
+      'I\'ll pay gems. Real gems.',
+      'Only a pro can finish this.',
+      'Stakes: high. Grass: higher.',
+    ],
+    genGoal: () => 400 + Math.floor(Math.random() * 500),
+    duration: 150,
+    reward: () => 2,
+    rewardType: 'gems',
+    getDelta: (q) => state.totalTilesMowed - q.startVal,
+    getStart: () => state.totalTilesMowed,
+  },
+];
+const QUEST_BY_ID = Object.fromEntries(QUEST_TYPES.map(q => [q.id, q]));
 
 // ---------- Grass species ----------
 // Index 0 is normal; others are unlockable rare species that randomly spawn

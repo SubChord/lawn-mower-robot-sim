@@ -52,6 +52,60 @@ function updateHUD() {
   document.getElementById('hudFlowers').textContent = state.garden.flower;
   document.getElementById('hudBees').textContent = bees.length;
   document.getElementById('hudTotal').textContent = formatShort(state.totalTilesMowed);
+
+  const qBanner = document.getElementById('questBanner');
+  if (qBanner) {
+    const q = state.activeQuest;
+    if (q) {
+      const tpl = QUEST_BY_ID[q.id];
+      const progress = tpl ? Math.max(0, tpl.getDelta(q)) : 0;
+      const pctQ = Math.min(100, (progress / q.goal) * 100);
+      const remaining = Math.max(0, q.duration - q.elapsed);
+      const rewardStr = q.rewardType === 'gems' ? `+${q.reward}💎` : `+${formatShort(q.reward)}💰`;
+      qBanner.style.display = '';
+      qBanner.innerHTML =
+        `<span class="q-name">👋 ${q.neighbor}</span>` +
+        `<span class="q-title">${q.title}</span>` +
+        `<div class="q-bar"><div class="q-fill" style="width:${pctQ}%"></div></div>` +
+        `<span class="q-progress">${formatShort(progress)}/${formatShort(q.goal)}</span>` +
+        `<span class="q-time">⏱ ${remaining.toFixed(0)}s</span>` +
+        `<span class="q-reward">${rewardStr}</span>`;
+    } else {
+      qBanner.style.display = 'none';
+    }
+  }
+}
+
+function showQuestOfferModal(quest) {
+  if (document.querySelector('.quest-offer')) return;
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop quest-offer';
+  const rewardStr = quest.rewardType === 'gems'
+    ? `+${quest.reward} 💎`
+    : `+${formatShort(quest.reward)} 💰`;
+  back.innerHTML = `
+    <div class="modal">
+      <h2>👋 ${quest.neighbor}</h2>
+      <p style="font-style:italic; opacity:0.85;">"${quest.flavor}"</p>
+      <div class="big">${quest.title}</div>
+      <p>Time limit: <b>${quest.duration}s</b> · Reward: <b>${rewardStr}</b></p>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:12px;">
+        <button id="qAccept">Accept</button>
+        <button id="qDecline" class="danger">Decline</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  back.querySelector('#qAccept').addEventListener('click', () => {
+    state.activeQuest = quest;
+    back.remove();
+    beep(660, 0.08, 'sine', 0.06);
+    toast(`📋 Quest accepted: ${quest.title}`, '#ffd34e');
+  });
+  back.querySelector('#qDecline').addEventListener('click', () => {
+    back.remove();
+    toast(`${quest.neighbor} grumbles and leaves...`, '#aaa');
+    state.questTimer = CFG.questDeclineCooldown + Math.random() * 40;
+  });
 }
 
 // ---------- Shop / Upgrades UI ----------
@@ -105,6 +159,7 @@ function renderShop() {
   if (activeTab === 'skins')    { renderSkins(list);    return; }
   if (activeTab === 'tools')    { renderTools(list);    return; }
   if (activeTab === 'grass')    { renderGrassShop(list); return; }
+  if (activeTab === 'quests')   { renderQuests(list);    return; }
 
   for (const up of UPGRADE_DEFS) {
     if (up.show && !up.show()) continue;
@@ -127,6 +182,81 @@ function renderShop() {
       </button>
     `;
     row.querySelector('.buy').addEventListener('click', () => buy(up.key));
+    list.appendChild(row);
+  }
+}
+
+function renderQuests(list) {
+  const q = state.activeQuest;
+  const nextIn = Math.max(0, state.questTimer || 0);
+
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Neighbors drop by with odd jobs. Finish in time → earn
+      <b style="color:#ffd34e;">coins</b> or rare <b style="color:#72f2ff;">gems</b>.
+      Decline and they sulk off for a bit.
+    </p>`;
+  list.appendChild(header);
+
+  const summary = document.createElement('div');
+  summary.className = 'upgrade';
+  summary.style.gridTemplateColumns = '42px 1fr auto';
+  summary.innerHTML = `
+    <div class="icon">📋</div>
+    <div class="info">
+      <div class="name">Quests Completed <span class="lvl">×${state.questsCompleted || 0}</span></div>
+      <div class="effect">${q ? '🔥 Quest in progress' : `Next neighbor in ~${Math.ceil(nextIn)}s`}</div>
+    </div>
+    <div style="font-size:22px; text-align:right;">${q ? '👋' : '🕒'}</div>
+  `;
+  list.appendChild(summary);
+
+  if (q) {
+    const tpl = QUEST_BY_ID[q.id];
+    const progress = tpl ? Math.max(0, tpl.getDelta(q)) : 0;
+    const pctQ = Math.min(100, (progress / q.goal) * 100);
+    const remaining = Math.max(0, q.duration - q.elapsed);
+    const rewardStr = q.rewardType === 'gems' ? `+${q.reward} 💎` : `+${formatShort(q.reward)} 💰`;
+    const active = document.createElement('div');
+    active.className = 'upgrade affordable';
+    active.innerHTML = `
+      <div class="icon">👋</div>
+      <div class="info">
+        <div class="name">${q.neighbor} <span class="lvl">ACTIVE</span></div>
+        <div class="effect">${q.title}</div>
+        <div class="q-bar" style="margin-top:6px; width:100%;"><div class="q-fill" style="width:${pctQ}%"></div></div>
+        <div style="font-size:11px; color:var(--ink-dim); margin-top:4px;">
+          ${formatShort(progress)} / ${formatShort(q.goal)} · ⏱ ${remaining.toFixed(0)}s · ${rewardStr}
+        </div>
+      </div>
+    `;
+    list.appendChild(active);
+  }
+
+  const history = Array.isArray(state.questHistory) ? state.questHistory : [];
+  const heading = document.createElement('p');
+  heading.style.cssText = 'font-size:11px; color:var(--ink-dim); margin:14px 0 6px; text-transform:uppercase; letter-spacing:0.5px;';
+  heading.textContent = history.length ? 'History' : 'No quests accepted yet';
+  list.appendChild(heading);
+
+  for (const h of history) {
+    const ok = h.outcome === 'success';
+    const rewardStr = h.rewardType === 'gems' ? `+${h.reward} 💎` : `+${formatShort(h.reward)} 💰`;
+    const row = document.createElement('div');
+    row.className = 'upgrade' + (ok ? '' : ' maxed');
+    row.style.gridTemplateColumns = '42px 1fr auto';
+    row.innerHTML = `
+      <div class="icon">${ok ? '✅' : '❌'}</div>
+      <div class="info">
+        <div class="name">${h.neighbor}</div>
+        <div class="effect">${h.title}</div>
+      </div>
+      <div style="text-align:right; font-size:11px;">
+        <div style="color:${ok ? '#8ff09e' : '#ffb4b4'}; font-weight:700;">${ok ? 'SUCCESS' : 'FAILED'}</div>
+        <div style="color:${ok ? '#ffd34e' : 'var(--ink-dim)'};">${ok ? rewardStr : '—'}</div>
+      </div>
+    `;
     list.appendChild(row);
   }
 }
@@ -399,6 +529,10 @@ function doPrestige() {
   state.crew     = [];
   state.fuel     = CFG.fuelMax;
   state.gnomeTimer = 60 + Math.random() * 30;
+  state.activeQuest = null;
+  state.questTimer = 80 + Math.random() * 60;
+  state.questHistory = [];
+  state.questsCompleted = 0;
   state.grassTypes = {
     clover:  { unlocked: false, spawnLevel: 0 },
     thick:   { unlocked: false, spawnLevel: 0 },

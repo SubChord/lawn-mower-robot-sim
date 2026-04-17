@@ -30,6 +30,9 @@ const CFG = {
   scoutAutoDelay: 8,   // seconds scout employee waits before grabbing
   playerBaseRadiusTiles: 0.6, // starter-tool cutting radius, in tile units
   playerBaseMowRate: 2.4,     // grass units/sec cut by the starter tool
+  neighborSpawnMin: 90,       // seconds between neighbor quest offers (min)
+  neighborSpawnMax: 220,      // seconds between neighbor quest offers (max)
+  questDeclineCooldown: 45,   // seconds after declining before next offer
 };
 
 // Tile types
@@ -48,6 +51,14 @@ const ROBOT_NAMES = [
   'Grassy McFly', 'Snip Lord', 'The Clipster', 'Chop Chop',
   'Bartholomew', 'Unit Zero', 'Vroom Vroom', 'Hedge Fondler',
   'Ol\' Rusty', 'Doomba',
+];
+
+const NEIGHBOR_NAMES = [
+  'Mrs. Buttersworth', 'Chad McNeighbor', 'Granny Grass',
+  'Mayor Turf', 'Old Man Withers', 'Karen-Anne',
+  'Steve the HOA Guy', 'Mr. Pickles', 'Aunt Petunia',
+  'Doctor Hedges', 'Pastor Mowbry', 'Cousin Earl',
+  'Barb from next door', 'Jerry the Plumber', 'Reverend Sod',
 ];
 
 const GNOME_NAMES = [

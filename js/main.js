@@ -19,6 +19,7 @@ function loop(now) {
     updatePlayer(TICK);
     for (const r of robots) updateRobot(r, TICK);
     for (const b of bees) updateBee(b, TICK);
+    updateQuestTimer(TICK);
     updateGnomeSpawnTimer(TICK);
     updateVisitorGnomes(TICK);
     updateTreasures(TICK);
