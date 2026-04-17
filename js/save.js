@@ -4,8 +4,12 @@
 
 const SAVE_KEY = 'lawnbotTycoonSave_v4';
 let lastSave = 0;
+// Blocks saveGame during the window between removeItem() and reload() so
+// `beforeunload` doesn't write the live (un-wiped) state back over the reset.
+let resetInProgress = false;
 
 function saveGame() {
+  if (resetInProgress) return;
   // While in Zen Mode the world is a temporary screensaver snapshot. Don't
   // overwrite the real save with zen state — the real game is restored on exit.
   if (state.zenMode) return;
@@ -193,7 +197,8 @@ function loadGame() {
 }
 
 function resetGame() {
-  if (!confirm('⚠️ Reset ALL progress including gems? This cannot be undone.')) return;
+  if (!confirm('⚠️ Reset EVERYTHING — coins, gems, rubies, upgrades, skins, patterns, stats. Cannot be undone.')) return;
+  resetInProgress = true;
   localStorage.removeItem(SAVE_KEY);
   location.reload();
 }

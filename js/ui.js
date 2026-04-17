@@ -205,9 +205,28 @@ function planBulk(nextCost, canBuyMore) {
   return { count, total };
 }
 
+// Hide gem/ruby tabs until the player has actually touched those currencies.
+// Called at the top of renderShop so visibility updates on every refresh.
+function updateTabsVisibility() {
+  const hasGems = (state.totalGemsEarned || 0) > 0 || (state.gems || 0) > 0;
+  const hasRubies = (state.totalRubiesEarned || 0) > 0 || (state.rubies || 0) > 0;
+  const vis = { gemshop: hasGems, rubyshop: hasRubies };
+  for (const tab of document.querySelectorAll('.tab')) {
+    const key = tab.dataset.tab;
+    if (key in vis) tab.style.display = vis[key] ? '' : 'none';
+  }
+  // If the currently-active tab just got hidden, fall back to Bots.
+  if (activeTab in vis && !vis[activeTab]) {
+    activeTab = 'upgrades';
+    document.querySelectorAll('.tab').forEach(t =>
+      t.classList.toggle('active', t.dataset.tab === activeTab));
+  }
+}
+
 function renderShop() {
   const list = document.getElementById('shopList');
   list.innerHTML = '';
+  updateTabsVisibility();
 
   if (buyMult !== 1) {
     const hint = document.createElement('div');
@@ -780,6 +799,10 @@ function renderPrestige(list) {
   const ascendBase = CFG.ascendFormula(state.totalGemsEarned || 0);
   const ascendGain = Math.floor(ascendBase * rubyShopAscendMult());
   const canAscend = (state.totalGemsEarned || 0) >= CFG.ascendThreshold && ascendGain > 0;
+  // Don't surface the Ascend tier at all until the player can make the
+  // first ascension (or already has rubies from a past one).
+  const revealAscend = canAscend || (state.totalRubiesEarned || 0) > 0 || (state.rubies || 0) > 0;
+  if (!revealAscend) return;
   const ascend = document.createElement('div');
   ascend.className = 'prestige';
   ascend.style.background = 'linear-gradient(180deg, rgba(160, 30, 60, 0.65), rgba(40, 8, 20, 0.8))';
