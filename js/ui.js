@@ -630,27 +630,38 @@ function renderGemShop(list) {
 }
 
 function renderTownTab(list) {
-  list.innerHTML = '';
+  if (!state.town || !state.town.houses) {
+    const msg = document.createElement('div');
+    msg.className = 'buy-mode-hint';
+    msg.textContent = 'Town not unlocked.';
+    list.appendChild(msg);
+    return;
+  }
   for (const def of HOUSE_DEFS) {
     const h = state.town.houses[def.key];
-    const owned = !!h?.owned;
+    const owned = !!(h && h.owned);
+    const affordable = !owned && state.gems >= def.unlockCost;
+    const featuresLine = def.features.length
+      ? def.features.map(f => `${f.icon} ${f.name} (+${Math.round((f.mult - 1) * 100)}%)`).join(' · ')
+      : 'The lawn where it all started.';
+    const label = owned ? 'Owned' : 'Buy';
+    const costLabel = owned ? '—' : `💎 ${def.unlockCost}`;
     const row = document.createElement('div');
-    row.className = 'upgrade';
+    row.className = 'upgrade' + (affordable ? ' affordable' : '') + (owned ? ' maxed' : '');
     row.innerHTML = `
-      <div class="upgrade-head">
-        <span class="upgrade-ico">${def.icon}</span>
-        <span class="upgrade-name">${def.name}</span>
+      <div class="icon">${def.icon}</div>
+      <div class="info">
+        <div class="name">${def.name}</div>
+        <div class="effect">${featuresLine}</div>
+        <div class="effect" style="opacity:0.7;">Size: ${def.gridW}×${def.gridH} · Multiplier: ${def.featureMult.toFixed(2)}×</div>
       </div>
-      <div class="upgrade-desc">
-        ${def.features.length
-          ? def.features.map(f => `${f.icon} ${f.name} (+${Math.round((f.mult-1)*100)}%)`).join(' · ')
-          : 'The lawn where it all started.'}
-        <br>Size: ${def.gridW}×${def.gridH} · Multiplier: ${def.featureMult.toFixed(2)}×
-      </div>
-      <button class="upgrade-buy" ${owned ? 'disabled' : ''}>
-        ${owned ? 'Owned' : `Buy ${def.unlockCost} 💎`}
-      </button>`;
-    row.querySelector('button').addEventListener('click', () => buyHouse(def.key));
+      <button class="buy" ${owned || !affordable ? 'disabled' : ''}>
+        ${label}
+        <span class="cost">${costLabel}</span>
+      </button>
+    `;
+    const btn = row.querySelector('.buy');
+    if (btn && !owned) btn.addEventListener('click', () => buyHouse(def.key));
     list.appendChild(row);
   }
 }
