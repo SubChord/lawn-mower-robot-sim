@@ -27,6 +27,21 @@ function updateHUD() {
     document.getElementById('coinRate').textContent = `+${formatShort(displayedRate)} / sec`;
   }
 
+  const fuelPct = state.fuel / CFG.fuelMax;
+  const ft = activeFuelType();
+  const fuelBar = document.getElementById('hudFuelBar');
+  const fuelLabel = document.getElementById('hudFuelLabel');
+  const refuelBtn = document.getElementById('refuelBtn');
+  fuelBar.style.width = (fuelPct * 100) + '%';
+  fuelBar.style.background = fuelPct < 0.25 ? 'linear-gradient(90deg,#ff2222,#ff6644)' : ft.barColor;
+  const netRate = ft.recharge - fuelDrainRate();
+  const rateStr = (netRate >= 0 ? '+' : '') + netRate.toFixed(2) + '/s';
+  fuelLabel.textContent = ft.icon + ' ' + ft.name + ' ' + Math.round(fuelPct * 100) + '% (' + rateStr + ')';
+  refuelBtn.style.display = ft.refuelable ? '' : 'none';
+  const refillCost = fuelRefillCost();
+  refuelBtn.disabled = state.coins < refillCost || state.fuel >= CFG.fuelMax;
+  document.getElementById('refuelCost').textContent = '💰' + formatShort(refillCost);
+
   document.getElementById('hudRobots').textContent = state.upgrades.robots;
   let total = 0, count = 0;
   for (let i = 0; i < grass.length; i++) {
@@ -59,9 +74,23 @@ const UPGRADE_DEFS = [
   { key: 'growth', icon: '🌱', name: 'Fertilizer',
     desc: (s) => `Grass growth +${s.upgrades.growth * 12}%`,
     effect: (s) => `+12% grass regrowth` },
-  { key: 'crit',   icon: '🎯', name: 'Lucky Lawnmower',
+  { key: 'crit',    icon: '🎯', name: 'Lucky Lawnmower',
     desc: (s) => `Crit chance ${(critChance()*100).toFixed(1)}% (×${critMult()})`,
     effect: (s) => `+2% crit chance` },
+  { key: 'fuelEff', icon: '🔩', name: 'Fuel Efficiency',
+    desc: (s) => `Fuel drain -${s.upgrades.fuelEff * 8}% (${fuelDrainRate().toFixed(2)}/s now)`,
+    effect: () => `-8% fuel consumption` },
+  { key: 'fuelType', icon: '⛽', name: 'Upgrade Fuel Type',
+    desc: (s) => {
+      const cur = FUEL_TYPES[s.upgrades.fuelType];
+      const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
+      return `${cur.icon} ${cur.name} (${(cur.drainMult*100)|0}% drain, ${cur.recharge}/s regen)${nxt ? ` → ${nxt.icon} ${nxt.name}` : ' — MAX'}`;
+    },
+    effect: (s) => {
+      const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
+      return nxt ? `${(nxt.drainMult*100)|0}% drain · ${nxt.recharge}/s regen${nxt.refuelable ? '' : ' · no refuel needed'}` : '';
+    },
+  },
 ];
 
 let activeTab = 'upgrades';
@@ -208,8 +237,9 @@ function doPrestige() {
   state.gems += gain;
   state.coins = 0;
   state.totalEarnedThisRun = 0;
-  state.upgrades = { robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0 };
-  state.garden  = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
+  state.upgrades = { robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0 };
+  state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
+  state.fuel     = CFG.fuelMax;
   robots = [];
   bees = [];
   initWorld();
@@ -264,6 +294,17 @@ function wireUIEvents() {
       activeTab = t.dataset.tab;
       renderShop();
     });
+  });
+
+  document.getElementById('refuelBtn').addEventListener('click', () => {
+    if (isElectric()) return;
+    const cost = fuelRefillCost();
+    if (state.coins < cost || state.fuel >= CFG.fuelMax) return;
+    state.coins -= cost;
+    state.fuel = CFG.fuelMax;
+    beep(440, 0.06, 'sine', 0.05);
+    toast('⛽ Robots refueled!', '#ff9f1c');
+    saveGame();
   });
 
   document.getElementById('saveBtn').addEventListener('click', () => { saveGame(); toast('💾 Game saved!', '#8ff09e'); });

@@ -107,8 +107,11 @@ canvas#lawn {
 
 .stage-hud {
   position: absolute; top: 12px; left: 12px; right: 12px;
-  display: flex; justify-content: space-between; gap: 10px;
+  display: flex; flex-direction: column; gap: 8px;
   pointer-events: none;
+}
+.hud-pills {
+  display: flex; justify-content: space-between; gap: 10px;
 }
 .hud-pill {
   background: rgba(5,15,10,0.7);
@@ -119,6 +122,37 @@ canvas#lawn {
   backdrop-filter: blur(4px);
 }
 .hud-pill b { color: var(--ink); font-weight: 700; }
+.hud-fuel {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(5,15,10,0.7);
+  border: 1px solid rgba(143,240,158,0.22);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px; color: var(--ink-dim);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+.fuel-track {
+  flex: 1; height: 7px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px; overflow: hidden;
+}
+.fuel-bar {
+  height: 100%; border-radius: 999px;
+  transition: width 0.25s, background 0.4s;
+  background: linear-gradient(90deg, #ff8c00, #ffb830);
+  width: 100%;
+}
+#refuelBtn {
+  background: linear-gradient(180deg, #d4680a, #a84500);
+  border: none; border-radius: 8px;
+  padding: 4px 10px; font-size: 11px;
+  color: white; font-weight: 700;
+  cursor: pointer; transition: filter .1s;
+  white-space: nowrap;
+}
+#refuelBtn:hover:not(:disabled) { filter: brightness(1.25); }
+#refuelBtn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 aside.shop {
   grid-area: shop;

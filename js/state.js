@@ -12,23 +12,35 @@ let state = {
   muted: false,
   upgrades: {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
+    fuelEff: 0, fuelType: 0,
   },
+  fuel: 100,
   garden: {
     tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0,
   },
 };
 
+const FUEL_TYPES = [
+  { name: 'Benzine',  icon: '⛽', drainMult: 1.00, recharge: 0.0, refuelable: true,  upgradeCost: 2000,  barColor: 'linear-gradient(90deg,#ff8c00,#ffb830)' },
+  { name: 'Diesel',   icon: '🛢️', drainMult: 0.75, recharge: 0.0, refuelable: true,  upgradeCost: 8000,  barColor: 'linear-gradient(90deg,#c8a000,#f0c800)' },
+  { name: 'Hybrid',   icon: '🔋', drainMult: 0.50, recharge: 0.8, refuelable: true,  upgradeCost: 20000, barColor: 'linear-gradient(90deg,#00b86e,#3affa0)' },
+  { name: 'Electric', icon: '⚡', drainMult: 0.25, recharge: 1.5, refuelable: false, upgradeCost: null,  barColor: 'linear-gradient(90deg,#3bd4ff,#72f2ff)' },
+];
+
 const COST = {
-  robots:  (n) => Math.ceil(25   * Math.pow(1.45, n - 1)),
-  speed:   (n) => Math.ceil(40   * Math.pow(1.35, n)),
-  range:   (n) => Math.ceil(60   * Math.pow(1.40, n)),
-  value:   (n) => Math.ceil(80   * Math.pow(1.42, n)),
-  growth:  (n) => Math.ceil(120  * Math.pow(1.45, n)),
-  rate:    (n) => Math.ceil(150  * Math.pow(1.40, n)),
-  crit:    (n) => Math.ceil(500  * Math.pow(1.55, n)),
+  robots:   (n) => Math.ceil(25   * Math.pow(1.45, n - 1)),
+  speed:    (n) => Math.ceil(40   * Math.pow(1.35, n)),
+  range:    (n) => Math.ceil(60   * Math.pow(1.40, n)),
+  value:    (n) => Math.ceil(80   * Math.pow(1.42, n)),
+  growth:   (n) => Math.ceil(120  * Math.pow(1.45, n)),
+  rate:     (n) => Math.ceil(150  * Math.pow(1.40, n)),
+  crit:     (n) => Math.ceil(500  * Math.pow(1.55, n)),
+  fuelEff:  (n) => Math.ceil(80   * Math.pow(1.45, n)),
+  fuelType: (n) => FUEL_TYPES[n]?.upgradeCost ?? Infinity,
 };
 const MAX = {
   robots: 50, speed: 120, range: 60, value: 120, growth: 80, rate: 80, crit: 40,
+  fuelEff: 10, fuelType: 3,
 };
 
 const GARDEN_DEFS = [
@@ -64,7 +76,12 @@ function gardenCost(key) {
 }
 
 // ---------- Derived values ----------
-function gemMult()     { return 1 + state.gems * 0.10; }
+function gemMult()      { return 1 + state.gems * 0.10; }
+function activeFuelType(){ return FUEL_TYPES[state.upgrades.fuelType] || FUEL_TYPES[0]; }
+function isElectric()   { return !activeFuelType().refuelable; }
+function fuelEffMult()  { return Math.max(0.1, 1 - state.upgrades.fuelEff * 0.08); }
+function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult; }
+function fuelRefillCost(){ return Math.ceil(25 * state.upgrades.robots * fuelEffMult()); }
 function shedMult()    { return 1 + state.garden.shed * 0.05; }
 function fountainMult(){ return 1 + state.garden.fountain * 0.08; }
 function rockMult()    { return 1 + state.garden.rock * 0.005; }

@@ -14,6 +14,7 @@ function loop(now) {
   while (accumulator >= TICK) {
     updateGrass(TICK);
     updateFlowerIncome(TICK);
+    updateFuel(TICK);
     for (const r of robots) updateRobot(r, TICK);
     for (const b of bees) updateBee(b, TICK);
     accumulator -= TICK;

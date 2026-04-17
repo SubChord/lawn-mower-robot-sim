@@ -69,7 +69,14 @@ function obstacleRepulsion(px, py) {
   return { ax, ay };
 }
 
+function updateFuel(dt) {
+  const ft = activeFuelType();
+  const net = (ft.recharge - fuelDrainRate()) * dt;
+  state.fuel = Math.min(CFG.fuelMax, Math.max(0, state.fuel + net));
+}
+
 function updateRobot(r, dt) {
+  if (state.fuel <= 0) return;
   const ts = tileSize;
   if (!r.target) pickTarget(r);
   r.lastTargetCheck += dt;

@@ -286,6 +286,7 @@ function drawBee(b) {
 
 function drawRobot(r) {
   ctx.save();
+  if (state.fuel <= 0) ctx.globalAlpha = 0.35;
   ctx.translate(r.x, r.y + Math.sin(r.bob) * 0.6);
   ctx.rotate(r.angle);
 

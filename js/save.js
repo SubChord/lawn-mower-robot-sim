@@ -2,7 +2,7 @@
    Save / Load / offline earnings / reset
    ============================================================ */
 
-const SAVE_KEY = 'lawnbotTycoonSave_v2';
+const SAVE_KEY = 'lawnbotTycoonSave_v3';
 let lastSave = 0;
 
 function saveGame() {
@@ -45,7 +45,13 @@ function loadGame() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     Object.assign(state, data.state);
-    state.garden = Object.assign({ tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 }, state.garden || {});
+    state.upgrades = Object.assign({ robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0 }, state.upgrades || {});
+    if (state.upgrades.electric != null) {
+      if (state.upgrades.fuelType === 0 && state.upgrades.electric >= 1) state.upgrades.fuelType = 3;
+      delete state.upgrades.electric;
+    }
+    state.garden   = Object.assign({ tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 }, state.garden || {});
+    if (state.fuel == null) state.fuel = CFG.fuelMax;
     grass = new Float32Array(CFG.gridW * CFG.gridH);
     tiles = new Uint8Array(CFG.gridW * CFG.gridH);
     flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
