@@ -924,7 +924,7 @@ function doAscend() {
   state.coins = 0;
   state.totalEarnedThisRun = 0;
   state.gems = rubyShopStartGems();
-  state.totalGemsEarned = 0;
+  state.totalGemsEarned = state.gems;
   state.gemUpgrades = {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
