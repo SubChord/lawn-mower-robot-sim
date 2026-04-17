@@ -632,6 +632,12 @@ function buyGemUpgrade(key) {
   if (plan.count === 0) return;
   state.gems -= plan.total;
   state.gemUpgrades[key] = gemLvl(key) + plan.count;
+  // Town unlock side-effect: flip the global flag so the ← Town HUD button
+  // reveals itself on the next updateHUD tick.
+  if (key === 'townUnlock' && state.gemUpgrades.townUnlock >= 1) {
+    state.town.unlocked = true;
+    toast('🏘️ Town unlocked!', '#8ff09e');
+  }
   applyGemGrassUnlocks();
   beep(720 + state.gemUpgrades[key] * 35, 0.08, 'triangle', 0.07);
   setTimeout(() => beep(1120 + state.gemUpgrades[key] * 45, 0.1, 'sine', 0.06), 80);

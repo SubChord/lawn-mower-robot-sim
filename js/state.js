@@ -287,6 +287,10 @@ const GEM_UPGRADES = [
     desc: '360× coin grass. End-game tier. Barely spawns.',
     max: 1, baseCost: 100, growth: 1,
     statusText: (lvl) => lvl ? '🌌 Void Grass — spawning on every run' : 'Locked' },
+  { key: 'townUnlock',   icon: '🏘️', name: 'Move to the Town',
+    desc: 'Unlocks a top-down street view where you can buy additional houses, each with its own independent garden. Survives prestige.',
+    max: 1, baseCost: 20, growth: 1,
+    statusText: (lvl) => lvl ? '🏘️ Town unlocked — see ← Town in the HUD' : 'Locked' },
 ];
 
 // Maps exotic-species keys → the gem-upgrade key that unlocks them.
