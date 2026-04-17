@@ -87,29 +87,33 @@ function getTileImage(heightBucket, speciesIdx = 0) {
   return off;
 }
 
-// Pattern overlay — decides whether a tile is "dark" or "light" in the
-// current mowing pattern, and how strong the tint should be based on grass
-// height (freshly cut = stronger). Returns null for no overlay.
-function mowPatternTint(x, y, h) {
-  const key = state.activeMowPattern;
-  if (!key || key === 'plain') return null;
-  let dark;
-  switch (key) {
-    case 'stripes':   dark = (y & 1) === 0; break;
-    case 'diagonal':  dark = (((x + y) >> 1) & 1) === 0; break;
-    case 'checker':   dark = (((x >> 1) + (y >> 1)) & 1) === 0; break;
+// Which "side" of the active mow pattern a tile belongs to. Pure function of
+// tile coords and current pattern key; reused by the AI to bias robot paths
+// so the bots actually trace the pattern you equipped.
+function mowPatternIsDark(x, y, key) {
+  const k = key || state.activeMowPattern;
+  if (!k || k === 'plain') return false;
+  switch (k) {
+    case 'stripes':  return (y & 1) === 0;
+    case 'diagonal': return (((x + y) >> 1) & 1) === 0;
+    case 'checker':  return (((x >> 1) + (y >> 1)) & 1) === 0;
     case 'diamonds': {
       const a = (((x + y) >> 1) & 1) === 0;
       const b = (((x - y + 1024) >> 1) & 1) === 0;
-      dark = a !== b;
-      break;
+      return a !== b;
     }
-    case 'zigzag':    dark = (((x + ((y >> 1) & 1) * 2) & 3) < 2); break;
-    default:          dark = false;
+    case 'zigzag':   return (((x + ((y >> 1) & 1) * 2) & 3) < 2);
+    default:         return false;
   }
-  const alpha = Math.max(0, 0.28 - h * 0.24); // strongest on short grass
+}
+
+// Visual tint strength per tile, strongest on freshly cut (short) grass.
+function mowPatternTint(x, y, h) {
+  const key = state.activeMowPattern;
+  if (!key || key === 'plain') return null;
+  const alpha = Math.max(0, 0.28 - h * 0.24);
   if (alpha < 0.015) return null;
-  return { dark, alpha };
+  return { dark: mowPatternIsDark(x, y, key), alpha };
 }
 
 function drawGrass() {

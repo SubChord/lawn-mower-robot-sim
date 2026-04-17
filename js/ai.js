@@ -2,6 +2,26 @@
    Robot AI, Bee AI, grass + flower income
    ============================================================ */
 
+// Does this robot prefer "dark" or "light" cells of the active pattern?
+// Stable across calls (uses index in the fleet), so each robot sticks with
+// one side of the pattern — that's what actually draws stripes/diagonals
+// on the lawn instead of a uniform cut.
+function robotPrefersDark(r) {
+  const i = robots.indexOf(r);
+  return (i & 1) === 0;
+}
+
+// Additive score nudge: matching tiles get a big bonus, non-matching tiles a
+// smaller penalty. Multiplicative biases disappeared behind h*h/dist; additive
+// bias keeps the pattern visible while still letting the bot switch sides
+// when its preferred stripe is already cut short.
+function patternScoreBonus(r, x, y) {
+  const pat = state.activeMowPattern;
+  if (!pat || pat === 'plain') return 0;
+  const dark = mowPatternIsDark(x, y, pat);
+  return dark === robotPrefersDark(r) ? 0.7 : -0.35;
+}
+
 function pickTarget(r) {
   const ts = tileSize;
   const cx = Math.floor(r.x / ts);
@@ -16,7 +36,7 @@ function pickTarget(r) {
       const h = grass[idx(x, y)];
       if (h < 0.2) continue;
       const dist = Math.hypot(dx, dy) + 0.1;
-      const score = h * h / dist - Math.random() * 0.05;
+      const score = h * h / dist + patternScoreBonus(r, x, y) - Math.random() * 0.05;
       if (score > bestScore) { bestScore = score; best = { x, y }; }
     }
   }

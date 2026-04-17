@@ -48,6 +48,8 @@ let state = {
     rocks: 6,
     ponds: 2,
     gnomes: 2,
+    skin: 'default',
+    pattern: 'plain',
   },
   activeQuest: null,                    // { id, neighbor, title, goal, duration, elapsed, reward, rewardType, startVal }
   questTimer: 80 + Math.random() * 60,  // seconds until next neighbor knocks
@@ -67,7 +69,7 @@ const ZEN_SLIDERS = [
   { key: 'ponds',    icon: '💧', label: 'Ponds',    min: 0, max: 6,  step: 1 },
   { key: 'gnomes',   icon: '🧙', label: 'Gnomes',   min: 0, max: 10, step: 1 },
 ];
-const ZEN_CONFIG_DEFAULT = { robots: 6, flowers: 14, beehives: 3, trees: 10, rocks: 6, ponds: 2, gnomes: 2 };
+const ZEN_CONFIG_DEFAULT = { robots: 6, flowers: 14, beehives: 3, trees: 10, rocks: 6, ponds: 2, gnomes: 2, skin: 'default', pattern: 'plain' };
 
 // ---------- Settings ----------
 // Each entry is a toggle in the settings modal. Add more here; they render

@@ -717,6 +717,7 @@ function renderSkins(list) {
     if (owned && !active) {
       card.addEventListener('click', () => {
         state.activeMowPattern = pat.key;
+        robots.forEach(rb => { rb.target = null; }); // re-route to new pattern
         beep(680, 0.08, 'sine', 0.06);
         toast(`🪚 Equipped ${pat.name}`, '#8ff09e');
         renderShop();
@@ -728,6 +729,7 @@ function renderSkins(list) {
         state.coins -= pat.unlockCost;
         state.patternsUnlocked.push(pat.key);
         state.activeMowPattern = pat.key;
+        robots.forEach(rb => { rb.target = null; });
         beep(720, 0.08, 'triangle', 0.07);
         setTimeout(() => beep(1080, 0.1, 'triangle', 0.06), 80);
         toast(`🪚 Unlocked ${pat.name}!`, '#ffd34e');
@@ -934,12 +936,40 @@ function openZenSetupModal() {
       </div>
       <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${cfg[s.key]}" data-key="${s.key}">
     </div>`).join('');
+
+  // Skin + mowing pattern chip pickers. In zen we let the player preview any
+  // skin or pattern regardless of their real-game unlock state — it's a
+  // screensaver, not a progression tab.
+  const skinChips = SKIN_DEFS.map(s => {
+    const active = cfg.skin === s.key;
+    return `<button type="button" class="settings-chip${active ? ' active' : ''}" data-zen-key="skin" data-value="${s.key}" title="${(s.name || '').replace(/"/g,'&quot;')}">${s.name}</button>`;
+  }).join('');
+  const patternChips = MOW_PATTERN_DEFS.map(p => {
+    const active = cfg.pattern === p.key;
+    return `<button type="button" class="settings-chip${active ? ' active' : ''}" data-zen-key="pattern" data-value="${p.key}" title="${(p.desc || '').replace(/"/g,'&quot;')}">${p.icon} ${p.name}</button>`;
+  }).join('');
+  const extraRows = `
+    <div class="zen-slider-row">
+      <div class="zen-slider-head">
+        <span class="zen-slider-ico">🎨</span>
+        <span class="zen-slider-label">Mower Skin</span>
+      </div>
+      <div class="settings-chips">${skinChips}</div>
+    </div>
+    <div class="zen-slider-row">
+      <div class="zen-slider-head">
+        <span class="zen-slider-ico">🪚</span>
+        <span class="zen-slider-label">Mowing Pattern</span>
+      </div>
+      <div class="settings-chips">${patternChips}</div>
+    </div>`;
+
   back.innerHTML = `
     <div class="modal zen-modal">
       <h2>🧘 ZEN MODE</h2>
       <p>Compose your garden screensaver. No fuel, no shopping — just watch.<br>
          <span style="opacity:0.7; font-size:11px;">Your real game is paused and untouched.</span></p>
-      <div class="zen-sliders">${rows}</div>
+      <div class="zen-sliders">${rows}${extraRows}</div>
       <div class="zen-actions">
         <button id="zenResetBtn" class="ghost">Defaults</button>
         <button id="zenCancelBtn" class="ghost">Cancel</button>
@@ -956,6 +986,13 @@ function openZenSetupModal() {
       back.querySelector(`[data-val="${key}"]`).textContent = val;
     });
   });
+  back.querySelectorAll('.settings-chip[data-zen-key]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.zenKey;
+      state.zenConfig[key] = btn.dataset.value;
+      back.querySelectorAll(`.settings-chip[data-zen-key="${key}"]`).forEach(s => s.classList.toggle('active', s === btn));
+    });
+  });
   const close = () => back.remove();
   back.querySelector('#zenCancelBtn').addEventListener('click', close);
   back.querySelector('#zenResetBtn').addEventListener('click', () => {
@@ -964,6 +1001,10 @@ function openZenSetupModal() {
       const key = input.dataset.key;
       input.value = state.zenConfig[key];
       back.querySelector(`[data-val="${key}"]`).textContent = state.zenConfig[key];
+    });
+    back.querySelectorAll('.settings-chip[data-zen-key]').forEach(btn => {
+      const key = btn.dataset.zenKey;
+      btn.classList.toggle('active', btn.dataset.value === state.zenConfig[key]);
     });
   });
   back.querySelector('#zenStartBtn').addEventListener('click', () => {
@@ -987,6 +1028,9 @@ function enterZenMode() {
     garden: Object.assign({}, state.garden),
     gnomeTimer: state.gnomeTimer,
     skinsUnlocked: state.skinsUnlocked.slice(),
+    activeSkin: state.activeSkin,
+    activeMowPattern: state.activeMowPattern,
+    patternsUnlocked: state.patternsUnlocked.slice(),
     treasuresCollected: state.treasuresCollected,
     grass: new Float32Array(grass),
     tiles: new Uint8Array(tiles),
@@ -1025,6 +1069,9 @@ function exitZenMode() {
   state.garden = zenSnapshot.garden;
   state.gnomeTimer = zenSnapshot.gnomeTimer;
   state.skinsUnlocked = zenSnapshot.skinsUnlocked;
+  state.activeSkin = zenSnapshot.activeSkin;
+  state.activeMowPattern = zenSnapshot.activeMowPattern;
+  state.patternsUnlocked = zenSnapshot.patternsUnlocked;
   state.treasuresCollected = zenSnapshot.treasuresCollected;
   grass = zenSnapshot.grass;
   tiles = zenSnapshot.tiles;
@@ -1077,6 +1124,12 @@ function buildZenWorld(cfg) {
   ensureRobotCount();
   ensureBeesFromHives();
   state.fuel = CFG.fuelMax;
+
+  // Apply zen-only cosmetic overrides. Any skin/pattern is fair game in zen,
+  // regardless of the player's real unlocks — it's a preview space.
+  if (cfg.skin && SKIN_BY_KEY[cfg.skin]) state.activeSkin = cfg.skin;
+  if (cfg.pattern && MOW_PATTERN_BY_KEY[cfg.pattern]) state.activeMowPattern = cfg.pattern;
+
   // Suppress visitor gnomes & their treasure popups — zen stays peaceful.
   state.gnomeTimer = Number.POSITIVE_INFINITY;
 }
