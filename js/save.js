@@ -161,6 +161,7 @@ function loadGame() {
       startCoins: 0, coinMult: 0, growth: 0, crit: 0,
       offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
       grassObsidian: 0, grassFrost: 0, grassVoid: 0,
+      townUnlock: 0,
     }, state.gemUpgrades || {});
     applyGemGrassUnlocks();
     // Back-fill totalGemsEarned for saves predating the field.

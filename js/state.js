@@ -299,14 +299,19 @@ const GEM_GRASS_UNLOCK = {
   frost:    'grassFrost',
   void:     'grassVoid',
 };
-// Applies gem-based grass unlocks onto state.grassTypes. Call after prestige
-// reset, fresh-run init, loadGame, or a gem-shop purchase.
+// Applies gem-shop one-shot unlocks (grass species, town, ...) onto state.
+// Idempotent. Call after prestige reset, fresh-run init, loadGame, or a
+// gem-shop purchase. Kept named `...GrassUnlocks` for historical continuity;
+// now also reconciles `state.town.unlocked` from `gemUpgrades.townUnlock`
+// so the two can never drift.
 function applyGemGrassUnlocks() {
-  if (!state.grassTypes) return;
-  for (const [speciesKey, gemKey] of Object.entries(GEM_GRASS_UNLOCK)) {
-    if (!state.grassTypes[speciesKey]) state.grassTypes[speciesKey] = { unlocked: false, spawnLevel: 0 };
-    if (gemLvl(gemKey) > 0) state.grassTypes[speciesKey].unlocked = true;
+  if (state.grassTypes) {
+    for (const [speciesKey, gemKey] of Object.entries(GEM_GRASS_UNLOCK)) {
+      if (!state.grassTypes[speciesKey]) state.grassTypes[speciesKey] = { unlocked: false, spawnLevel: 0 };
+      if (gemLvl(gemKey) > 0) state.grassTypes[speciesKey].unlocked = true;
+    }
   }
+  if (state.town && gemLvl('townUnlock') > 0) state.town.unlocked = true;
 }
 const GEM_BY_KEY = Object.fromEntries(GEM_UPGRADES.map(g => [g.key, g]));
 function gemUpgradeCost(key, lvl) {
