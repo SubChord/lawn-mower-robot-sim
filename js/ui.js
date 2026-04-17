@@ -40,6 +40,8 @@ function updateHUD() {
 
   const toTownBtn = document.getElementById('toTownBtn');
   if (toTownBtn) toTownBtn.style.display = (state.town && state.town.unlocked) ? '' : 'none';
+  const townTab = document.getElementById('townTab');
+  if (townTab) townTab.style.display = (state.town && state.town.unlocked) ? '' : 'none';
 
   // Atmosphere pill: weather icon + name, plus a small clock when relevant.
   const atmoEl = document.getElementById('hudAtmo');
@@ -195,6 +197,7 @@ function renderShop() {
   if (activeTab === 'grass')    { renderGrassShop(list); return; }
   if (activeTab === 'quests')   { renderQuests(list);    return; }
   if (activeTab === 'gemshop')  { renderGemShop(list);   return; }
+  if (activeTab === 'town')     { renderTownTab(list);   return; }
 
   for (const up of UPGRADE_DEFS) {
     if (up.show && !up.show()) continue;
@@ -622,6 +625,32 @@ function renderGemShop(list) {
     `;
     const btn = row.querySelector('.buy');
     if (btn && affordable) btn.addEventListener('click', () => buyGemUpgrade(def.key));
+    list.appendChild(row);
+  }
+}
+
+function renderTownTab(list) {
+  list.innerHTML = '';
+  for (const def of HOUSE_DEFS) {
+    const h = state.town.houses[def.key];
+    const owned = !!h?.owned;
+    const row = document.createElement('div');
+    row.className = 'upgrade';
+    row.innerHTML = `
+      <div class="upgrade-head">
+        <span class="upgrade-ico">${def.icon}</span>
+        <span class="upgrade-name">${def.name}</span>
+      </div>
+      <div class="upgrade-desc">
+        ${def.features.length
+          ? def.features.map(f => `${f.icon} ${f.name} (+${Math.round((f.mult-1)*100)}%)`).join(' · ')
+          : 'The lawn where it all started.'}
+        <br>Size: ${def.gridW}×${def.gridH} · Multiplier: ${def.featureMult.toFixed(2)}×
+      </div>
+      <button class="upgrade-buy" ${owned ? 'disabled' : ''}>
+        ${owned ? 'Owned' : `Buy ${def.unlockCost} 💎`}
+      </button>`;
+    row.querySelector('button').addEventListener('click', () => buyHouse(def.key));
     list.appendChild(row);
   }
 }
