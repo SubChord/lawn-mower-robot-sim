@@ -6,6 +6,9 @@ const SAVE_KEY = 'lawnbotTycoonSave_v4';
 let lastSave = 0;
 
 function saveGame() {
+  // While in Zen Mode the world is a temporary screensaver snapshot. Don't
+  // overwrite the real save with zen state — the real game is restored on exit.
+  if (state.zenMode) return;
   const tilePack = [];
   if (tiles) {
     for (let y = 0; y < CFG.gridH; y++) {
@@ -37,6 +40,7 @@ function saveGame() {
       fuel: state.fuel,
       settings: state.settings,
       grassTypes: state.grassTypes,
+      zenConfig: state.zenConfig,
     },
     achieved: [...achieved],
     tiles: tilePack,
@@ -81,6 +85,7 @@ function loadGame() {
     if (!isFinite(state.gnomeTimer)) state.gnomeTimer = 60 + Math.random() * 30;
     if (state.fuel == null) state.fuel = CFG.fuelMax;
     state.settings = Object.assign({ showRobotNames: true, showGnomeNames: true, showParticles: true }, state.settings || {});
+    state.zenConfig = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
     state.zenMode = false; // session-only: always start outside Zen after reload
     if (Array.isArray(data.achieved)) data.achieved.forEach(id => achieved.add(id));
     grass = new Float32Array(CFG.gridW * CFG.gridH);

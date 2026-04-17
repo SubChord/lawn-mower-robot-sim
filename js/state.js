@@ -37,7 +37,30 @@ let state = {
     showParticles: true,
   },
   zenMode: false,
+  zenConfig: {
+    robots: 6,
+    flowers: 14,
+    beehives: 3,
+    trees: 10,
+    rocks: 6,
+    ponds: 2,
+    gnomes: 2,
+  },
 };
+
+// ---------- Zen Mode: configurable screensaver world ----------
+// Fully decoupled from the main game: the zen screensaver has its own world
+// composition. Counts below are sliders in the zen setup modal.
+const ZEN_SLIDERS = [
+  { key: 'robots',   icon: '🤖', label: 'Mowers',   min: 0, max: 20, step: 1 },
+  { key: 'flowers',  icon: '🌸', label: 'Flowers',  min: 0, max: 40, step: 1 },
+  { key: 'beehives', icon: '🐝', label: 'Beehives', min: 0, max: 12, step: 1 },
+  { key: 'trees',    icon: '🌳', label: 'Trees',    min: 0, max: 20, step: 1 },
+  { key: 'rocks',    icon: '🪨', label: 'Rocks',    min: 0, max: 20, step: 1 },
+  { key: 'ponds',    icon: '💧', label: 'Ponds',    min: 0, max: 6,  step: 1 },
+  { key: 'gnomes',   icon: '🧙', label: 'Gnomes',   min: 0, max: 10, step: 1 },
+];
+const ZEN_CONFIG_DEFAULT = { robots: 6, flowers: 14, beehives: 3, trees: 10, rocks: 6, ponds: 2, gnomes: 2 };
 
 // ---------- Settings ----------
 // Each entry is a toggle in the settings modal. Add more here; they render

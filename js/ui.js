@@ -671,41 +671,195 @@ function openSettingsModal() {
 }
 
 // ---------- Zen Mode ----------
-function setZenMode(enabled) {
-  state.zenMode = !!enabled;
-  document.body.classList.toggle('zen-mode', state.zenMode);
-  if (state.zenMode) {
-    const el = document.documentElement;
-    if (el.requestFullscreen && !document.fullscreenElement) {
-      el.requestFullscreen().catch(() => {});
-    }
-    state.fuel = CFG.fuelMax;
-    toast('🧘 Zen Mode — breathe and watch.', '#c6a8ff');
-  } else {
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
-    }
-  }
-  // Canvas size changed; re-fit and rescale positions.
-  const prev = tileSize;
-  resizeCanvas();
-  if (prev && prev !== tileSize) {
-    const scale = tileSize / prev;
-    robots.forEach(r => { r.x *= scale; r.y *= scale; });
-    bees.forEach(b => { b.x *= scale; b.y *= scale; if (b.target) { b.target.x *= scale; b.target.y *= scale; } });
-    visitorGnomes.forEach(g => {
-      g.x *= scale; g.y *= scale;
-      g.targetX *= scale; g.targetY *= scale;
-      g.exitX *= scale; g.exitY *= scale;
+// Zen is a standalone screensaver world: a fresh garden composed from
+// sliders (mowers, flowers, beehives, ...), completely decoupled from the
+// player's progression. On enter we snapshot the live game; on exit we
+// restore it. No coins, upgrades, or unlocks are affected by zen activity.
+let zenSnapshot = null;
+
+function openZenSetupModal() {
+  if (state.zenMode) { exitZenMode(); return; }
+  if (document.querySelector('.zen-setup-backdrop')) return;
+  const cfg = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop zen-setup-backdrop';
+  const rows = ZEN_SLIDERS.map(s => `
+    <div class="zen-slider-row" data-key="${s.key}">
+      <div class="zen-slider-head">
+        <span class="zen-slider-ico">${s.icon}</span>
+        <span class="zen-slider-label">${s.label}</span>
+        <span class="zen-slider-value" data-val="${s.key}">${cfg[s.key]}</span>
+      </div>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${cfg[s.key]}" data-key="${s.key}">
+    </div>`).join('');
+  back.innerHTML = `
+    <div class="modal zen-modal">
+      <h2>🧘 ZEN MODE</h2>
+      <p>Compose your garden screensaver. No fuel, no shopping — just watch.<br>
+         <span style="opacity:0.7; font-size:11px;">Your real game is paused and untouched.</span></p>
+      <div class="zen-sliders">${rows}</div>
+      <div class="zen-actions">
+        <button id="zenResetBtn" class="ghost">Defaults</button>
+        <button id="zenCancelBtn" class="ghost">Cancel</button>
+        <button id="zenStartBtn">Start Zen</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+
+  back.querySelectorAll('input[type="range"]').forEach(input => {
+    input.addEventListener('input', () => {
+      const key = input.dataset.key;
+      const val = parseInt(input.value, 10) || 0;
+      state.zenConfig[key] = val;
+      back.querySelector(`[data-val="${key}"]`).textContent = val;
     });
-    treasures.forEach(t => {
-      t.x = (t.tileX + 0.5) * tileSize;
-      t.y = (t.tileY + 0.5) * tileSize;
+  });
+  const close = () => back.remove();
+  back.querySelector('#zenCancelBtn').addEventListener('click', close);
+  back.querySelector('#zenResetBtn').addEventListener('click', () => {
+    Object.assign(state.zenConfig, ZEN_CONFIG_DEFAULT);
+    back.querySelectorAll('input[type="range"]').forEach(input => {
+      const key = input.dataset.key;
+      input.value = state.zenConfig[key];
+      back.querySelector(`[data-val="${key}"]`).textContent = state.zenConfig[key];
     });
+  });
+  back.querySelector('#zenStartBtn').addEventListener('click', () => {
+    close();
+    enterZenMode();
+  });
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+}
+
+function enterZenMode() {
+  if (state.zenMode) return;
+  saveGame(); // persist real game first
+  zenSnapshot = {
+    coins: state.coins,
+    gems: state.gems,
+    totalEarnedAllTime: state.totalEarnedAllTime,
+    totalEarnedThisRun: state.totalEarnedThisRun,
+    totalTilesMowed: state.totalTilesMowed,
+    fuel: state.fuel,
+    upgrades: Object.assign({}, state.upgrades),
+    garden: Object.assign({}, state.garden),
+    gnomeTimer: state.gnomeTimer,
+    skinsUnlocked: state.skinsUnlocked.slice(),
+    treasuresCollected: state.treasuresCollected,
+    grass: new Float32Array(grass),
+    tiles: new Uint8Array(tiles),
+    flowerColors: new Uint8Array(flowerColors),
+    grassSpecies: grassSpecies ? new Uint8Array(grassSpecies) : null,
+    robots, bees, visitorGnomes, treasures,
+    particles: particles.slice(),
+  };
+
+  state.zenMode = true;
+  document.body.classList.add('zen-mode');
+  buildZenWorld(state.zenConfig);
+
+  const el = document.documentElement;
+  if (el.requestFullscreen && !document.fullscreenElement) {
+    el.requestFullscreen().catch(() => {});
   }
+  refitCanvas();
+  toast('🧘 Zen Mode — breathe and watch.', '#c6a8ff');
+}
+
+function exitZenMode() {
+  if (!state.zenMode || !zenSnapshot) {
+    state.zenMode = false;
+    document.body.classList.remove('zen-mode');
+    return;
+  }
+  // Restore live game
+  state.coins = zenSnapshot.coins;
+  state.gems = zenSnapshot.gems;
+  state.totalEarnedAllTime = zenSnapshot.totalEarnedAllTime;
+  state.totalEarnedThisRun = zenSnapshot.totalEarnedThisRun;
+  state.totalTilesMowed = zenSnapshot.totalTilesMowed;
+  state.fuel = zenSnapshot.fuel;
+  state.upgrades = zenSnapshot.upgrades;
+  state.garden = zenSnapshot.garden;
+  state.gnomeTimer = zenSnapshot.gnomeTimer;
+  state.skinsUnlocked = zenSnapshot.skinsUnlocked;
+  state.treasuresCollected = zenSnapshot.treasuresCollected;
+  grass = zenSnapshot.grass;
+  tiles = zenSnapshot.tiles;
+  flowerColors = zenSnapshot.flowerColors;
+  if (zenSnapshot.grassSpecies) grassSpecies = zenSnapshot.grassSpecies;
+  robots = zenSnapshot.robots;
+  bees = zenSnapshot.bees;
+  visitorGnomes = zenSnapshot.visitorGnomes;
+  treasures = zenSnapshot.treasures;
+  particles.length = 0;
+  for (const p of zenSnapshot.particles) particles.push(p);
+  zenSnapshot = null;
+
+  state.zenMode = false;
+  document.body.classList.remove('zen-mode');
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+  refitCanvas();
+  renderShop();
   saveGame();
 }
-function toggleZenMode() { setZenMode(!state.zenMode); }
+
+function buildZenWorld(cfg) {
+  grass = new Float32Array(CFG.gridW * CFG.gridH);
+  tiles = new Uint8Array(CFG.gridW * CFG.gridH);
+  flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
+  grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
+  for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
+  robots = [];
+  bees = [];
+  visitorGnomes = [];
+  treasures = [];
+  particles.length = 0;
+
+  const placeMany = (type, n) => { for (let i = 0; i < n; i++) placeAtRandomGrass(type); };
+  placeMany(T.TREE,    cfg.trees);
+  placeMany(T.ROCK,    cfg.rocks);
+  placeMany(T.POND,    cfg.ponds);
+  placeMany(T.FLOWER,  cfg.flowers);
+  placeMany(T.BEEHIVE, cfg.beehives);
+  placeMany(T.GNOME,   cfg.gnomes);
+
+  // Bump gameplay knobs that drive robot/bee/flower counts.
+  state.upgrades.robots = cfg.robots;
+  state.garden = Object.assign({}, state.garden, {
+    flower: cfg.flowers, beehive: cfg.beehives, tree: cfg.trees,
+    rock: cfg.rocks, pond: cfg.ponds, gnome: cfg.gnomes,
+  });
+  ensureRobotCount();
+  ensureBeesFromHives();
+  state.fuel = CFG.fuelMax;
+  // Suppress visitor gnomes & their treasure popups — zen stays peaceful.
+  state.gnomeTimer = Number.POSITIVE_INFINITY;
+}
+
+// Resize canvas to current container and rescale entity positions.
+function refitCanvas() {
+  const prev = tileSize;
+  resizeCanvas();
+  if (!prev || prev === tileSize) return;
+  const scale = tileSize / prev;
+  robots.forEach(r => { r.x *= scale; r.y *= scale; });
+  bees.forEach(b => {
+    b.x *= scale; b.y *= scale;
+    if (b.target) { b.target.x *= scale; b.target.y *= scale; }
+  });
+  visitorGnomes.forEach(g => {
+    g.x *= scale; g.y *= scale;
+    g.targetX *= scale; g.targetY *= scale;
+    g.exitX *= scale; g.exitY *= scale;
+  });
+  treasures.forEach(t => {
+    t.x = (t.tileX + 0.5) * tileSize;
+    t.y = (t.tileY + 0.5) * tileSize;
+  });
+}
 
 // ---------- Toasts ----------
 function toast(msg, color = '#ffd34e') {
@@ -787,14 +941,14 @@ function wireUIEvents() {
   });
 
   document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
-  document.getElementById('zenBtn').addEventListener('click', toggleZenMode);
-  document.getElementById('zenExit').addEventListener('click', () => setZenMode(false));
+  document.getElementById('zenBtn').addEventListener('click', openZenSetupModal);
+  document.getElementById('zenExit').addEventListener('click', exitZenMode);
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.zenMode) setZenMode(false);
+    if (e.key === 'Escape' && state.zenMode) exitZenMode();
   });
   document.addEventListener('fullscreenchange', () => {
     // If the user exits fullscreen via browser UI, leave zen mode too.
-    if (!document.fullscreenElement && state.zenMode) setZenMode(false);
+    if (!document.fullscreenElement && state.zenMode) exitZenMode();
   });
 }
