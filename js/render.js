@@ -349,6 +349,57 @@ function drawGnome(x, y) {
   ctx.fillRect(cx + ts * 0.025, cy - ts * 0.07, 1.5, 1.5);
 }
 
+function drawFence(x, y) {
+  const ts = tileSize;
+  const px = x * ts, py = y * ts;
+  ctx.fillStyle = '#8b5a2b';
+  ctx.fillRect(px + ts * 0.2, py + ts * 0.1, ts * 0.6, ts * 0.8);
+  ctx.strokeStyle = '#5a3b1a';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(px + ts * 0.2, py + ts * 0.1, ts * 0.6, ts * 0.8);
+}
+
+function drawPath(x, y) {
+  const ts = tileSize;
+  ctx.fillStyle = '#c9b894';
+  ctx.fillRect(x * ts, y * ts, ts, ts);
+}
+
+function drawDriveway(x, y) {
+  const ts = tileSize;
+  ctx.fillStyle = '#7a7a7a';
+  ctx.fillRect(x * ts, y * ts, ts, ts);
+}
+
+function drawPatio(x, y) {
+  const ts = tileSize;
+  const px = x * ts, py = y * ts;
+  ctx.fillStyle = '#a0826d';
+  ctx.fillRect(px, py, ts, ts);
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.fillRect(px + ts * 0.5, py, 1, ts);
+  ctx.fillRect(px, py + ts * 0.5, ts, 1);
+}
+
+function drawHouseBuilding(x, y) {
+  const ts = tileSize;
+  const px = x * ts, py = y * ts;
+  ctx.fillStyle = '#c97a5a';
+  ctx.fillRect(px, py, ts, ts);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillRect(px, py, ts, ts * 0.2);
+}
+
+function drawPool(x, y) {
+  const ts = tileSize;
+  const px = x * ts, py = y * ts;
+  ctx.fillStyle = '#4fb3d9';
+  ctx.fillRect(px + 1, py + 1, ts - 2, ts - 2);
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(px + 1, py + 1, ts - 2, ts - 2);
+}
+
 function drawFeatures() {
   for (let y = 0; y < CFG.gridH; y++) {
     for (let x = 0; x < CFG.gridW; x++) {
@@ -356,14 +407,20 @@ function drawFeatures() {
       const t = tiles[k];
       if (t === T.GRASS) continue;
       switch (t) {
-        case T.TREE:     drawTree(x, y); break;
-        case T.ROCK:     drawRock(x, y); break;
-        case T.POND:     drawPond(x, y); break;
-        case T.FLOWER:   drawFlower(x, y); break;
-        case T.BEEHIVE:  drawBeehive(x, y); break;
-        case T.FOUNTAIN: drawFountain(x, y); break;
-        case T.SHED:     drawShed(x, y); break;
-        case T.GNOME:    drawGnome(x, y); break;
+        case T.TREE:           drawTree(x, y); break;
+        case T.ROCK:           drawRock(x, y); break;
+        case T.POND:           drawPond(x, y); break;
+        case T.FLOWER:         drawFlower(x, y); break;
+        case T.BEEHIVE:        drawBeehive(x, y); break;
+        case T.FOUNTAIN:       drawFountain(x, y); break;
+        case T.SHED:           drawShed(x, y); break;
+        case T.GNOME:          drawGnome(x, y); break;
+        case T.FENCE:          drawFence(x, y); break;
+        case T.PATH:           drawPath(x, y); break;
+        case T.DRIVEWAY:       drawDriveway(x, y); break;
+        case T.PATIO:          drawPatio(x, y); break;
+        case T.HOUSE_BUILDING: drawHouseBuilding(x, y); break;
+        case T.POOL:           drawPool(x, y); break;
       }
     }
   }
