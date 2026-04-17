@@ -8,16 +8,14 @@
 let grass, tiles, flowerColors, grassSpecies, zones;
 let robots, bees;
 
-function idx(x, y) {
-  const w = activeHouse()?.gridW ?? CFG.gridW;
-  return y * w + x;
-}
-function inBounds(x, y) {
-  const h = activeHouse();
-  const w = h?.gridW ?? CFG.gridW;
-  const gh = h?.gridH ?? CFG.gridH;
-  return x >= 0 && y >= 0 && x < w && y < gh;
-}
+// Cached grid dims for the active house. Updated in switchHouseBindings().
+// Kept as plain let-vars so idx()/inBounds() stay a single multiply + compare
+// on the hot path — dereferencing activeHouse() per call regressed perf.
+let activeGridW = CFG.gridW;
+let activeGridH = CFG.gridH;
+
+function idx(x, y) { return y * activeGridW + x; }
+function inBounds(x, y) { return x >= 0 && y >= 0 && x < activeGridW && y < activeGridH; }
 
 function switchHouseBindings(key) {
   const h = state.town.houses[key];
@@ -29,6 +27,8 @@ function switchHouseBindings(key) {
   zones         = h.zones;
   robots        = h.robots;
   bees          = h.bees;
+  activeGridW   = h.gridW;
+  activeGridH   = h.gridH;
   state.town.activeHouseKey = key;
 }
 
@@ -36,7 +36,7 @@ function switchHouseBindings(key) {
 // Ensures state.town.houses.starter exists with fresh per-house buffers,
 // then binds globals to it.
 function ensureStarterHouse() {
-  if (!state.town.houses.starter) {
+  if (!state.town.houses.starter?.grass) {
     state.town.houses.starter = { owned: true, ...makePerHouseState('starter') };
   }
   switchHouseBindings('starter');
