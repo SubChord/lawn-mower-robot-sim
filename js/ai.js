@@ -471,6 +471,7 @@ function failQuest() {
 
 // ---------- Visitor Gnome + Treasure AI ----------
 function updateGnomeSpawnTimer(dt) {
+  if ((state.garden.gnome || 0) <= 0) return;
   state.gnomeTimer -= dt;
   if (state.gnomeTimer <= 0) {
     if (visitorGnomes.length < 2) {
