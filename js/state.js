@@ -74,6 +74,16 @@ let state = {
   questTimer: 80 + Math.random() * 60,  // seconds until next neighbor knocks
   questsCompleted: 0,
   questHistory: [],                     // { neighbor, title, rewardType, reward, outcome: 'success'|'failed', ts }
+  // Town expansion state. `unlocked` flips on when the player buys the Town
+  // gem-shop item. `houses` is populated per-house as the player buys lots.
+  town: {
+    unlocked: false,
+    activeHouseKey: 'starter',
+    inTownView: false,
+    houses: {
+      // starter is materialized on first save migration / new game init.
+    },
+  },
 };
 
 const QUEST_HISTORY_MAX = 30;
@@ -314,6 +324,26 @@ function startingCoinsFor(lvl) {
   return 250 * (Math.pow(2, lvl) - 1);
 }
 
+// ---------- House definitions (Town) ----------
+// Authored content for every house the player can own. The starter lawn
+// is always owned and always free; additional houses cost gems.
+const HOUSE_DEFS = [
+  {
+    key: 'starter',
+    name: 'Starter Lawn',
+    icon: '🏠',
+    unlockCost: 0,        // always owned
+    gridW: CFG.gridW,     // match current world
+    gridH: CFG.gridH,
+    featureMult: 1.0,
+    features: [],
+    layout: null,         // null = keep existing procedural world on first run
+  },
+  // Cozy Cottage is added in Phase 2.
+];
+
+const HOUSE_BY_KEY = Object.fromEntries(HOUSE_DEFS.map(h => [h.key, h]));
+
 const COST = {
   robots:   (n) => Math.ceil(25   * Math.pow(1.45, n - 1)),
   speed:    (n) => Math.ceil(40   * Math.pow(1.35, n)),
@@ -510,4 +540,15 @@ function formatShort(n) {
   let i = 0;
   while (n >= 1000 && i < SUFFIX.length - 1) { n /= 1000; i++; }
   return n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0) + SUFFIX[i];
+}
+
+// ---------- Town helpers ----------
+function activeHouseDef() {
+  return HOUSE_BY_KEY[state.town.activeHouseKey] || HOUSE_BY_KEY.starter;
+}
+function activeHouse() {
+  return state.town.houses[state.town.activeHouseKey];
+}
+function ownedHouseKeys() {
+  return Object.keys(state.town.houses).filter(k => state.town.houses[k]?.owned);
 }
