@@ -33,14 +33,22 @@ const CFG = {
   neighborSpawnMin: 90,       // seconds between neighbor quest offers (min)
   neighborSpawnMax: 220,      // seconds between neighbor quest offers (max)
   questDeclineCooldown: 45,   // seconds after declining before next offer
+  // Coins/sec per robot assigned to an unviewed owned house, before featureMult
+  // and global multipliers. Tuned to roughly half the rate a robot earns while
+  // being actively watched.
+  idleRatePerBot: 0.9,
 };
 
 // Tile types
 const T = {
   GRASS: 0, TREE: 1, ROCK: 2, POND: 3, FLOWER: 4,
   BEEHIVE: 5, FOUNTAIN: 6, SHED: 7, GNOME: 8,
+  FENCE: 9, PATH: 10, DRIVEWAY: 11, PATIO: 12, HOUSE_BUILDING: 13, POOL: 14,
 };
-const OBSTACLE = new Set([T.TREE, T.ROCK, T.POND, T.FLOWER, T.BEEHIVE, T.FOUNTAIN, T.SHED, T.GNOME]);
+const OBSTACLE = new Set([
+  T.TREE, T.ROCK, T.POND, T.FLOWER, T.BEEHIVE, T.FOUNTAIN, T.SHED, T.GNOME,
+  T.FENCE, T.HOUSE_BUILDING, T.POOL,
+]);
 
 const ROBOT_NAMES = [
   'Chompski', 'Sir Mows-a-Lot', 'Blades McGee', 'Lawnald',
