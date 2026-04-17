@@ -27,6 +27,19 @@ window.addEventListener('resize', () => {
     const scale = tileSize / oldTile;
     robots.forEach(r => { r.x *= scale; r.y *= scale; });
     bees.forEach(b => { b.x *= scale; b.y *= scale; if (b.target) { b.target.x *= scale; b.target.y *= scale; } });
+    if (typeof visitorGnomes !== 'undefined') {
+      visitorGnomes.forEach(g => {
+        g.x *= scale; g.y *= scale;
+        g.targetX *= scale; g.targetY *= scale;
+        g.exitX *= scale; g.exitY *= scale;
+      });
+    }
+    if (typeof treasures !== 'undefined') {
+      treasures.forEach(t => {
+        t.x = (t.tileX + 0.5) * tileSize;
+        t.y = (t.tileY + 0.5) * tileSize;
+      });
+    }
   }
 });
 

@@ -18,6 +18,11 @@ let state = {
   garden: {
     tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0,
   },
+  crew: [],                 // unlocked skill-tree node ids
+  skinsUnlocked: ['default'],
+  activeSkin: 'default',
+  gnomeTimer: 60 + Math.random() * 30, // seconds until next wandering gnome
+  treasuresCollected: 0,
 };
 
 const FUEL_TYPES = [
@@ -75,25 +80,106 @@ function gardenCost(key) {
   return Math.ceil(def.baseCost * Math.pow(def.mult, state.garden[key]));
 }
 
+// ---------- Crew skill tree ----------
+// 3-tier tree, each node unlocks once (no levels). (col is 0..2 for rendering)
+const SKILL_TREE = [
+  { id: 'foreman',    tier: 0, col: 1, icon: '👷', name: 'Hire Foreman',
+    desc: 'Recruit your first hand. +5% robot speed.',
+    cost: 1200, req: null },
+
+  { id: 'mechanic',   tier: 1, col: 0, icon: '🧰', name: 'Apprentice Mechanic',
+    desc: 'Refuel costs -25% and drain -5%.',
+    cost: 3500, req: 'foreman' },
+  { id: 'keenEye',    tier: 1, col: 1, icon: '👁️', name: 'Keen Eye',
+    desc: 'Gnomes visit 35% more often · +60% skin drop chance.',
+    cost: 4500, req: 'foreman' },
+  { id: 'qualityControl', tier: 1, col: 2, icon: '🎯', name: 'Quality Control',
+    desc: '+4% crit chance (stacks with gnomes).',
+    cost: 5000, req: 'foreman' },
+
+  { id: 'autoRefuel', tier: 2, col: 0, icon: '⛽', name: 'Auto-Refueler',
+    desc: 'Automatically refuel when fuel hits 25%.',
+    cost: 12000, req: 'mechanic' },
+  { id: 'scout',      tier: 2, col: 1, icon: '🔍', name: 'Treasure Scout',
+    desc: 'Auto-collects gnome treasures after 8s.',
+    cost: 15000, req: 'keenEye' },
+  { id: 'efficiency', tier: 2, col: 2, icon: '⚙️', name: 'Efficiency Expert',
+    desc: '+20% mow rate and +10% global coin income.',
+    cost: 18000, req: 'qualityControl' },
+];
+const SKILL_BY_ID = Object.fromEntries(SKILL_TREE.map(s => [s.id, s]));
+function hasCrew(id) { return state.crew && state.crew.indexOf(id) >= 0; }
+function crewUnlockable(id) {
+  const s = SKILL_BY_ID[id]; if (!s) return false;
+  if (hasCrew(id)) return false;
+  if (s.req && !hasCrew(s.req)) return false;
+  return true;
+}
+
+// ---------- Mower skins ----------
+const SKIN_DEFS = [
+  { key: 'default', name: 'Classic Orange', rarity: 'base',
+    body: ['#ff7a2e', '#c0421a'], trim: '#1a1a1a', accent: '#ff4a4a', panel: '#58ffa0' },
+  { key: 'cherry',  name: 'Cherry Blaze', rarity: 'common',
+    body: ['#ff3b5a', '#7c0e1f'], trim: '#2a0a0f', accent: '#ffd34e', panel: '#fff1c4' },
+  { key: 'sky',     name: 'Sky Patrol', rarity: 'common',
+    body: ['#5ccaff', '#1e6fa3'], trim: '#0a1a25', accent: '#ffd34e', panel: '#e9fbe7' },
+  { key: 'forest',  name: 'Forest Ranger', rarity: 'uncommon',
+    body: ['#58c85f', '#1e5d2c'], trim: '#0a1f12', accent: '#ffd34e', panel: '#8ff09e' },
+  { key: 'neon',    name: 'Neon Rave', rarity: 'rare',
+    body: ['#b94dff', '#3b1565'], trim: '#0f0322', accent: '#58ffa0', panel: '#72f2ff' },
+  { key: 'stealth', name: 'Stealth Mk.II', rarity: 'rare',
+    body: ['#3a3f45', '#0e1014'], trim: '#000000', accent: '#d0d3d9', panel: '#72f2ff' },
+  { key: 'gold',    name: 'Gold Plated', rarity: 'epic',
+    body: ['#ffe15a', '#b8860b'], trim: '#5a3a1e', accent: '#ff3333', panel: '#fff1c4' },
+  { key: 'rainbow', name: 'Rainbow Runner', rarity: 'legendary',
+    body: ['rainbow'], trim: '#1a1a1a', accent: '#ffffff', panel: '#ffffff' },
+];
+const SKIN_BY_KEY = Object.fromEntries(SKIN_DEFS.map(s => [s.key, s]));
+const RARITY_COLORS = {
+  base:      '#9fc4a2',
+  common:    '#c6d4c8',
+  uncommon:  '#5ccaff',
+  rare:      '#b94dff',
+  epic:      '#ffd34e',
+  legendary: '#ff6bcf',
+};
+function skinDropChance() {
+  return CFG.treasureSkinChance * (hasCrew('keenEye') ? 1.6 : 1);
+}
+function gnomeSpawnIntervalMult() {
+  return hasCrew('keenEye') ? 1 / 1.35 : 1;
+}
+
 // ---------- Derived values ----------
 function gemMult()      { return 1 + state.gems * 0.10; }
 function activeFuelType(){ return FUEL_TYPES[state.upgrades.fuelType] || FUEL_TYPES[0]; }
 function isElectric()   { return !activeFuelType().refuelable; }
-function fuelEffMult()  { return Math.max(0.1, 1 - state.upgrades.fuelEff * 0.08); }
+function fuelEffMult()  {
+  const mechanic = hasCrew('mechanic') ? 0.95 : 1;
+  return Math.max(0.1, (1 - state.upgrades.fuelEff * 0.08) * mechanic);
+}
 function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult; }
-function fuelRefillCost(){ return Math.ceil(25 * state.upgrades.robots * fuelEffMult()); }
+function fuelRefillCost(){
+  const mechanicDisc = hasCrew('mechanic') ? 0.75 : 1;
+  return Math.ceil(25 * state.upgrades.robots * fuelEffMult() * mechanicDisc);
+}
 function shedMult()    { return 1 + state.garden.shed * 0.05; }
 function fountainMult(){ return 1 + state.garden.fountain * 0.08; }
 function rockMult()    { return 1 + state.garden.rock * 0.005; }
 function treeGrowth()  { return state.garden.tree * 0.01 + state.garden.pond * 0.03; }
 function gnomeCritBonus(){ return state.garden.gnome * 0.01; }
+function crewSpeedMult(){ return hasCrew('foreman') ? 1.05 : 1; }
+function crewCoinMult(){ return hasCrew('efficiency') ? 1.10 : 1; }
+function crewMowRateMult(){ return hasCrew('efficiency') ? 1.20 : 1; }
+function crewCritBonus(){ return hasCrew('qualityControl') ? 0.04 : 0; }
 
-function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult(); }
+function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
-function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult(); }
+function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult(); }
 function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()); }
-function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15); }
-function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus()); }
+function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
+function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus()); }
 function critMult()    { return 5; }
 
 // ---------- Formatting ----------

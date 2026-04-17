@@ -2,7 +2,7 @@
    Save / Load / offline earnings / reset
    ============================================================ */
 
-const SAVE_KEY = 'lawnbotTycoonSave_v3';
+const SAVE_KEY = 'lawnbotTycoonSave_v4';
 let lastSave = 0;
 
 function saveGame() {
@@ -29,6 +29,11 @@ function saveGame() {
       muted: state.muted,
       upgrades: state.upgrades,
       garden: state.garden,
+      crew: state.crew,
+      skinsUnlocked: state.skinsUnlocked,
+      activeSkin: state.activeSkin,
+      treasuresCollected: state.treasuresCollected,
+      gnomeTimer: state.gnomeTimer,
     },
     tiles: tilePack,
     ts: Date.now(),
@@ -51,6 +56,12 @@ function loadGame() {
       delete state.upgrades.electric;
     }
     state.garden   = Object.assign({ tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 }, state.garden || {});
+    if (!Array.isArray(state.crew)) state.crew = [];
+    if (!Array.isArray(state.skinsUnlocked) || state.skinsUnlocked.length === 0) state.skinsUnlocked = ['default'];
+    if (!state.activeSkin || !SKIN_BY_KEY[state.activeSkin]) state.activeSkin = 'default';
+    if (state.skinsUnlocked.indexOf(state.activeSkin) < 0) state.activeSkin = 'default';
+    if (!isFinite(state.treasuresCollected)) state.treasuresCollected = 0;
+    if (!isFinite(state.gnomeTimer)) state.gnomeTimer = 60 + Math.random() * 30;
     if (state.fuel == null) state.fuel = CFG.fuelMax;
     grass = new Float32Array(CFG.gridW * CFG.gridH);
     tiles = new Uint8Array(CFG.gridW * CFG.gridH);

@@ -234,6 +234,120 @@ function updateGrass(dt) {
   }
 }
 
+// ---------- Visitor Gnome + Treasure AI ----------
+function updateGnomeSpawnTimer(dt) {
+  state.gnomeTimer -= dt;
+  if (state.gnomeTimer <= 0) {
+    if (visitorGnomes.length < 2) spawnVisitorGnome();
+    const mult = gnomeSpawnIntervalMult();
+    state.gnomeTimer = (CFG.gnomeSpawnMin + Math.random() * (CFG.gnomeSpawnMax - CFG.gnomeSpawnMin)) * mult;
+  }
+}
+
+function updateVisitorGnome(g, dt) {
+  const ts = tileSize;
+  const speed = CFG.gnomeWalkSpeed;
+  const moveTo = (tx, ty) => {
+    const dx = tx - g.x, dy = ty - g.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 2) return true;
+    const step = Math.min(dist, speed * dt);
+    g.x += (dx / dist) * step;
+    g.y += (dy / dist) * step;
+    if (Math.abs(dx) > 0.5) g.facing = dx > 0 ? 1 : -1;
+    return false;
+  };
+
+  if (g.state === 'walking') {
+    g.walkPhase += dt * 9;
+    if (moveTo(g.targetX, g.targetY)) {
+      g.state = 'digging';
+      g.stateTime = 0;
+    }
+  } else if (g.state === 'digging') {
+    g.stateTime += dt;
+    g.walkPhase += dt * 3;
+    // Drop a treasure halfway through the dig
+    if (!g.hasDropped && g.stateTime > CFG.gnomeDigDuration * 0.55) {
+      spawnTreasureAt(g.digCell.x, g.digCell.y);
+      g.hasDropped = true;
+      const cx = (g.digCell.x + 0.5) * ts;
+      const cy = (g.digCell.y + 0.5) * ts;
+      for (let i = 0; i < 6; i++) {
+        addParticle(cx + (Math.random() - 0.5) * ts, cy - 2, {
+          text: '·', color: '#8b5a2b', size: 10 + Math.random() * 6,
+        });
+      }
+      beep(420, 0.05, 'triangle', 0.04);
+      toast('🧙 A gnome hid something in the garden!', '#c6a8ff');
+    }
+    if (g.stateTime > CFG.gnomeDigDuration) {
+      g.state = 'leaving';
+      g.stateTime = 0;
+    }
+  } else if (g.state === 'leaving') {
+    g.walkPhase += dt * 10;
+    if (moveTo(g.exitX, g.exitY)) {
+      g.state = 'gone';
+    }
+  }
+}
+
+function updateVisitorGnomes(dt) {
+  for (let i = visitorGnomes.length - 1; i >= 0; i--) {
+    updateVisitorGnome(visitorGnomes[i], dt);
+    if (visitorGnomes[i].state === 'gone') visitorGnomes.splice(i, 1);
+  }
+}
+
+function updateTreasures(dt) {
+  for (let i = treasures.length - 1; i >= 0; i--) {
+    const t = treasures[i];
+    t.life -= dt;
+    t.born += dt;
+    t.phase += dt;
+    if (t.life <= 0) {
+      treasures.splice(i, 1);
+      continue;
+    }
+    // Sparkles
+    if (Math.random() < 0.12) {
+      addParticle(t.x + (Math.random() - 0.5) * tileSize * 0.9,
+                  t.y - tileSize * 0.25 + (Math.random() - 0.5) * 4, {
+        text: '✦', color: t.type === 'skin' ? '#ff6bcf' : '#ffd34e',
+        size: t.type === 'skin' ? 11 : 9, gravity: -20,
+      });
+    }
+  }
+}
+
+function updateCrew(dt) {
+  // Auto-refueler
+  if (hasCrew('autoRefuel') && !isElectric()) {
+    const pct = state.fuel / CFG.fuelMax;
+    if (pct < 0.25) {
+      const cost = fuelRefillCost();
+      if (state.coins >= cost) {
+        state.coins -= cost;
+        state.fuel = CFG.fuelMax;
+        beep(380, 0.05, 'sine', 0.04);
+        addParticle(canvas.width * 0.5, 24, {
+          text: '⛽ Auto-refueled', color: '#ff9f1c', size: 13, gravity: 40,
+        });
+      }
+    }
+  }
+  // Treasure scout
+  if (hasCrew('scout')) {
+    for (let i = treasures.length - 1; i >= 0; i--) {
+      const t = treasures[i];
+      if (t.born > CFG.scoutAutoDelay) {
+        collectTreasureIndex(i, true);
+      }
+    }
+  }
+}
+
 let flowerIncomeAccum = 0;
 function updateFlowerIncome(dt) {
   const flowers = state.garden.flower;

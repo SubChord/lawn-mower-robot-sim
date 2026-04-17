@@ -115,3 +115,70 @@ function ensureBeesFromHives() {
   }
   while (bees.length > want) bees.pop();
 }
+
+// ---------- Wandering Gnomes + Treasures ----------
+let visitorGnomes = []; // mischievous gnomes that hide treasures
+let treasures = [];     // { x, y, tileX, tileY, type: 'coin'|'skin', amount, skinKey, life, born, phase }
+
+function findGrassTile() {
+  for (let i = 0; i < 80; i++) {
+    const x = 2 + Math.floor(Math.random() * (CFG.gridW - 4));
+    const y = 2 + Math.floor(Math.random() * (CFG.gridH - 4));
+    if (tiles[idx(x, y)] === T.GRASS) return { x, y };
+  }
+  return null;
+}
+
+function spawnVisitorGnome() {
+  const ts = getTileSize();
+  const gw = CFG.gridW, gh = CFG.gridH;
+  const edge = Math.floor(Math.random() * 4);
+  let sx, sy, ex, ey;
+  if (edge === 0)      { sx = -1;      sy = 2 + Math.random() * (gh - 4); ex = gw + 1; ey = 2 + Math.random() * (gh - 4); }
+  else if (edge === 1) { sx = gw + 1;  sy = 2 + Math.random() * (gh - 4); ex = -1;     ey = 2 + Math.random() * (gh - 4); }
+  else if (edge === 2) { sx = 2 + Math.random() * (gw - 4); sy = -1;      ex = 2 + Math.random() * (gw - 4); ey = gh + 1; }
+  else                 { sx = 2 + Math.random() * (gw - 4); sy = gh + 1;  ex = 2 + Math.random() * (gw - 4); ey = -1;     }
+
+  const dig = findGrassTile() || { x: Math.floor(gw/2), y: Math.floor(gh/2) };
+  visitorGnomes.push({
+    x: sx * ts, y: sy * ts,
+    targetX: (dig.x + 0.5) * ts, targetY: (dig.y + 0.5) * ts,
+    exitX: ex * ts, exitY: ey * ts,
+    digCell: dig,
+    facing: 1,
+    state: 'walking',
+    stateTime: 0,
+    walkPhase: Math.random() * 10,
+    hasDropped: false,
+  });
+}
+
+function rollTreasurePayload() {
+  if (Math.random() < skinDropChance()) {
+    const locked = SKIN_DEFS.filter(s => state.skinsUnlocked.indexOf(s.key) < 0);
+    if (locked.length > 0) {
+      const pick = locked[Math.floor(Math.random() * locked.length)];
+      return { type: 'skin', skinKey: pick.key, amount: 0 };
+    }
+  }
+  const ref = typeof displayedRate === 'number' && displayedRate > 0 ? displayedRate : 4;
+  const base = Math.max(60, Math.floor(ref * (25 + Math.random() * 90)));
+  const withGems = Math.floor(base * (1 + state.gems * 0.05));
+  return { type: 'coin', amount: withGems, skinKey: null };
+}
+
+function spawnTreasureAt(tx, ty) {
+  const ts = getTileSize();
+  const pay = rollTreasurePayload();
+  treasures.push({
+    tileX: tx, tileY: ty,
+    x: (tx + 0.5) * ts,
+    y: (ty + 0.5) * ts,
+    type: pay.type,
+    amount: pay.amount,
+    skinKey: pay.skinKey,
+    life: CFG.treasureLifetime,
+    born: 0,
+    phase: Math.random() * 10,
+  });
+}

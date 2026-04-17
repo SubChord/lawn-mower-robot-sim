@@ -17,6 +17,10 @@ function loop(now) {
     updateFuel(TICK);
     for (const r of robots) updateRobot(r, TICK);
     for (const b of bees) updateBee(b, TICK);
+    updateGnomeSpawnTimer(TICK);
+    updateVisitorGnomes(TICK);
+    updateTreasures(TICK);
+    updateCrew(TICK);
     accumulator -= TICK;
   }
   render();

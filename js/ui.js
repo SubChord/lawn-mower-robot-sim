@@ -100,6 +100,8 @@ function renderShop() {
 
   if (activeTab === 'prestige') { renderPrestige(list); return; }
   if (activeTab === 'garden')   { renderGarden(list);   return; }
+  if (activeTab === 'crew')     { renderCrew(list);     return; }
+  if (activeTab === 'skins')    { renderSkins(list);    return; }
 
   for (const up of UPGRADE_DEFS) {
     if (up.show && !up.show()) continue;
@@ -239,9 +241,13 @@ function doPrestige() {
   state.totalEarnedThisRun = 0;
   state.upgrades = { robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0 };
   state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
+  state.crew     = [];
   state.fuel     = CFG.fuelMax;
+  state.gnomeTimer = 60 + Math.random() * 30;
   robots = [];
   bees = [];
+  visitorGnomes = [];
+  treasures = [];
   initWorld();
   ensureRobotCount();
   ensureBeesFromHives();
@@ -250,6 +256,219 @@ function doPrestige() {
   setTimeout(() => beep(1320, 0.2, 'triangle', 0.1), 100);
   renderShop();
   saveGame();
+}
+
+// ---------- Crew skill tree ----------
+function renderCrew(list) {
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Hire specialists to automate the farm. Each tier requires the one above.
+      🧙 A gnome might also drop by with gifts — collect his treasures or let your <b>Scout</b> grab them.
+    </p>`;
+  list.appendChild(header);
+
+  const tree = document.createElement('div');
+  tree.className = 'crew-tree';
+
+  // SVG connectors: the tree has 3 tiers with 3 cols (foreman is col1/tier0).
+  // Tier 0 → all tier 1 nodes (fan-out from foreman).
+  // Tier 1 → matching tier 2 node (vertical).
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'crew-connectors');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  // coords in percentage space (0..100)
+  const COL_X = [16.67, 50, 83.33];
+  const TIER_Y = [14, 50, 86];
+  const lines = [
+    { from: [COL_X[1], TIER_Y[0]], to: [COL_X[0], TIER_Y[1]], id: 'mechanic' },
+    { from: [COL_X[1], TIER_Y[0]], to: [COL_X[1], TIER_Y[1]], id: 'keenEye' },
+    { from: [COL_X[1], TIER_Y[0]], to: [COL_X[2], TIER_Y[1]], id: 'qualityControl' },
+    { from: [COL_X[0], TIER_Y[1]], to: [COL_X[0], TIER_Y[2]], id: 'autoRefuel', parent: 'mechanic' },
+    { from: [COL_X[1], TIER_Y[1]], to: [COL_X[1], TIER_Y[2]], id: 'scout', parent: 'keenEye' },
+    { from: [COL_X[2], TIER_Y[1]], to: [COL_X[2], TIER_Y[2]], id: 'efficiency', parent: 'qualityControl' },
+  ];
+  for (const L of lines) {
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', L.from[0]);
+    line.setAttribute('y1', L.from[1]);
+    line.setAttribute('x2', L.to[0]);
+    line.setAttribute('y2', L.to[1]);
+    const parentId = L.parent || 'foreman';
+    const active = hasCrew(L.id) && hasCrew(parentId);
+    const reachable = hasCrew(parentId);
+    line.setAttribute('stroke', active ? '#ffd34e' : (reachable ? 'rgba(143,240,158,0.45)' : 'rgba(143,240,158,0.15)'));
+    line.setAttribute('stroke-width', active ? '3' : '2');
+    line.setAttribute('stroke-linecap', 'round');
+    if (active) line.setAttribute('filter', 'drop-shadow(0 0 4px #ffd34e)');
+    svg.appendChild(line);
+  }
+  tree.appendChild(svg);
+
+  // Nodes positioned absolutely on the same 300x300 grid (% translated by CSS)
+  for (const node of SKILL_TREE) {
+    const el = document.createElement('div');
+    const owned = hasCrew(node.id);
+    const reqOk = !node.req || hasCrew(node.req);
+    const affordable = state.coins >= node.cost;
+    const buyable = !owned && reqOk && affordable;
+    const locked = !reqOk;
+    el.className = 'crew-node'
+      + (owned ? ' owned' : '')
+      + (buyable ? ' buyable' : '')
+      + (locked ? ' locked' : '');
+    el.style.left = COL_X[node.col] + '%';
+    el.style.top  = TIER_Y[node.tier] + '%';
+    el.innerHTML = `
+      <div class="crew-icon">${node.icon}</div>
+      <div class="crew-name">${node.name}</div>
+      <div class="crew-desc">${node.desc}</div>
+      <div class="crew-cost">${owned ? '✅ HIRED' : (locked ? '🔒 locked' : '💰 ' + formatShort(node.cost))}</div>
+    `;
+    if (buyable) {
+      el.addEventListener('click', () => buyCrew(node.id));
+    }
+    tree.appendChild(el);
+  }
+
+  list.appendChild(tree);
+}
+
+function buyCrew(id) {
+  const node = SKILL_BY_ID[id];
+  if (!node) return;
+  if (hasCrew(id)) return;
+  if (node.req && !hasCrew(node.req)) return;
+  if (state.coins < node.cost) return;
+  state.coins -= node.cost;
+  state.crew.push(id);
+  beep(700, 0.10, 'triangle', 0.08);
+  setTimeout(() => beep(1040, 0.12, 'triangle', 0.07), 90);
+  toast(`${node.icon} Hired: ${node.name}!`, '#8ff09e');
+  addParticle(canvas.width / 2, canvas.height / 2, {
+    text: node.icon + ' ' + node.name, color: '#8ff09e', size: 18,
+  });
+  renderShop();
+  saveGame();
+}
+
+// ---------- Skins tab ----------
+function renderSkins(list) {
+  const header = document.createElement('div');
+  const unlocked = state.skinsUnlocked.length;
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Equip a skin for your mower fleet. Unlock rare skins from 🧙 <b>gnome treasures</b>.<br>
+      Collected: <b style="color:var(--grass-xlight);">${unlocked}/${SKIN_DEFS.length}</b> · Treasures opened: <b style="color:var(--gold);">${state.treasuresCollected || 0}</b>
+    </p>`;
+  list.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'skin-grid';
+  for (const skin of SKIN_DEFS) {
+    const owned = state.skinsUnlocked.indexOf(skin.key) >= 0;
+    const active = state.activeSkin === skin.key;
+    const card = document.createElement('div');
+    card.className = 'skin-card' + (owned ? ' owned' : ' locked') + (active ? ' active' : '');
+    const preview = skinPreviewHTML(skin, owned);
+    const rarityColor = RARITY_COLORS[skin.rarity] || '#9fc4a2';
+    card.innerHTML = `
+      <div class="skin-preview">${preview}</div>
+      <div class="skin-name">${owned ? skin.name : '???'}</div>
+      <div class="skin-rarity" style="color:${rarityColor};">${skin.rarity.toUpperCase()}</div>
+      <div class="skin-action">${active ? '✔ Equipped' : (owned ? 'Equip' : '🔒 Locked')}</div>
+    `;
+    if (owned && !active) {
+      card.addEventListener('click', () => {
+        state.activeSkin = skin.key;
+        beep(660, 0.08, 'sine', 0.06);
+        toast(`🎨 Equipped ${skin.name}`, '#8ff09e');
+        renderShop();
+        saveGame();
+      });
+    }
+    grid.appendChild(card);
+  }
+  list.appendChild(grid);
+}
+
+function skinPreviewHTML(skin, owned) {
+  if (!owned) return `<div class="skin-silhouette">?</div>`;
+  let grad;
+  if (skin.body[0] === 'rainbow') {
+    grad = `linear-gradient(135deg, #ff4a4a, #ffd34e, #58ffa0, #5ccaff, #b94dff)`;
+  } else {
+    grad = `linear-gradient(180deg, ${skin.body[0]}, ${skin.body[1]})`;
+  }
+  return `
+    <div class="skin-chip" style="background:${grad}; border-color:${skin.trim};">
+      <div class="skin-dot" style="background:${skin.accent};"></div>
+      <div class="skin-panel" style="background:${skin.panel};"></div>
+    </div>`;
+}
+
+// ---------- Treasure collection ----------
+function collectTreasureIndex(i, silent) {
+  const t = treasures[i];
+  if (!t) return;
+  treasures.splice(i, 1);
+  state.treasuresCollected = (state.treasuresCollected || 0) + 1;
+  if (t.type === 'skin' && t.skinKey && state.skinsUnlocked.indexOf(t.skinKey) < 0) {
+    state.skinsUnlocked.push(t.skinKey);
+    const skin = SKIN_BY_KEY[t.skinKey];
+    showSkinUnlockModal(skin);
+    beep(660, 0.10, 'triangle', 0.09);
+    setTimeout(() => beep(990, 0.10, 'triangle', 0.08), 90);
+    setTimeout(() => beep(1320, 0.18, 'triangle', 0.08), 200);
+  } else {
+    // fallback if the skin was already owned or for coin treasure
+    let coins = t.amount;
+    if (!coins || t.type === 'skin') {
+      coins = Math.max(120, Math.floor((displayedRate || 4) * 60));
+    }
+    state.coins += coins;
+    state.totalEarnedAllTime += coins;
+    state.totalEarnedThisRun += coins;
+    addParticle(t.x, t.y - 6, {
+      text: '+' + formatShort(coins), color: '#ffd34e', size: 18,
+    });
+    if (!silent) toast('🪙 Treasure opened: +' + formatShort(coins), '#ffd34e');
+    beep(820, 0.08, 'triangle', 0.08);
+    setTimeout(() => beep(1100, 0.1, 'triangle', 0.06), 80);
+  }
+  saveGame();
+}
+
+function showSkinUnlockModal(skin) {
+  const rarityColor = RARITY_COLORS[skin.rarity] || '#ffd34e';
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop';
+  back.innerHTML = `
+    <div class="modal skin-modal">
+      <h2>🧙 GNOME'S GIFT!</h2>
+      <p style="color:${rarityColor}; font-weight:800; letter-spacing:1px;">${skin.rarity.toUpperCase()} SKIN UNLOCKED</p>
+      <div class="skin-modal-preview">${skinPreviewHTML(skin, true)}</div>
+      <div class="big" style="color:${rarityColor};">${skin.name}</div>
+      <p>Equip it now from the 🎨 Skins tab.</p>
+      <button id="okBtn">Sweet!</button>
+    </div>`;
+  document.body.appendChild(back);
+  back.querySelector('#okBtn').addEventListener('click', () => back.remove());
+}
+
+function handleCanvasClick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+  for (let i = treasures.length - 1; i >= 0; i--) {
+    const t = treasures[i];
+    const dx = t.x - x, dy = t.y - y;
+    if (Math.hypot(dx, dy) < tileSize * 0.8) {
+      collectTreasureIndex(i, false);
+      return;
+    }
+  }
 }
 
 // ---------- Toasts ----------
@@ -294,6 +513,18 @@ function wireUIEvents() {
       activeTab = t.dataset.tab;
       renderShop();
     });
+  });
+
+  canvas.addEventListener('click', handleCanvasClick);
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+    let hover = false;
+    for (const t of treasures) {
+      if (Math.hypot(t.x - x, t.y - y) < tileSize * 0.8) { hover = true; break; }
+    }
+    canvas.style.cursor = hover ? 'pointer' : 'default';
   });
 
   document.getElementById('refuelBtn').addEventListener('click', () => {

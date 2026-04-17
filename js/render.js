@@ -284,6 +284,16 @@ function drawBee(b) {
   ctx.restore();
 }
 
+function skinBodyColors(skinKey, t) {
+  const skin = SKIN_BY_KEY[skinKey] || SKIN_BY_KEY.default;
+  if (skin.body[0] === 'rainbow') {
+    const hueA = (t * 60) % 360;
+    const hueB = (hueA + 60) % 360;
+    return [`hsl(${hueA},95%,60%)`, `hsl(${hueB},85%,38%)`, skin.trim, skin.accent, skin.panel];
+  }
+  return [skin.body[0], skin.body[1], skin.trim, skin.accent, skin.panel];
+}
+
 function drawRobot(r) {
   ctx.save();
   if (state.fuel <= 0) ctx.globalAlpha = 0.35;
@@ -306,9 +316,12 @@ function drawRobot(r) {
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(0, h * 0.45, w * 0.55, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
 
+  const now = performance.now() / 1000;
+  const [bodyTop, bodyBot, trimCol, accentCol, panelCol] = skinBodyColors(state.activeSkin, now);
+
   const bodyGrad = ctx.createLinearGradient(0, -h/2, 0, h/2);
-  bodyGrad.addColorStop(0, '#ff7a2e');
-  bodyGrad.addColorStop(1, '#c0421a');
+  bodyGrad.addColorStop(0, bodyTop);
+  bodyGrad.addColorStop(1, bodyBot);
   ctx.fillStyle = bodyGrad;
   roundRect(ctx, -w/2, -h/2, w, h, s * 0.24);
   ctx.fill();
@@ -317,10 +330,10 @@ function drawRobot(r) {
   roundRect(ctx, -w/2 + 2, -h/2 + 2, w - 4, h * 0.28, s * 0.18);
   ctx.fill();
 
-  ctx.fillStyle = '#1a1a1a';
+  ctx.fillStyle = trimCol;
   roundRect(ctx, w/2 - s*0.35, -h*0.22, s*0.30, h*0.44, s*0.08);
   ctx.fill();
-  ctx.fillStyle = '#58ffa0';
+  ctx.fillStyle = panelCol;
   ctx.fillRect(w/2 - s*0.22, -h*0.12, s*0.06, s*0.08);
   ctx.fillRect(w/2 - s*0.22, h*0.04,  s*0.06, s*0.08);
 
@@ -347,8 +360,223 @@ function drawRobot(r) {
   ctx.strokeStyle = '#222';
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(-w*0.25, 0); ctx.lineTo(-w*0.25, -h*0.7); ctx.stroke();
-  ctx.fillStyle = '#ff4a4a';
+  ctx.fillStyle = accentCol;
   ctx.beginPath(); ctx.arc(-w*0.25, -h*0.72, 2, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+// ---------- Visitor Gnome (animated wanderer) ----------
+function drawVisitorGnome(g) {
+  const ts = tileSize;
+  const scale = ts / 16;
+  ctx.save();
+  ctx.translate(g.x, g.y);
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(0, ts * 0.42, ts * 0.30, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.scale(g.facing, 1);
+
+  const walking = g.state === 'walking' || g.state === 'leaving';
+  const step = walking ? Math.sin(g.walkPhase) : 0;
+  const bob = walking ? Math.abs(Math.cos(g.walkPhase)) * -1.5 : 0;
+
+  ctx.translate(0, bob);
+
+  // Legs (brown pants, boots)
+  const legSwing = step * ts * 0.12;
+  ctx.fillStyle = '#6a4a1f';
+  roundRect(ctx, -ts * 0.14, ts * 0.08, ts * 0.12, ts * 0.24, 1); ctx.fill();
+  roundRect(ctx,  ts * 0.02 + legSwing * 0.3, ts * 0.08, ts * 0.12, ts * 0.24 - Math.abs(legSwing) * 0.3, 1); ctx.fill();
+  // Boots
+  ctx.fillStyle = '#2a1a0a';
+  roundRect(ctx, -ts * 0.16, ts * 0.30, ts * 0.18, ts * 0.08, 1); ctx.fill();
+  roundRect(ctx,  ts * 0.00 + legSwing * 0.3, ts * 0.30, ts * 0.18, ts * 0.08, 1); ctx.fill();
+
+  // Body (blue tunic with belt)
+  const bodyGrad = ctx.createLinearGradient(0, -ts * 0.1, 0, ts * 0.16);
+  bodyGrad.addColorStop(0, '#5486d6');
+  bodyGrad.addColorStop(1, '#2d5aa3');
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, -ts * 0.22, -ts * 0.1, ts * 0.44, ts * 0.28, ts * 0.08); ctx.fill();
+  // Belt
+  ctx.fillStyle = '#3a2410';
+  ctx.fillRect(-ts * 0.22, ts * 0.10, ts * 0.44, ts * 0.05);
+  ctx.fillStyle = '#ffd34e';
+  ctx.fillRect(-ts * 0.04, ts * 0.10, ts * 0.08, ts * 0.05);
+
+  // Arms (swinging while walking, shovel-wielding while digging)
+  const armSwing = step * ts * 0.18;
+  if (g.state === 'digging') {
+    // Shovel arm down + pumping
+    const pump = Math.sin(g.stateTime * 10) * ts * 0.12;
+    ctx.save();
+    ctx.translate(ts * 0.18, -ts * 0.02 + pump);
+    ctx.rotate(0.6 + pump * 0.02);
+    ctx.fillStyle = '#f4d5b1';
+    roundRect(ctx, -ts * 0.04, -ts * 0.04, ts * 0.1, ts * 0.18, 1); ctx.fill();
+    // Shovel
+    ctx.fillStyle = '#5a3a1e';
+    ctx.fillRect(ts * 0.02, ts * 0.12, ts * 0.04, ts * 0.22);
+    ctx.fillStyle = '#9ca4ab';
+    roundRect(ctx, -ts * 0.04, ts * 0.30, ts * 0.16, ts * 0.10, 1); ctx.fill();
+    ctx.restore();
+    // Other arm on hip
+    ctx.fillStyle = '#f4d5b1';
+    roundRect(ctx, -ts * 0.22, ts * 0.0, ts * 0.1, ts * 0.14, 1); ctx.fill();
+  } else {
+    ctx.fillStyle = '#f4d5b1';
+    roundRect(ctx, -ts * 0.28, -ts * 0.02 - armSwing, ts * 0.1, ts * 0.18, 1); ctx.fill();
+    roundRect(ctx,  ts * 0.18, -ts * 0.02 + armSwing, ts * 0.1, ts * 0.18, 1); ctx.fill();
+  }
+
+  // Head (skin tone)
+  ctx.fillStyle = '#f4d5b1';
+  ctx.beginPath(); ctx.arc(0, -ts * 0.16, ts * 0.14, 0, Math.PI * 2); ctx.fill();
+
+  // Beard (fluffy white)
+  ctx.fillStyle = '#f4f6f8';
+  ctx.beginPath();
+  ctx.moveTo(-ts * 0.14, -ts * 0.14);
+  ctx.quadraticCurveTo(-ts * 0.10, ts * 0.06, 0, ts * 0.04);
+  ctx.quadraticCurveTo( ts * 0.10, ts * 0.06, ts * 0.14, -ts * 0.14);
+  ctx.quadraticCurveTo( ts * 0.00, -ts * 0.04, -ts * 0.14, -ts * 0.14);
+  ctx.closePath(); ctx.fill();
+
+  // Mustache
+  ctx.fillStyle = '#e6ebef';
+  ctx.beginPath(); ctx.ellipse(-ts * 0.04, -ts * 0.10, ts * 0.05, ts * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse( ts * 0.04, -ts * 0.10, ts * 0.05, ts * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Nose (round, warm)
+  ctx.fillStyle = '#e09a78';
+  ctx.beginPath(); ctx.arc(0, -ts * 0.12, ts * 0.035, 0, Math.PI * 2); ctx.fill();
+
+  // Eyes (tiny sparkle)
+  ctx.fillStyle = '#20110a';
+  ctx.beginPath(); ctx.arc(-ts * 0.05, -ts * 0.18, 1.2 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( ts * 0.05, -ts * 0.18, 1.2 * scale, 0, Math.PI * 2); ctx.fill();
+
+  // Hat (tall red cone with floppy tip)
+  const hatSway = Math.sin(g.walkPhase * 0.7) * 0.12;
+  ctx.save();
+  ctx.translate(0, -ts * 0.26);
+  ctx.rotate(hatSway);
+  ctx.fillStyle = '#c7302f';
+  ctx.beginPath();
+  ctx.moveTo(-ts * 0.16, 0);
+  ctx.lineTo(ts * 0.16, 0);
+  ctx.quadraticCurveTo(ts * 0.05, -ts * 0.22, ts * 0.02, -ts * 0.34);
+  ctx.quadraticCurveTo(-ts * 0.08, -ts * 0.22, -ts * 0.16, 0);
+  ctx.closePath(); ctx.fill();
+  // Hat band
+  ctx.fillStyle = '#8a1a1a';
+  ctx.fillRect(-ts * 0.16, -ts * 0.02, ts * 0.32, ts * 0.04);
+  // Pom-pom
+  ctx.fillStyle = '#f4f6f8';
+  ctx.beginPath(); ctx.arc(ts * 0.025, -ts * 0.36, ts * 0.04, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // dig dirt mound
+  if (g.state === 'digging') {
+    const moundY = ts * 0.34;
+    ctx.fillStyle = '#5a3a1e';
+    ctx.beginPath();
+    ctx.ellipse(-ts * 0.3 * g.facing, moundY, ts * 0.18, ts * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7a5024';
+    ctx.beginPath();
+    ctx.ellipse(-ts * 0.3 * g.facing, moundY - 1, ts * 0.14, ts * 0.04, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ---------- Treasure (animated chest) ----------
+function drawTreasure(t) {
+  const ts = tileSize;
+  ctx.save();
+  const baseY = t.y + Math.sin(t.phase * 2) * 1.2;
+  ctx.translate(t.x, baseY);
+
+  // ground glow
+  const glowAlpha = 0.25 + Math.sin(t.phase * 4) * 0.1;
+  const glow = ctx.createRadialGradient(0, ts * 0.28, 0, 0, ts * 0.28, ts * 0.7);
+  glow.addColorStop(0, `rgba(255, 220, 80, ${glowAlpha})`);
+  glow.addColorStop(1, 'rgba(255, 220, 80, 0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(0, ts * 0.28, ts * 0.7, 0, Math.PI * 2); ctx.fill();
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(0, ts * 0.3, ts * 0.3, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+
+  const isSkin = t.type === 'skin';
+  const chestBody = isSkin ? '#6d2fbd' : '#8a5a1f';
+  const chestDark = isSkin ? '#2d0f5a' : '#4a2f10';
+  const chestLight = isSkin ? '#b94dff' : '#c58620';
+  const trim = isSkin ? '#ff6bcf' : '#ffd34e';
+
+  // chest body
+  const bodyGrad = ctx.createLinearGradient(0, 0, 0, ts * 0.28);
+  bodyGrad.addColorStop(0, chestLight);
+  bodyGrad.addColorStop(1, chestDark);
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, -ts * 0.28, 0, ts * 0.56, ts * 0.3, ts * 0.04); ctx.fill();
+
+  // vertical planks
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1;
+  for (let i = -1; i <= 2; i++) {
+    const px = i * ts * 0.14;
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, ts * 0.3); ctx.stroke();
+  }
+
+  // lid (slightly tilted open, breathing)
+  const lidOpen = Math.sin(t.phase * 3) * 0.06 + 0.12;
+  ctx.save();
+  ctx.translate(0, 0);
+  ctx.rotate(-lidOpen);
+  ctx.fillStyle = chestBody;
+  roundRect(ctx, -ts * 0.3, -ts * 0.14, ts * 0.6, ts * 0.16, ts * 0.06); ctx.fill();
+  // lid trim
+  ctx.fillStyle = trim;
+  ctx.fillRect(-ts * 0.3, 0, ts * 0.6, ts * 0.025);
+  // lock
+  ctx.fillStyle = trim;
+  roundRect(ctx, -ts * 0.04, -ts * 0.04, ts * 0.08, ts * 0.08, 1); ctx.fill();
+  ctx.fillStyle = '#2a1a00';
+  ctx.fillRect(-ts * 0.008, -ts * 0.01, ts * 0.018, ts * 0.035);
+  ctx.restore();
+
+  // inner glow + contents peeking
+  const shineAlpha = 0.7 + Math.sin(t.phase * 6) * 0.25;
+  ctx.fillStyle = isSkin
+    ? `rgba(255, 170, 240, ${shineAlpha})`
+    : `rgba(255, 220, 80, ${shineAlpha})`;
+  ctx.beginPath(); ctx.ellipse(0, ts * 0.02, ts * 0.22, ts * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+
+  // sparkle icon above
+  const iconY = -ts * 0.34 + Math.sin(t.phase * 3) * 1.5;
+  ctx.fillStyle = trim;
+  ctx.font = `bold ${Math.max(9, ts * 0.5)}px Inter, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.lineWidth = 3;
+  const label = isSkin ? '?' : '✦';
+  ctx.strokeText(label, 0, iconY);
+  ctx.fillText(label, 0, iconY);
+
+  // expiration ring when low
+  if (t.life < 15) {
+    const pct = t.life / 15;
+    ctx.strokeStyle = `rgba(255, 90, 90, ${0.9})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, ts * 0.14, ts * 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -393,7 +621,9 @@ function render() {
     ctx.fillRect(x * tileSize, 0, tileSize, canvas.height);
   }
   drawFeatures();
+  for (const t of treasures) drawTreasure(t);
   for (const r of robots) drawRobot(r);
   for (const b of bees) drawBee(b);
+  for (const g of visitorGnomes) drawVisitorGnome(g);
   drawParticles(1/60);
 }

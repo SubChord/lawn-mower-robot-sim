@@ -21,6 +21,13 @@ const CFG = {
   beeVisitDuration: 0.55,
   fuelDrainBase: 0.25,  // fuel per robot per second (benzine)
   fuelMax: 100,
+  gnomeSpawnMin: 75,   // seconds between wandering gnome visits (min)
+  gnomeSpawnMax: 180,  // seconds between wandering gnome visits (max)
+  gnomeWalkSpeed: 34,  // px/sec
+  gnomeDigDuration: 2.2,
+  treasureLifetime: 75, // seconds before a treasure vanishes
+  treasureSkinChance: 0.045, // 4.5% chance a treasure contains a skin
+  scoutAutoDelay: 8,   // seconds scout employee waits before grabbing
 };
 
 // Tile types
