@@ -600,5 +600,25 @@ function enterHouse(key) {
   if (typeof ensureBeesFromHives === 'function') ensureBeesFromHives();
   state.town.inTownView = false;
 }
-function buyHouse(key) { toast('(buy not wired yet)', '#f88'); }
+function buyHouse(key) {
+  const def = HOUSE_BY_KEY[key];
+  if (!def) return false;
+  const h = state.town.houses[key];
+  if (h?.owned) return false;
+  if (state.gems < def.unlockCost) {
+    toast(`Need ${def.unlockCost} 💎`, '#f88');
+    return false;
+  }
+  state.gems -= def.unlockCost;
+  state.town.houses[key] = { owned: true, ...makePerHouseState(key) };
+  // Paint the layout + zones now so idle income works immediately.
+  const prevKey = state.town.activeHouseKey;
+  ensureHouseInitialized(key);
+  switchHouseBindings(prevKey);  // rebind back to whatever was active
+  toast(`${def.icon} ${def.name} purchased!`, '#8ff09e');
+  saveGame();
+  // Refresh any open shop panel
+  if (typeof renderShop === 'function') renderShop();
+  return true;
+}
 
