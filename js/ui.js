@@ -771,11 +771,34 @@ function doPrestige() {
     void:     { unlocked: false, spawnLevel: 0 },
   };
   applyGemGrassUnlocks();
-  robots = [];
-  bees = [];
   visitorGnomes = [];
   treasures = [];
-  initWorld();
+  // Walk every owned house. For each: wipe robots/bees/totalTilesMowed,
+  // then mark uninitialized so ensureHouseInitialized repaints layout + zones.
+  // Typed-array buffers are replaced (new allocations are fine — they're
+  // sized by def.gridW*gridH and held as references inside the house object;
+  // switchHouseBindings rebinds the world globals to these new buffers).
+  const activeKey = state.town.activeHouseKey;
+  const ownedKeys = Object.keys(state.town.houses).filter(k => state.town.houses[k]?.owned);
+  for (const k of ownedKeys) {
+    const def = HOUSE_BY_KEY[k];
+    if (!def) continue;
+    const h = state.town.houses[k];
+    const n = def.gridW * def.gridH;
+    h.grass         = new Float32Array(n);
+    h.tiles         = new Uint8Array(n);
+    h.flowerColors  = new Uint8Array(n);
+    h.grassSpecies  = new Uint8Array(n);
+    h.zones         = new Uint8Array(n);
+    h.robots        = [];
+    h.bees          = [];
+    h.totalTilesMowed = 0;
+    h.initialized   = false;
+    // ensureHouseInitialized rebinds globals to `k` and paints/initWorlds it.
+    ensureHouseInitialized(k);
+  }
+  // Rebind globals to whichever house was active; seed its robots/bees.
+  switchHouseBindings(activeKey);
   ensureRobotCount();
   ensureBeesFromHives();
   toast(`🌟 Gained ${gain} 💎 Gems!`, '#8ff09e');
