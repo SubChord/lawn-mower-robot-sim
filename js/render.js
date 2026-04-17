@@ -794,17 +794,6 @@ function drawPlayer() {
   ctx.fillStyle = '#ffd34e';
   ctx.beginPath(); ctx.arc(0, 0, Math.max(2, br * 0.25), 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-
-  // tool icon floating above cursor
-  const tool = activeTool();
-  ctx.save();
-  ctx.font = `bold ${Math.max(14, ts * 0.9)}px Inter, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0,0,0,0.8)';
-  ctx.shadowBlur = 6;
-  ctx.fillText(tool.icon, px, py - rad - ts * 0.5);
-  ctx.restore();
 }
 
 function render() {

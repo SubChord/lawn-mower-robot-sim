@@ -147,6 +147,12 @@ function updatePlayer(dt) {
 }
 
 function updateRobot(r, dt) {
+  if (r.dragging) {
+    // While being dragged, animate blades/bob but skip AI, movement, and mowing.
+    r.bladePhase += dt * 25;
+    r.bob += dt * 10;
+    return;
+  }
   if (state.fuel <= 0) return;
   const ts = tileSize;
   if (!r.target) pickTarget(r);

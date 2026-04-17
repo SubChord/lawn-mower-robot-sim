@@ -1534,19 +1534,85 @@ function wireUIEvents() {
     });
   });
 
-  canvas.addEventListener('click', handleCanvasClick);
-  canvas.addEventListener('mousemove', (e) => {
+  canvas.addEventListener('click', (e) => {
+    if (suppressNextClick) { suppressNextClick = false; return; }
+    handleCanvasClick(e);
+  });
+
+  // ---------- Robot drag-and-drop ----------
+  // Player can pick up any robot and drop it somewhere else on the lawn.
+  // While dragged, a robot pauses its AI (see updateRobot early-out on r.dragging).
+  let draggingRobot = null;
+  let dragOffX = 0, dragOffY = 0;
+  let suppressNextClick = false;
+  let dragMoved = false;
+  function canvasCoords(e) {
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top)  * (canvas.height / rect.height),
+    };
+  }
+  function robotAt(x, y) {
+    // Hit-test robots back-to-front so the topmost (last drawn) wins.
+    for (let i = robots.length - 1; i >= 0; i--) {
+      const r = robots[i];
+      const s = Math.max(10, tileSize * 0.9);
+      // Body is ~1.4s × s; use the larger half-extent as a forgiving circle.
+      if (Math.hypot(r.x - x, r.y - y) < s * 0.8) return r;
+    }
+    return null;
+  }
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const { x, y } = canvasCoords(e);
+    const r = robotAt(x, y);
+    if (!r) return;
+    draggingRobot = r;
+    r.dragging = true;
+    dragOffX = r.x - x;
+    dragOffY = r.y - y;
+    dragMoved = false;
+    canvas.style.cursor = 'grabbing';
+    player.active = false; // hide the manual mower while dragging
+    e.preventDefault();
+  });
+  window.addEventListener('mouseup', (e) => {
+    if (!draggingRobot) return;
+    draggingRobot.dragging = false;
+    draggingRobot.target = null; // repick a fresh target at the new location
+    draggingRobot.lastTargetCheck = 0;
+    draggingRobot = null;
+    canvas.style.cursor = 'none';
+    if (dragMoved) suppressNextClick = true; // don't treat the drop as a treasure click
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const { x, y } = canvasCoords(e);
+    if (draggingRobot) {
+      dragMoved = true;
+      // Clamp to canvas bounds so the robot can't be flung off-screen.
+      const nx = Math.max(0, Math.min(canvas.width, x + dragOffX));
+      const ny = Math.max(0, Math.min(canvas.height, y + dragOffY));
+      draggingRobot.x = nx;
+      draggingRobot.y = ny;
+      return;
+    }
     player.x = x; player.y = y; player.active = true;
     let hover = false;
     for (const t of treasures) {
       if (Math.hypot(t.x - x, t.y - y) < tileSize * 0.8) { hover = true; break; }
     }
-    canvas.style.cursor = hover ? 'pointer' : 'none';
+    if (robotAt(x, y)) {
+      canvas.style.cursor = 'grab';
+    } else {
+      canvas.style.cursor = hover ? 'pointer' : 'none';
+    }
   });
-  canvas.addEventListener('mouseleave', () => { player.active = false; canvas.style.cursor = 'default'; });
+  canvas.addEventListener('mouseleave', () => {
+    if (draggingRobot) return; // keep dragging even if the cursor slips out
+    player.active = false; canvas.style.cursor = 'default';
+  });
   canvas.addEventListener('mouseenter', () => { player.active = true; canvas.style.cursor = 'none'; });
 
   document.getElementById('refuelBtn').addEventListener('click', () => {
