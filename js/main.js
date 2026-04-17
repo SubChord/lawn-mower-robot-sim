@@ -39,6 +39,7 @@ function init() {
     state.coins = startingCoinsFor(gemLvl('startCoins'));
     state.upgrades.robots = 1 + gemLvl('startRobot');
     state.upgrades.tool = Math.min(gemLvl('startTool'), TOOL_TYPES.length - 1);
+    applyGemGrassUnlocks();
   }
   ensureRobotCount();
   if (state._savedRobots) {

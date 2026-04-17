@@ -81,6 +81,22 @@ function getTileImage(heightBucket, speciesIdx = 0) {
       c.fillRect((tileSize * 0.5) | 0, (tileSize * 0.3) | 0, 1, 1);
       c.fillRect((tileSize * 0.7) | 0, (tileSize * 0.55) | 0, 1, 1);
       c.fillRect((tileSize * 0.3) | 0, (tileSize * 0.7) | 0, 1, 1);
+    } else if (speciesIdx === 5) {
+      // Obsidian: silver vein across the tile.
+      c.fillRect((tileSize * 0.25) | 0, (tileSize * 0.5) | 0, Math.max(2, (tileSize * 0.5) | 0), 1);
+      c.fillRect((tileSize * 0.45) | 0, (tileSize * 0.3) | 0, 1, Math.max(2, (tileSize * 0.4) | 0));
+    } else if (speciesIdx === 6) {
+      // Frost: four-point snowflake-ish speckle.
+      const cx = (tileSize * 0.5) | 0, cy = (tileSize * 0.5) | 0;
+      c.fillRect(cx, cy - 2, 1, 5);
+      c.fillRect(cx - 2, cy, 5, 1);
+      c.fillRect(cx - 1, cy - 1, 1, 1);
+      c.fillRect(cx + 1, cy + 1, 1, 1);
+    } else if (speciesIdx === 7) {
+      // Void: neon scatter with a bigger violet pulse dot.
+      c.fillRect((tileSize * 0.35) | 0, (tileSize * 0.35) | 0, 2, 2);
+      c.fillRect((tileSize * 0.65) | 0, (tileSize * 0.6) | 0, 1, 1);
+      c.fillRect((tileSize * 0.2) | 0, (tileSize * 0.75) | 0, 1, 1);
     }
   }
   tileCache[key] = off;

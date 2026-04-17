@@ -122,15 +122,20 @@ function loadGame() {
       } catch(e) { /* leave zeroed */ }
     }
     state.grassTypes = Object.assign({
-      clover:  { unlocked: false, spawnLevel: 0 },
-      thick:   { unlocked: false, spawnLevel: 0 },
-      crystal: { unlocked: false, spawnLevel: 0 },
-      golden:  { unlocked: false, spawnLevel: 0 },
+      clover:   { unlocked: false, spawnLevel: 0 },
+      thick:    { unlocked: false, spawnLevel: 0 },
+      crystal:  { unlocked: false, spawnLevel: 0 },
+      golden:   { unlocked: false, spawnLevel: 0 },
+      obsidian: { unlocked: false, spawnLevel: 0 },
+      frost:    { unlocked: false, spawnLevel: 0 },
+      void:     { unlocked: false, spawnLevel: 0 },
     }, state.grassTypes || {});
     state.gemUpgrades = Object.assign({
       startCoins: 0, coinMult: 0, growth: 0, crit: 0,
       offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
+      grassObsidian: 0, grassFrost: 0, grassVoid: 0,
     }, state.gemUpgrades || {});
+    applyGemGrassUnlocks();
     // Back-fill totalGemsEarned for saves predating the field.
     if (!isFinite(state.totalGemsEarned)) state.totalGemsEarned = state.gems || 0;
     if (Array.isArray(data.robots)) state._savedRobots = data.robots;

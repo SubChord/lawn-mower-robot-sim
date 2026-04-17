@@ -494,13 +494,14 @@ function renderGrassShop(list) {
     const st = state.grassTypes[def.key];
     const unlocked = !!st?.unlocked;
     const maxed = unlocked && st.spawnLevel >= GRASS_SPAWN_MAX_LEVEL;
+    const gemGated = !!def.gemGated;
     let plan = { count: 0, total: 0 };
     let affordable = false;
     let cost = 0;
-    if (!unlocked) {
+    if (!unlocked && !gemGated) {
       cost = def.unlockCost;
       affordable = state.coins >= cost;
-    } else if (!maxed) {
+    } else if (!maxed && unlocked) {
       plan = planBulk(
         (n) => Math.ceil(def.unlockCost * 0.4 * Math.pow(1.6, st.spawnLevel + n)),
         (n) => st.spawnLevel + n < GRASS_SPAWN_MAX_LEVEL,
@@ -516,10 +517,14 @@ function renderGrassShop(list) {
     const lvlBadge = unlocked ? `<span class="lvl">Lv ${st.spawnLevel}/${GRASS_SPAWN_MAX_LEVEL}</span>` : `<span class="lvl">🔒</span>`;
     const effectText = unlocked
       ? `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough · on lawn: <b>${counts[i]}</b>`
+      : gemGated
+      ? `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough — unlock with 💎 in the Gems tab`
       : `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough — unlock to spawn`;
     let btn;
     if (maxed) {
       btn = `<button class="buy" disabled>MAX</button>`;
+    } else if (!unlocked && gemGated) {
+      btn = `<button class="buy" disabled>🔒 💎 Gem Shop</button>`;
     } else if (!unlocked) {
       btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Unlock<span class="cost">💰 ${formatShort(cost)}</span></button>`;
     } else {
@@ -637,6 +642,7 @@ function buyGemUpgrade(key) {
   if (plan.count === 0) return;
   state.gems -= plan.total;
   state.gemUpgrades[key] = gemLvl(key) + plan.count;
+  applyGemGrassUnlocks();
   beep(720 + state.gemUpgrades[key] * 35, 0.08, 'triangle', 0.07);
   setTimeout(() => beep(1120 + state.gemUpgrades[key] * 45, 0.1, 'sine', 0.06), 80);
   addParticle(canvas.width / 2, canvas.height / 2, {
@@ -723,11 +729,15 @@ function doPrestige() {
   state.questHistory = [];
   state.questsCompleted = 0;
   state.grassTypes = {
-    clover:  { unlocked: false, spawnLevel: 0 },
-    thick:   { unlocked: false, spawnLevel: 0 },
-    crystal: { unlocked: false, spawnLevel: 0 },
-    golden:  { unlocked: false, spawnLevel: 0 },
+    clover:   { unlocked: false, spawnLevel: 0 },
+    thick:    { unlocked: false, spawnLevel: 0 },
+    crystal:  { unlocked: false, spawnLevel: 0 },
+    golden:   { unlocked: false, spawnLevel: 0 },
+    obsidian: { unlocked: false, spawnLevel: 0 },
+    frost:    { unlocked: false, spawnLevel: 0 },
+    void:     { unlocked: false, spawnLevel: 0 },
   };
+  applyGemGrassUnlocks();
   robots = [];
   bees = [];
   visitorGnomes = [];

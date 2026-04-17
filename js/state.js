@@ -30,14 +30,18 @@ let state = {
   gemUpgrades: {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
+    grassObsidian: 0, grassFrost: 0, grassVoid: 0,
   },
   // Per-species unlock + spawn-rate upgrade levels. Entries keyed by GRASS_TYPES.key.
   // 'normal' is always the default (idx 0) and doesn't live in here.
   grassTypes: {
-    clover:  { unlocked: false, spawnLevel: 0 },
-    thick:   { unlocked: false, spawnLevel: 0 },
-    crystal: { unlocked: false, spawnLevel: 0 },
-    golden:  { unlocked: false, spawnLevel: 0 },
+    clover:   { unlocked: false, spawnLevel: 0 },
+    thick:    { unlocked: false, spawnLevel: 0 },
+    crystal:  { unlocked: false, spawnLevel: 0 },
+    golden:   { unlocked: false, spawnLevel: 0 },
+    obsidian: { unlocked: false, spawnLevel: 0 },
+    frost:    { unlocked: false, spawnLevel: 0 },
+    void:     { unlocked: false, spawnLevel: 0 },
   },
   settings: {
     showRobotNames: true,
@@ -178,6 +182,19 @@ const GRASS_TYPES = [
   { key: 'golden',  name: 'Golden Grass',  icon: '🌟',
     coinMult: 22.0, toughness: 7.0, unlockCost: 650000, spawnBase: 1,
     color: [255, 200, 30], accent: [255, 245, 180] },
+  // ---- Exotic tiers — ONLY unlockable from the 💎 Gem Shop ----
+  // Smoky obsidian: deep charcoal with silver veins.
+  { key: 'obsidian', name: 'Obsidian Turf', icon: '🌑',
+    coinMult: 55.0, toughness: 12.0, unlockCost: null, gemGated: true, spawnBase: 0.6,
+    color: [45, 50, 65], accent: [210, 220, 245] },
+  // Frost grass: pale ice-blue with a bright white sparkle.
+  { key: 'frost',    name: 'Frost Grass',   icon: '❄️',
+    coinMult: 140.0, toughness: 20.0, unlockCost: null, gemGated: true, spawnBase: 0.3,
+    color: [170, 225, 255], accent: [240, 250, 255] },
+  // Void grass: violet-black with neon edges.
+  { key: 'void',     name: 'Void Grass',    icon: '🌌',
+    coinMult: 360.0, toughness: 35.0, unlockCost: null, gemGated: true, spawnBase: 0.12,
+    color: [70, 20, 110], accent: [230, 120, 255] },
 ];
 const GRASS_BY_KEY = Object.fromEntries(GRASS_TYPES.map((g, i) => [g.key, { ...g, idx: i }]));
 // Cost to bump a species' spawn rate (per level, with growth).
@@ -237,7 +254,36 @@ const GEM_UPGRADES = [
       const t = TOOL_TYPES[Math.min(lvl, TOOL_TYPES.length - 1)];
       return `Start with ${t.icon} ${t.name}`;
     } },
+  // ---- Exotic grass unlocks (one-shot flags, persistent across prestige) ----
+  { key: 'grassObsidian', icon: '🌑', name: 'Unlock Obsidian Turf',
+    desc: '55× coin grass. 12× toughness. Rare spawns.',
+    max: 1, baseCost: 15, growth: 1,
+    statusText: (lvl) => lvl ? '🌑 Obsidian Turf — spawning on every run' : 'Locked' },
+  { key: 'grassFrost',    icon: '❄️', name: 'Unlock Frost Grass',
+    desc: '140× coin grass. Icy, stubborn, pays beautifully.',
+    max: 1, baseCost: 40, growth: 1,
+    statusText: (lvl) => lvl ? '❄️ Frost Grass — spawning on every run' : 'Locked' },
+  { key: 'grassVoid',     icon: '🌌', name: 'Unlock Void Grass',
+    desc: '360× coin grass. End-game tier. Barely spawns.',
+    max: 1, baseCost: 100, growth: 1,
+    statusText: (lvl) => lvl ? '🌌 Void Grass — spawning on every run' : 'Locked' },
 ];
+
+// Maps exotic-species keys → the gem-upgrade key that unlocks them.
+const GEM_GRASS_UNLOCK = {
+  obsidian: 'grassObsidian',
+  frost:    'grassFrost',
+  void:     'grassVoid',
+};
+// Applies gem-based grass unlocks onto state.grassTypes. Call after prestige
+// reset, fresh-run init, loadGame, or a gem-shop purchase.
+function applyGemGrassUnlocks() {
+  if (!state.grassTypes) return;
+  for (const [speciesKey, gemKey] of Object.entries(GEM_GRASS_UNLOCK)) {
+    if (!state.grassTypes[speciesKey]) state.grassTypes[speciesKey] = { unlocked: false, spawnLevel: 0 };
+    if (gemLvl(gemKey) > 0) state.grassTypes[speciesKey].unlocked = true;
+  }
+}
 const GEM_BY_KEY = Object.fromEntries(GEM_UPGRADES.map(g => [g.key, g]));
 function gemUpgradeCost(key, lvl) {
   const def = GEM_BY_KEY[key]; if (!def) return Infinity;
