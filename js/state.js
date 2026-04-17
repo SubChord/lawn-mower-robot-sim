@@ -579,6 +579,8 @@ function ownedHouseKeys() {
 function houseIdleCoinsPerSec(key) { return 0; }
 function enterTownView() {
   state.town.inTownView = true;
+  if (typeof player !== 'undefined' && player) player.active = false;
+  if (typeof canvas !== 'undefined' && canvas) canvas.style.cursor = 'default';
 }
 function enterHouse(key) {
   const h = state.town.houses[key];

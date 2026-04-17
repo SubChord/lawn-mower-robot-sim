@@ -127,6 +127,19 @@ canvas#lawn {
   backdrop-filter: blur(4px);
 }
 .hud-pill b { color: var(--ink); font-weight: 700; }
+.hud-pill-btn {
+  background: rgba(5,15,10,0.7);
+  border: 1px solid rgba(143,240,158,0.22);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px; color: var(--ink-dim);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  font-family: inherit;
+  pointer-events: auto;
+}
+.hud-pill-btn:hover { filter: brightness(1.2); }
+.hud-pill-btn:active { transform: translateY(1px); }
 
 .hud-quest {
   display: flex; align-items: center; gap: 10px;

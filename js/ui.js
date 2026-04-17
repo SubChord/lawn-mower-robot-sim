@@ -38,6 +38,9 @@ function updateHUD() {
   document.getElementById('hudBees').textContent = bees.length;
   document.getElementById('hudTotal').textContent = formatShort(state.totalTilesMowed);
 
+  const toTownBtn = document.getElementById('toTownBtn');
+  if (toTownBtn) toTownBtn.style.display = (state.town && state.town.unlocked) ? '' : 'none';
+
   // Atmosphere pill: weather icon + name, plus a small clock when relevant.
   const atmoEl = document.getElementById('hudAtmo');
   if (atmoEl && typeof activeWeather === 'function') {
@@ -1500,8 +1503,20 @@ function wireUIEvents() {
 
   canvas.addEventListener('click', (e) => {
     if (suppressNextClick) { suppressNextClick = false; return; }
+    if (state.town && state.town.inTownView) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+      townClickAt(x, y);
+      return;
+    }
     handleCanvasClick(e);
   });
+
+  const toTownBtn = document.getElementById('toTownBtn');
+  if (toTownBtn) {
+    toTownBtn.addEventListener('click', () => { enterTownView(); });
+  }
 
   // ---------- Robot drag-and-drop ----------
   // Player can pick up any robot and drop it somewhere else on the lawn.
@@ -1528,6 +1543,7 @@ function wireUIEvents() {
     return null;
   }
   canvas.addEventListener('mousedown', (e) => {
+    if (state.town && state.town.inTownView) return;
     if (e.button !== 0) return;
     const { x, y } = canvasCoords(e);
     const r = robotAt(x, y);
@@ -1552,6 +1568,7 @@ function wireUIEvents() {
   });
 
   canvas.addEventListener('mousemove', (e) => {
+    if (state.town && state.town.inTownView) return;
     const { x, y } = canvasCoords(e);
     if (draggingRobot) {
       dragMoved = true;
@@ -1574,10 +1591,14 @@ function wireUIEvents() {
     }
   });
   canvas.addEventListener('mouseleave', () => {
+    if (state.town && state.town.inTownView) return;
     if (draggingRobot) return; // keep dragging even if the cursor slips out
     player.active = false; canvas.style.cursor = 'default';
   });
-  canvas.addEventListener('mouseenter', () => { player.active = true; canvas.style.cursor = 'none'; });
+  canvas.addEventListener('mouseenter', () => {
+    if (state.town && state.town.inTownView) return;
+    player.active = true; canvas.style.cursor = 'none';
+  });
 
   document.getElementById('saveBtn').addEventListener('click', () => { saveGame(); toast('💾 Game saved!', '#8ff09e'); });
   document.getElementById('resetBtn').addEventListener('click', resetGame);
