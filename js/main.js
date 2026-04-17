@@ -35,6 +35,10 @@ function loop(now) {
 
 function init() {
   const loaded = loadGame();
+  // Bind world-buffer globals to the active house BEFORE any world setup.
+  // Task 4 will rewire loadGame() to rehydrate per-house buffers; until then
+  // we call this unconditionally so the game stays bootable on both paths.
+  ensureStarterHouse();
   resizeCanvas();
   if (!loaded) {
     initWorld();

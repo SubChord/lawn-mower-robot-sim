@@ -549,6 +549,26 @@ function activeHouseDef() {
 function activeHouse() {
   return state.town.houses[state.town.activeHouseKey];
 }
+// Build a fresh per-house state object. Arrays are sized from the house's
+// gridW/gridH. On first entry the layout parser (Phase 2) will paint tiles;
+// the starter house keeps its current procedural initWorld() behaviour.
+function makePerHouseState(houseKey) {
+  const def = HOUSE_BY_KEY[houseKey];
+  const n = def.gridW * def.gridH;
+  return {
+    gridW: def.gridW,
+    gridH: def.gridH,
+    grass:         new Float32Array(n),
+    tiles:         new Uint8Array(n),
+    flowerColors:  new Uint8Array(n),
+    grassSpecies:  new Uint8Array(n),
+    zones:         new Uint8Array(n),   // populated by flood-fill in Phase 2
+    robots:        [],
+    bees:          [],
+    totalTilesMowed: 0,
+    initialized:   false,               // flipped true after first paint/initWorld
+  };
+}
 function ownedHouseKeys() {
   return Object.keys(state.town.houses).filter(k => state.town.houses[k]?.owned);
 }

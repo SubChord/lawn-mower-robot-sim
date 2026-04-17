@@ -2,19 +2,49 @@
    World grid, robots, bees
    ============================================================ */
 
-let grass;        // Float32Array (height 0..1)
-let tiles;        // Uint8Array (tile type)
-let flowerColors; // Uint8Array (palette index per flower)
-let grassSpecies; // Uint8Array (index into GRASS_TYPES — 0 = normal)
+// These globals are REFERENCES to the active house's buffers. They are
+// re-bound by switchHouseBindings(key) — never reassigned by typed-array
+// constructors elsewhere.
+let grass, tiles, flowerColors, grassSpecies, zones;
+let robots, bees;
 
-function idx(x, y) { return y * CFG.gridW + x; }
-function inBounds(x, y) { return x >= 0 && y >= 0 && x < CFG.gridW && y < CFG.gridH; }
+function idx(x, y) {
+  const w = activeHouse()?.gridW ?? CFG.gridW;
+  return y * w + x;
+}
+function inBounds(x, y) {
+  const h = activeHouse();
+  const w = h?.gridW ?? CFG.gridW;
+  const gh = h?.gridH ?? CFG.gridH;
+  return x >= 0 && y >= 0 && x < w && y < gh;
+}
+
+function switchHouseBindings(key) {
+  const h = state.town.houses[key];
+  if (!h) throw new Error(`switchHouseBindings: unknown house ${key}`);
+  grass         = h.grass;
+  tiles         = h.tiles;
+  flowerColors  = h.flowerColors;
+  grassSpecies  = h.grassSpecies;
+  zones         = h.zones;
+  robots        = h.robots;
+  bees          = h.bees;
+  state.town.activeHouseKey = key;
+}
+
+// Called once at game start (from init() in main.js) before initWorld().
+// Ensures state.town.houses.starter exists with fresh per-house buffers,
+// then binds globals to it.
+function ensureStarterHouse() {
+  if (!state.town.houses.starter) {
+    state.town.houses.starter = { owned: true, ...makePerHouseState('starter') };
+  }
+  switchHouseBindings('starter');
+}
 
 function initWorld() {
-  grass = new Float32Array(CFG.gridW * CFG.gridH);
-  tiles = new Uint8Array(CFG.gridW * CFG.gridH);
-  flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
-  grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
+  const h = activeHouse();
+  // Fill grass heights
   for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
 
   const treeCount = 8 + Math.floor(Math.random() * 4);
@@ -22,6 +52,7 @@ function initWorld() {
   for (let i = 0; i < treeCount; i++) placeAtRandomGrass(T.TREE);
   for (let i = 0; i < rockCount; i++) placeAtRandomGrass(T.ROCK);
   placePondBlob();
+  h.initialized = true;
 }
 
 function placeAtRandomGrass(type, triesMax = 40) {
@@ -69,7 +100,8 @@ let player = {
 };
 
 // ---------- Robots ----------
-let robots = [];
+// `robots` is declared at the top of this file and re-bound by
+// switchHouseBindings() to the active house's array.
 
 function spawnRobot() {
   const ts = getTileSize();
@@ -97,7 +129,8 @@ function ensureRobotCount() {
 }
 
 // ---------- Bees ----------
-let bees = [];
+// `bees` is declared at the top of this file and re-bound by
+// switchHouseBindings() to the active house's array.
 
 function spawnBee(homeTileX, homeTileY) {
   const ts = getTileSize();
