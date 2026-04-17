@@ -686,6 +686,86 @@ function renderSkins(list) {
     grid.appendChild(card);
   }
   list.appendChild(grid);
+
+  // ---------- Mowing Patterns ----------
+  const patHeader = document.createElement('div');
+  const patOwned = state.patternsUnlocked.length;
+  patHeader.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin:16px 0 10px; line-height:1.4;">
+      🪚 <b style="color:var(--grass-xlight);">Mowing Patterns</b> — styles your robots cut into the lawn.<br>
+      Unlocked: <b style="color:var(--grass-xlight);">${patOwned}/${MOW_PATTERN_DEFS.length}</b> · Visible on freshly cut grass.
+    </p>`;
+  list.appendChild(patHeader);
+
+  const patGrid = document.createElement('div');
+  patGrid.className = 'pattern-grid';
+  for (const pat of MOW_PATTERN_DEFS) {
+    const owned = state.patternsUnlocked.indexOf(pat.key) >= 0;
+    const active = state.activeMowPattern === pat.key;
+    const affordable = !owned && state.coins >= pat.unlockCost;
+    const card = document.createElement('div');
+    card.className = 'pattern-card' + (owned ? ' owned' : ' locked') + (active ? ' active' : '') + (affordable ? ' affordable' : '');
+    const preview = patternPreviewCanvas(pat.key);
+    card.appendChild(preview);
+    const meta = document.createElement('div');
+    meta.className = 'pattern-meta';
+    meta.innerHTML = `
+      <div class="pattern-name">${pat.icon} ${pat.name}</div>
+      <div class="pattern-desc">${pat.desc}</div>
+      <div class="pattern-action">${active ? '✔ Equipped' : owned ? 'Equip' : (pat.unlockCost > 0 ? '💰 ' + formatShort(pat.unlockCost) : 'Unlock')}</div>`;
+    card.appendChild(meta);
+    if (owned && !active) {
+      card.addEventListener('click', () => {
+        state.activeMowPattern = pat.key;
+        beep(680, 0.08, 'sine', 0.06);
+        toast(`🪚 Equipped ${pat.name}`, '#8ff09e');
+        renderShop();
+        saveGame();
+      });
+    } else if (!owned && affordable) {
+      card.addEventListener('click', () => {
+        if (state.coins < pat.unlockCost) return;
+        state.coins -= pat.unlockCost;
+        state.patternsUnlocked.push(pat.key);
+        state.activeMowPattern = pat.key;
+        beep(720, 0.08, 'triangle', 0.07);
+        setTimeout(() => beep(1080, 0.1, 'triangle', 0.06), 80);
+        toast(`🪚 Unlocked ${pat.name}!`, '#ffd34e');
+        renderShop();
+        saveGame();
+      });
+    }
+    patGrid.appendChild(card);
+  }
+  list.appendChild(patGrid);
+}
+
+// Draw a small preview of the pattern on a fake green tile grid so the
+// player can recognize each style at a glance in the shop.
+function patternPreviewCanvas(key) {
+  const size = 72;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  c.className = 'pattern-preview';
+  const g = c.getContext('2d');
+  g.fillStyle = '#3a8840';
+  g.fillRect(0, 0, size, size);
+  const cells = 8;
+  const cell = size / cells;
+  const prev = state.activeMowPattern;
+  state.activeMowPattern = key;
+  for (let ty = 0; ty < cells; ty++) {
+    for (let tx = 0; tx < cells; tx++) {
+      const tint = mowPatternTint(tx, ty, 0);
+      if (!tint) continue;
+      g.fillStyle = tint.dark
+        ? `rgba(0,0,0,${tint.alpha.toFixed(3)})`
+        : `rgba(255,255,255,${(tint.alpha * 0.65).toFixed(3)})`;
+      g.fillRect(tx * cell, ty * cell, cell, cell);
+    }
+  }
+  state.activeMowPattern = prev;
+  return c;
 }
 
 function skinPreviewHTML(skin, owned) {
@@ -772,6 +852,22 @@ function openSettingsModal() {
   const back = document.createElement('div');
   back.className = 'modal-backdrop settings-modal-backdrop';
   const rows = SETTING_DEFS.map(def => {
+    if (def.type === 'select') {
+      const options = typeof def.options === 'function' ? def.options() : (def.options || []);
+      const current = state.settings[def.key];
+      const chips = options.map(opt => {
+        const active = opt.value === current;
+        return `<button type="button" class="settings-chip${active ? ' active' : ''}" data-key="${def.key}" data-value="${opt.value}" title="${(opt.desc || '').replace(/"/g,'&quot;')}">${opt.label}</button>`;
+      }).join('');
+      return `
+        <div class="settings-row settings-row-stack">
+          <div class="settings-info">
+            <div class="settings-label">${def.label}</div>
+            <div class="settings-hint">${def.hint || ''}</div>
+          </div>
+          <div class="settings-chips">${chips}</div>
+        </div>`;
+    }
     const on = !!state.settings[def.key];
     return `
       <label class="settings-row" data-key="${def.key}">
@@ -796,6 +892,18 @@ function openSettingsModal() {
       state.settings[key] = !state.settings[key];
       t.classList.toggle('on', !!state.settings[key]);
       beep(state.settings[key] ? 720 : 520, 0.05, 'sine', 0.05);
+      saveGame();
+    });
+  });
+  back.querySelectorAll('.settings-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const value = btn.dataset.value;
+      state.settings[key] = value;
+      // refresh active state among siblings
+      btn.parentElement.querySelectorAll('.settings-chip').forEach(s => s.classList.toggle('active', s === btn));
+      if (key === 'theme' && typeof applyThemeDom === 'function') applyThemeDom();
+      beep(620, 0.05, 'sine', 0.05);
       saveGame();
     });
   });

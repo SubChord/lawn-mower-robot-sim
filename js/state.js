@@ -23,6 +23,8 @@ let state = {
   activeSkin: 'default',
   gnomeTimer: 60 + Math.random() * 30, // seconds until next wandering gnome
   treasuresCollected: 0,
+  patternsUnlocked: ['plain'],
+  activeMowPattern: 'plain',
   // Per-species unlock + spawn-rate upgrade levels. Entries keyed by GRASS_TYPES.key.
   // 'normal' is always the default (idx 0) and doesn't live in here.
   grassTypes: {
@@ -35,6 +37,7 @@ let state = {
     showRobotNames: true,
     showGnomeNames: true,
     showParticles: true,
+    theme: 'classic',
   },
   zenMode: false,
   zenConfig: {
@@ -70,9 +73,11 @@ const ZEN_CONFIG_DEFAULT = { robots: 6, flowers: 14, beehives: 3, trees: 10, roc
 // Each entry is a toggle in the settings modal. Add more here; they render
 // automatically and are persisted via save/load.
 const SETTING_DEFS = [
-  { key: 'showRobotNames', label: 'Show robot names',  hint: 'Display nameplates above each mower.' },
-  { key: 'showGnomeNames', label: 'Show gnome names',  hint: 'Display names above visiting gnomes.' },
-  { key: 'showParticles',  label: 'Floating numbers',  hint: 'Show +coin pop-ups over the lawn.' },
+  { type: 'toggle', key: 'showRobotNames', label: 'Show robot names', hint: 'Display nameplates above each mower.' },
+  { type: 'toggle', key: 'showGnomeNames', label: 'Show gnome names', hint: 'Display names above visiting gnomes.' },
+  { type: 'toggle', key: 'showParticles',  label: 'Floating numbers', hint: 'Show +coin pop-ups over the lawn.' },
+  { type: 'select', key: 'theme',          label: 'Theme pack',       hint: 'Swap the lawn palette and stage background.',
+    options: () => (typeof THEMES !== 'undefined' ? THEMES.map(t => ({ value: t.id, label: t.name, desc: t.desc })) : [{ value: 'classic', label: 'Classic' }]) },
 ];
 function getSetting(key) {
   if (!state.settings) state.settings = {};
@@ -291,6 +296,19 @@ const SKIN_DEFS = [
     body: ['rainbow'], trim: '#1a1a1a', accent: '#ffffff', panel: '#ffffff' },
 ];
 const SKIN_BY_KEY = Object.fromEntries(SKIN_DEFS.map(s => [s.key, s]));
+
+// ---------- Mowing patterns ----------
+// Visual patterns the robots cut into the lawn. Applied as a per-tile tint
+// overlay in drawGrass(), strongest on freshly cut (short) grass.
+const MOW_PATTERN_DEFS = [
+  { key: 'plain',    name: 'Plain',          icon: '🟩', desc: 'No pattern — natural cut.',     unlockCost: 0 },
+  { key: 'stripes',  name: 'Classic Stripes',icon: '🟨', desc: 'Alternating 1-tile rows.',      unlockCost: 2500 },
+  { key: 'diagonal', name: 'Diagonal',       icon: '🔶', desc: '45° diagonal bands.',           unlockCost: 15000 },
+  { key: 'checker',  name: 'Checkerboard',   icon: '🏁', desc: 'Formal garden 2×2 squares.',    unlockCost: 75000 },
+  { key: 'diamonds', name: 'Argyle Diamonds',icon: '💠', desc: 'Lattice of diamonds.',          unlockCost: 400000 },
+  { key: 'zigzag',   name: 'Zigzag',         icon: '⚡', desc: 'Playful chevron waves.',         unlockCost: 1800000 },
+];
+const MOW_PATTERN_BY_KEY = Object.fromEntries(MOW_PATTERN_DEFS.map(p => [p.key, p]));
 const RARITY_COLORS = {
   base:      '#9fc4a2',
   common:    '#c6d4c8',
@@ -315,9 +333,18 @@ function fuelEffMult()  {
   return Math.max(0.1, (1 - state.upgrades.fuelEff * 0.08) * mechanic);
 }
 function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult; }
-function fuelRefillCost(){
+// Refuel price scales with how empty the tank is. A full-tank fill-up costs
+// the old flat rate; a nearly-full tank costs almost nothing. Minimum 1 coin
+// whenever there's anything at all to top up.
+function fuelRefillCostFull(){
   const mechanicDisc = hasCrew('mechanic') ? 0.75 : 1;
   return Math.ceil(25 * state.upgrades.robots * fuelEffMult() * mechanicDisc);
+}
+function fuelRefillCost(){
+  const missing = Math.max(0, CFG.fuelMax - state.fuel);
+  if (missing <= 0) return 0;
+  const pct = missing / CFG.fuelMax;
+  return Math.max(1, Math.ceil(fuelRefillCostFull() * pct));
 }
 function shedMult()    { return 1 + state.garden.shed * 0.05; }
 function fountainMult(){ return 1 + state.garden.fountain * 0.08; }

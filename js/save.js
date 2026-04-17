@@ -38,6 +38,8 @@ function saveGame() {
       treasuresCollected: state.treasuresCollected,
       gnomeTimer: state.gnomeTimer,
       fuel: state.fuel,
+      patternsUnlocked: state.patternsUnlocked,
+      activeMowPattern: state.activeMowPattern,
       settings: state.settings,
       grassTypes: state.grassTypes,
       zenConfig: state.zenConfig,
@@ -92,7 +94,10 @@ function loadGame() {
     if (!isFinite(state.questsCompleted)) state.questsCompleted = 0;
     if (state.activeQuest && !QUEST_BY_ID[state.activeQuest.id]) state.activeQuest = null;
     if (!Array.isArray(state.questHistory)) state.questHistory = [];
-    state.settings = Object.assign({ showRobotNames: true, showGnomeNames: true, showParticles: true }, state.settings || {});
+    state.settings = Object.assign({ showRobotNames: true, showGnomeNames: true, showParticles: true, theme: 'classic' }, state.settings || {});
+    if (!Array.isArray(state.patternsUnlocked) || state.patternsUnlocked.length === 0) state.patternsUnlocked = ['plain'];
+    if (!state.activeMowPattern || !MOW_PATTERN_BY_KEY[state.activeMowPattern]) state.activeMowPattern = 'plain';
+    if (state.patternsUnlocked.indexOf(state.activeMowPattern) < 0) state.activeMowPattern = 'plain';
     state.zenConfig = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
     state.zenMode = false; // session-only: always start outside Zen after reload
     if (Array.isArray(data.achieved)) data.achieved.forEach(id => achieved.add(id));

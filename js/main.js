@@ -44,6 +44,7 @@ function init() {
     delete state._savedRobots;
   }
   ensureBeesFromHives();
+  applyThemeDom();
   const muteBtn = document.getElementById('muteBtn');
   muteBtn.textContent = state.muted ? '🔇 Muted' : '🔊 Sound';
   wireUIEvents();

@@ -2,28 +2,33 @@
    Rendering + tile sprites
    ============================================================ */
 
-// Pre-render grass tile gradients via offscreen caches keyed by (bucket, species, tileSize)
+// Pre-render grass tile gradients via offscreen caches keyed by
+// (bucket, species, tileSize, themeId). Theme swaps invalidate this cache.
 const tileCache = {};
+function clearTileCache() { for (const k in tileCache) delete tileCache[k]; }
 function getTileImage(heightBucket, speciesIdx = 0) {
-  const key = heightBucket + '_' + speciesIdx + '_' + tileSize;
+  const theme = (typeof activeTheme === 'function') ? activeTheme() : null;
+  const themeId = theme ? theme.id : 'classic';
+  const key = heightBucket + '_' + speciesIdx + '_' + tileSize + '_' + themeId;
   if (tileCache[key]) return tileCache[key];
   const off = document.createElement('canvas');
   off.width = tileSize; off.height = tileSize;
   const c = off.getContext('2d');
   const h = heightBucket / 10;
   const spec = (typeof GRASS_TYPES !== 'undefined' && GRASS_TYPES[speciesIdx]) || null;
+  const palette = (theme && theme.grass) || { base: [30,70,28], delta: [24,110,44], bladeTop: [170,220,120], bladeRoot: [20,60,25] };
   let baseR, baseG, baseB;
   if (spec && spec.color) {
-    // Species tiles ignore the green base entirely — full species colour
-    // with a brightness ramp from the growth bucket.
+    // Species tiles ignore the theme base entirely — full species colour
+    // with a brightness ramp from the growth bucket so they stay distinct.
     const dim = 0.55 + h * 0.45; // 0.55..1.0
     baseR = spec.color[0] * dim;
     baseG = spec.color[1] * dim;
     baseB = spec.color[2] * dim;
   } else {
-    baseR = 30 + h * 24;
-    baseG = 70 + h * 110;
-    baseB = 28 + h * 44;
+    baseR = palette.base[0] + h * palette.delta[0];
+    baseG = palette.base[1] + h * palette.delta[1];
+    baseB = palette.base[2] + h * palette.delta[2];
   }
   c.fillStyle = `rgb(${baseR|0},${baseG|0},${baseB|0})`;
   c.fillRect(0, 0, tileSize, tileSize);
@@ -40,8 +45,10 @@ function getTileImage(heightBucket, speciesIdx = 0) {
         const acc = spec.accent || spec.color;
         topR = acc[0]; topG = acc[1]; topB = acc[2];
       } else {
-        botR = 20; botG = 60; botB = 25;
-        topR = 140 + h * 50; topG = 220; topB = 120;
+        botR = palette.bladeRoot[0]; botG = palette.bladeRoot[1]; botB = palette.bladeRoot[2];
+        topR = palette.bladeTop[0] + h * 50 - 30;
+        topG = palette.bladeTop[1];
+        topB = palette.bladeTop[2];
       }
       gr.addColorStop(0, `rgba(${botR|0},${botG|0},${botB|0},0.9)`);
       gr.addColorStop(1, `rgba(${topR|0},${topG|0},${topB|0},0.95)`);
@@ -80,6 +87,31 @@ function getTileImage(heightBucket, speciesIdx = 0) {
   return off;
 }
 
+// Pattern overlay — decides whether a tile is "dark" or "light" in the
+// current mowing pattern, and how strong the tint should be based on grass
+// height (freshly cut = stronger). Returns null for no overlay.
+function mowPatternTint(x, y, h) {
+  const key = state.activeMowPattern;
+  if (!key || key === 'plain') return null;
+  let dark;
+  switch (key) {
+    case 'stripes':   dark = (y & 1) === 0; break;
+    case 'diagonal':  dark = (((x + y) >> 1) & 1) === 0; break;
+    case 'checker':   dark = (((x >> 1) + (y >> 1)) & 1) === 0; break;
+    case 'diamonds': {
+      const a = (((x + y) >> 1) & 1) === 0;
+      const b = (((x - y + 1024) >> 1) & 1) === 0;
+      dark = a !== b;
+      break;
+    }
+    case 'zigzag':    dark = (((x + ((y >> 1) & 1) * 2) & 3) < 2); break;
+    default:          dark = false;
+  }
+  const alpha = Math.max(0, 0.28 - h * 0.24); // strongest on short grass
+  if (alpha < 0.015) return null;
+  return { dark, alpha };
+}
+
 function drawGrass() {
   const ts = tileSize;
   for (let y = 0; y < CFG.gridH; y++) {
@@ -90,6 +122,13 @@ function drawGrass() {
         const bucket = Math.min(10, Math.max(0, Math.round(h * 10)));
         const spec = grassSpecies ? grassSpecies[k] : 0;
         ctx.drawImage(getTileImage(bucket, spec), x * ts, y * ts);
+        const tint = mowPatternTint(x, y, h);
+        if (tint) {
+          ctx.fillStyle = tint.dark
+            ? `rgba(0,0,0,${tint.alpha.toFixed(3)})`
+            : `rgba(255,255,255,${(tint.alpha * 0.65).toFixed(3)})`;
+          ctx.fillRect(x * ts, y * ts, ts, ts);
+        }
       } else {
         ctx.drawImage(getTileImage(2), x * ts, y * ts);
       }

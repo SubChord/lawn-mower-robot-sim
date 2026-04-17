@@ -110,6 +110,15 @@ canvas#lawn {
   display: flex; flex-direction: column; gap: 8px;
   pointer-events: none;
 }
+.stage-hud-bottom {
+  position: absolute; bottom: 12px; left: 12px; right: 12px;
+  display: flex; justify-content: center;
+  pointer-events: none;
+}
+.stage-hud-bottom .hud-fuel {
+  min-width: min(560px, 100%);
+  max-width: 720px;
+}
 .hud-pills {
   display: flex; justify-content: space-between; gap: 10px;
 }
@@ -446,6 +455,57 @@ aside.shop {
 .skin-modal-preview { display: flex; justify-content: center; margin: 8px 0; }
 .skin-modal-preview .skin-chip { width: 120px; height: 80px; }
 
+/* Mowing Patterns */
+.pattern-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.pattern-card {
+  background: linear-gradient(180deg, rgba(20,50,30,0.7), rgba(10,28,18,0.7));
+  border: 1.5px solid rgba(143,240,158,0.2);
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  transition: transform .08s, border-color .15s, box-shadow .15s;
+  cursor: default;
+}
+.pattern-card.owned { cursor: pointer; }
+.pattern-card.owned:hover,
+.pattern-card.affordable:hover { transform: translateY(-1px); border-color: rgba(255,211,78,0.55); }
+.pattern-card.affordable {
+  cursor: pointer;
+  border-color: rgba(255,211,78,0.45);
+  box-shadow: 0 0 0 1px rgba(255,211,78,0.1), 0 0 14px rgba(255,211,78,0.1);
+}
+.pattern-card.locked { opacity: 0.7; filter: grayscale(0.25); }
+.pattern-card.active {
+  border-color: rgba(143,240,158,0.85);
+  box-shadow: 0 0 0 1px rgba(143,240,158,0.3), 0 0 18px rgba(143,240,158,0.25);
+}
+canvas.pattern-preview {
+  width: 56px; height: 56px;
+  border-radius: 6px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.45);
+  box-shadow: inset 0 -6px 10px rgba(0,0,0,0.25);
+}
+.pattern-meta { min-width: 0; flex: 1; }
+.pattern-name { font-weight: 800; font-size: 12px; color: var(--ink); }
+.pattern-desc { font-size: 10.5px; color: var(--ink-dim); line-height: 1.3; margin-top: 2px; }
+.pattern-action {
+  margin-top: 4px;
+  font-size: 10.5px; font-weight: 800;
+  color: var(--ink-dim);
+  letter-spacing: 0.3px;
+}
+.pattern-card.active .pattern-action { color: var(--grass-xlight); }
+.pattern-card.affordable .pattern-action { color: var(--gold); }
+
 .prestige {
   background: linear-gradient(180deg, rgba(60, 20, 90, 0.6), rgba(20, 10, 40, 0.7));
   border: 1px solid rgba(114, 242, 255, 0.35);
@@ -606,6 +666,38 @@ footer button.danger:hover { background: rgba(216,58,58,0.2); border-color: rgba
 .toggle.on .knob { left: 20px; background: var(--grass-xlight); box-shadow: 0 0 8px rgba(143,240,158,0.6); }
 #settingsCloseBtn { width: 100%; }
 
+/* Settings row with chips below (theme picker) */
+.settings-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  cursor: default;
+}
+.settings-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.settings-chip {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(143,240,158,0.22);
+  color: var(--ink-dim);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.settings-chip:hover { color: var(--ink); border-color: rgba(143,240,158,0.5); }
+.settings-chip.active {
+  background: linear-gradient(180deg, rgba(88,200,95,0.35), rgba(88,200,95,0.15));
+  color: var(--ink);
+  border-color: rgba(143,240,158,0.8);
+  box-shadow: 0 0 0 1px rgba(143,240,158,0.35), 0 0 10px rgba(143,240,158,0.25);
+}
+
 /* ---------- Zen Setup ---------- */
 .zen-modal { max-width: 480px; text-align: left; padding: 22px 22px 18px; }
 .zen-modal h2 { text-align: center; }
@@ -714,6 +806,7 @@ body.zen-mode header.top,
 body.zen-mode aside.shop,
 body.zen-mode footer.bottom,
 body.zen-mode .stage-hud,
+body.zen-mode .stage-hud-bottom,
 body.zen-mode .stage-overlay,
 body.zen-mode #toasts { display: none !important; }
 body.zen-mode main.stage {
