@@ -601,6 +601,7 @@ function enterHouse(key) {
   state.town.inTownView = false;
 }
 function buyHouse(key) {
+  if (!state.town || !state.town.unlocked) return false;
   const def = HOUSE_BY_KEY[key];
   if (!def) return false;
   const h = state.town.houses[key];
@@ -614,8 +615,21 @@ function buyHouse(key) {
   // Paint the layout + zones now so idle income works immediately.
   const prevKey = state.town.activeHouseKey;
   ensureHouseInitialized(key);
-  switchHouseBindings(prevKey);  // rebind back to whatever was active
+  // ensureHouseInitialized rebound world globals to `key`; restore so the
+  // player keeps mowing in whichever house they were already standing in.
+  if (prevKey && prevKey !== key) switchHouseBindings(prevKey);
   toast(`${def.icon} ${def.name} purchased!`, '#8ff09e');
+  // UX parity with buyGemUpgrade: chord + floating particle for a gem-cost
+  // purchase (this is the single most expensive gem outlay in the game).
+  if (typeof beep === 'function') {
+    beep(720, 0.08, 'triangle', 0.07);
+    setTimeout(() => beep(1120, 0.1, 'sine', 0.06), 80);
+  }
+  if (typeof addParticle === 'function' && typeof canvas !== 'undefined' && canvas) {
+    addParticle(canvas.width / 2, canvas.height / 2, {
+      text: `${def.icon} ${def.name} purchased!`, color: '#8ff09e', size: 20,
+    });
+  }
   saveGame();
   // Refresh any open shop panel
   if (typeof renderShop === 'function') renderShop();
