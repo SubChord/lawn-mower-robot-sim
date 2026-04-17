@@ -602,4 +602,15 @@ function updateFlowerIncome(dt) {
   }
 }
 
-function tickIdleHouses(dt, skipKey) { /* filled in Task 17 */ }
+// Ticks idle income for every owned house except the one passed in.
+function tickIdleHouses(dt, skipKey) {
+  if (!state.town || !state.town.houses) return;
+  for (const [k, h] of Object.entries(state.town.houses)) {
+    if (!h.owned || k === skipKey) continue;
+    const gain = houseIdleCoinsPerSec(k) * dt;
+    if (gain <= 0) continue;
+    state.coins += gain;
+    state.totalEarnedAllTime += gain;
+    state.totalEarnedThisRun += gain;
+  }
+}

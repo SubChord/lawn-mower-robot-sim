@@ -585,7 +585,13 @@ function ownedHouseKeys() {
 }
 
 // --- Town helper stubs (filled in Tasks 11/14/16) ---
-function houseIdleCoinsPerSec(key) { return 0; }
+function houseIdleCoinsPerSec(key) {
+  const def = HOUSE_BY_KEY[key];
+  const h = state.town.houses[key];
+  if (!def || !h?.owned) return 0;
+  const bots = h.robots.length;
+  return bots * CFG.idleRatePerBot * def.featureMult * (typeof coinMult === 'function' ? coinMult() : 1);
+}
 function enterTownView() {
   state.town.inTownView = true;
   if (typeof player !== 'undefined' && player) player.active = false;
