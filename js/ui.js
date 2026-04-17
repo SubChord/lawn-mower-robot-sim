@@ -771,6 +771,7 @@ function doPrestige() {
     void:     { unlocked: false, spawnLevel: 0 },
   };
   applyGemGrassUnlocks();
+  // Session-global, not per-house.
   visitorGnomes = [];
   treasures = [];
   // Walk every owned house. For each: wipe robots/bees/totalTilesMowed,
@@ -779,7 +780,7 @@ function doPrestige() {
   // sized by def.gridW*gridH and held as references inside the house object;
   // switchHouseBindings rebinds the world globals to these new buffers).
   const activeKey = state.town.activeHouseKey;
-  const ownedKeys = Object.keys(state.town.houses).filter(k => state.town.houses[k]?.owned);
+  const ownedKeys = ownedHouseKeys();
   for (const k of ownedKeys) {
     const def = HOUSE_BY_KEY[k];
     if (!def) continue;
@@ -794,7 +795,7 @@ function doPrestige() {
     h.bees          = [];
     h.totalTilesMowed = 0;
     h.initialized   = false;
-    // ensureHouseInitialized rebinds globals to `k` and paints/initWorlds it.
+    // ensureHouseInitialized rebinds globals to `k` and paints/initWorld's it.
     ensureHouseInitialized(k);
   }
   // Rebind globals to whichever house was active; seed its robots/bees.
