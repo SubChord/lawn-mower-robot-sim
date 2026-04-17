@@ -519,7 +519,7 @@ function renderGrassShop(list) {
       affordable = state.coins >= cost;
     } else if (!maxed && unlocked) {
       plan = planBulk(
-        (n) => Math.ceil(def.unlockCost * 0.4 * Math.pow(1.6, st.spawnLevel + n)),
+        (n) => Math.ceil(grassSpawnBaseCost(def) * Math.pow(1.6, st.spawnLevel + n)),
         (n) => st.spawnLevel + n < GRASS_SPAWN_MAX_LEVEL,
       );
       cost = plan.count > 0 ? plan.total : grassSpawnCost(def.key);
@@ -586,7 +586,7 @@ function upgradeGrassSpawn(key) {
   if (!st?.unlocked) return;
   const startLvl = st.spawnLevel;
   const plan = planBulk(
-    (i) => Math.ceil(def.unlockCost * 0.4 * Math.pow(1.6, startLvl + i)),
+    (i) => Math.ceil(grassSpawnBaseCost(def) * Math.pow(1.6, startLvl + i)),
     (i) => startLvl + i < GRASS_SPAWN_MAX_LEVEL,
   );
   if (plan.count === 0) return;

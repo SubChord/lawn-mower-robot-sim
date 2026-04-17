@@ -100,6 +100,7 @@ function loadGame() {
     if (!Array.isArray(state.questHistory)) state.questHistory = [];
     state.settings = Object.assign({
       showRobotNames: true, showGnomeNames: true, showParticles: true,
+      scientificNumbers: false,
       theme: 'classic', dayNight: 'auto', weather: 'auto', rivalry: true,
     }, state.settings || {});
     if (!isFinite(state.timeOfDay)) state.timeOfDay = 12;

@@ -47,6 +47,7 @@ let state = {
     showRobotNames: true,
     showGnomeNames: true,
     showParticles: true,
+    scientificNumbers: false,
     theme: 'classic',
     dayNight: 'auto',   // auto | off | dawn | day | dusk | night
     weather: 'auto',    // auto | clear | rain | snow | storm | fog
@@ -98,6 +99,7 @@ const SETTING_DEFS = [
   { type: 'toggle', key: 'showGnomeNames', label: 'Show gnome names', hint: 'Display names above visiting gnomes.' },
   { type: 'toggle', key: 'showParticles',  label: 'Floating numbers', hint: 'Show +coin pop-ups over the lawn.' },
   { type: 'toggle', key: 'rivalry',        label: 'Robot rivalry',    hint: 'Crown the top-earning robot every 30s (+5% speed).' },
+  { type: 'toggle', key: 'scientificNumbers', label: 'Scientific notation', hint: 'Display big numbers as 1.23e6 instead of 1.23M.' },
   { type: 'select', key: 'theme',          label: 'Theme pack',       hint: 'Swap the lawn palette and stage background.',
     options: () => (typeof THEMES !== 'undefined' ? THEMES.map(t => ({ value: t.id, label: t.name, desc: t.desc })) : [{ value: 'classic', label: 'Classic' }]) },
   { type: 'select', key: 'dayNight',       label: 'Day / Night',      hint: 'Tint the lawn by time of day — or pin a specific hour.',
@@ -201,25 +203,39 @@ const GRASS_TYPES = [
     coinMult: 22.0, toughness: 7.0, unlockCost: 650000, spawnBase: 1,
     color: [255, 200, 30], accent: [255, 245, 180] },
   // ---- Exotic tiers — ONLY unlockable from the 💎 Gem Shop ----
+  // unlockCost is null (can't be coin-unlocked); spawnUpgradeBase is the
+  // starting coin cost for the per-species spawn-rate upgrade.
   // Smoky obsidian: deep charcoal with silver veins.
   { key: 'obsidian', name: 'Obsidian Turf', icon: '🌑',
     coinMult: 55.0, toughness: 12.0, unlockCost: null, gemGated: true, spawnBase: 0.6,
+    spawnUpgradeBase: 50000,
     color: [45, 50, 65], accent: [210, 220, 245] },
   // Frost grass: pale ice-blue with a bright white sparkle.
   { key: 'frost',    name: 'Frost Grass',   icon: '❄️',
     coinMult: 140.0, toughness: 20.0, unlockCost: null, gemGated: true, spawnBase: 0.3,
+    spawnUpgradeBase: 300000,
     color: [170, 225, 255], accent: [240, 250, 255] },
   // Void grass: violet-black with neon edges.
   { key: 'void',     name: 'Void Grass',    icon: '🌌',
     coinMult: 360.0, toughness: 35.0, unlockCost: null, gemGated: true, spawnBase: 0.12,
+    spawnUpgradeBase: 2000000,
     color: [70, 20, 110], accent: [230, 120, 255] },
 ];
 const GRASS_BY_KEY = Object.fromEntries(GRASS_TYPES.map((g, i) => [g.key, { ...g, idx: i }]));
-// Cost to bump a species' spawn rate (per level, with growth).
+// Base coin cost for the level-0 spawn-rate upgrade. Gem-gated species define
+// spawnUpgradeBase directly; others derive from unlockCost so their pricing
+// is unchanged.
+function grassSpawnBaseCost(def) {
+  if (!def) return 0;
+  if (def.spawnUpgradeBase != null) return def.spawnUpgradeBase;
+  return (def.unlockCost || 0) * 0.4;
+}
 function grassSpawnCost(key) {
-  const def = GRASS_BY_KEY[key]; if (!def || !def.unlockCost) return Infinity;
+  const def = GRASS_BY_KEY[key]; if (!def) return Infinity;
+  const base = grassSpawnBaseCost(def);
+  if (base <= 0) return Infinity;
   const lvl = state.grassTypes?.[key]?.spawnLevel ?? 0;
-  return Math.ceil(def.unlockCost * 0.4 * Math.pow(1.6, lvl));
+  return Math.ceil(base * Math.pow(1.6, lvl));
 }
 const GRASS_SPAWN_MAX_LEVEL = 12;
 
@@ -507,6 +523,10 @@ function formatShort(n) {
   if (n > 0 && n < 1) return n.toFixed(2);
   if (n < 10)  return n.toFixed(1).replace(/\.0$/, '');
   if (n < 1000) return (n | 0).toString();
+  if (state.settings && state.settings.scientificNumbers) {
+    // "1.23e+6" → "1.23e6"; strip trailing zeros in the mantissa for readability.
+    return n.toExponential(2).replace('e+', 'e').replace(/(\.\d*?)0+e/, '$1e').replace(/\.e/, 'e');
+  }
   let i = 0;
   while (n >= 1000 && i < SUFFIX.length - 1) { n /= 1000; i++; }
   return n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0) + SUFFIX[i];
