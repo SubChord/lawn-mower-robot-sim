@@ -23,7 +23,26 @@ let state = {
   activeSkin: 'default',
   gnomeTimer: 60 + Math.random() * 30, // seconds until next wandering gnome
   treasuresCollected: 0,
+  settings: {
+    showRobotNames: true,
+    showGnomeNames: true,
+    showParticles: true,
+  },
+  zenMode: false,
 };
+
+// ---------- Settings ----------
+// Each entry is a toggle in the settings modal. Add more here; they render
+// automatically and are persisted via save/load.
+const SETTING_DEFS = [
+  { key: 'showRobotNames', label: 'Show robot names',  hint: 'Display nameplates above each mower.' },
+  { key: 'showGnomeNames', label: 'Show gnome names',  hint: 'Display names above visiting gnomes.' },
+  { key: 'showParticles',  label: 'Floating numbers',  hint: 'Show +coin pop-ups over the lawn.' },
+];
+function getSetting(key) {
+  if (!state.settings) state.settings = {};
+  return state.settings[key];
+}
 
 const FUEL_TYPES = [
   { name: 'Benzine',  icon: '⛽', drainMult: 1.00, recharge: 0.0, refuelable: true,  upgradeCost: 2000,  barColor: 'linear-gradient(90deg,#ff8c00,#ffb830)' },

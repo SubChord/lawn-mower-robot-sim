@@ -55,36 +55,37 @@ function updateHUD() {
 }
 
 // ---------- Shop / Upgrades UI ----------
+// Compact rows: short name, one-line status. Next-step detail lives in the button tooltip.
 const UPGRADE_DEFS = [
-  { key: 'robots', icon: '🤖', name: 'Deploy Robot',
-    desc: (s) => `Robots on lawn: ${s.upgrades.robots}`,
-    effect: (s) => `+1 robot`, show: () => true },
+  { key: 'robots', icon: '🤖', name: 'Robot',
+    desc: (s) => `Fleet: ${s.upgrades.robots}`,
+    effect: () => `Deploy one more robot on the lawn`, show: () => true },
   { key: 'speed',  icon: '⚡', name: 'Turbo Motors',
-    desc: (s) => `Move speed +${s.upgrades.speed * 10}%`,
-    effect: (s) => `+10% robot speed` },
+    desc: (s) => `+${s.upgrades.speed * 10}% move speed`,
+    effect: () => `+10% robot move speed` },
   { key: 'range',  icon: '📏', name: 'Wider Blades',
-    desc: (s) => `Cut range +${s.upgrades.range * 8}%`,
-    effect: (s) => `+8% cutting range` },
+    desc: (s) => `+${s.upgrades.range * 8}% cut range`,
+    effect: () => `+8% cutting radius` },
   { key: 'rate',   icon: '🌀', name: 'Sharper Blades',
-    desc: (s) => `Mow rate +${s.upgrades.rate * 15}%`,
-    effect: (s) => `+15% mow speed` },
+    desc: (s) => `+${s.upgrades.rate * 15}% mow rate`,
+    effect: () => `+15% mow speed` },
   { key: 'value',  icon: '💰', name: 'Golden Clippings',
-    desc: (s) => `Coin value +${s.upgrades.value * 15}%`,
-    effect: (s) => `+15% coins per mow` },
+    desc: (s) => `+${s.upgrades.value * 15}% coin value`,
+    effect: () => `+15% coins per mow` },
   { key: 'growth', icon: '🌱', name: 'Fertilizer',
-    desc: (s) => `Grass growth +${s.upgrades.growth * 12}%`,
-    effect: (s) => `+12% grass regrowth` },
-  { key: 'crit',    icon: '🎯', name: 'Lucky Lawnmower',
-    desc: (s) => `Crit chance ${(critChance()*100).toFixed(1)}% (×${critMult()})`,
-    effect: (s) => `+2% crit chance` },
+    desc: (s) => `+${s.upgrades.growth * 12}% growth`,
+    effect: () => `+12% grass regrowth` },
+  { key: 'crit',    icon: '🎯', name: 'Lucky Mower',
+    desc: () => `Crit ${(critChance()*100).toFixed(1)}% · ×${critMult()}`,
+    effect: () => `+2% crit chance` },
   { key: 'fuelEff', icon: '🔩', name: 'Fuel Efficiency',
-    desc: (s) => `Fuel drain -${s.upgrades.fuelEff * 8}% (${fuelDrainRate().toFixed(2)}/s now)`,
+    desc: () => `Drain ${fuelDrainRate().toFixed(2)}/s`,
     effect: () => `-8% fuel consumption` },
-  { key: 'fuelType', icon: '⛽', name: 'Upgrade Fuel Type',
+  { key: 'fuelType', icon: '⛽', name: 'Fuel Type',
     desc: (s) => {
       const cur = FUEL_TYPES[s.upgrades.fuelType];
       const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
-      return `${cur.icon} ${cur.name} (${(cur.drainMult*100)|0}% drain, ${cur.recharge}/s regen)${nxt ? ` → ${nxt.icon} ${nxt.name}` : ' — MAX'}`;
+      return nxt ? `${cur.icon} ${cur.name} → ${nxt.icon} ${nxt.name}` : `${cur.icon} ${cur.name} · MAX`;
     },
     effect: (s) => {
       const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
@@ -111,15 +112,15 @@ function renderShop() {
     const cost = maxed ? Infinity : COST[up.key](lvl);
     const affordable = state.coins >= cost && !maxed;
     const row = document.createElement('div');
-    row.className = 'upgrade' + (affordable ? ' affordable' : '');
+    row.className = 'upgrade' + (affordable ? ' affordable' : '') + (maxed ? ' maxed' : '');
+    const tooltip = maxed ? 'Fully upgraded' : up.effect(state);
     row.innerHTML = `
       <div class="icon">${up.icon}</div>
       <div class="info">
         <div class="name">${up.name} ${up.key !== 'robots' ? `<span class="lvl">Lv ${lvl}</span>` : ''}</div>
-        <div class="lvl">${up.desc(state)}</div>
-        <div class="effect">${maxed ? '⭐ MAXED' : up.effect(state)}</div>
+        <div class="effect">${maxed ? '⭐ MAXED' : up.desc(state)}</div>
       </div>
-      <button class="buy" ${affordable ? '' : 'disabled'}>
+      <button class="buy" ${affordable ? '' : 'disabled'} title="${tooltip.replace(/"/g,'&quot;')}">
         ${maxed ? 'MAX' : 'Buy'}
         <span class="cost">${maxed ? '—' : '💰 ' + formatShort(cost)}</span>
       </button>
@@ -535,6 +536,81 @@ function handleCanvasClick(e) {
   }
 }
 
+// ---------- Settings modal ----------
+function openSettingsModal() {
+  if (document.querySelector('.settings-modal-backdrop')) return;
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop settings-modal-backdrop';
+  const rows = SETTING_DEFS.map(def => {
+    const on = !!state.settings[def.key];
+    return `
+      <label class="settings-row" data-key="${def.key}">
+        <div class="settings-info">
+          <div class="settings-label">${def.label}</div>
+          <div class="settings-hint">${def.hint || ''}</div>
+        </div>
+        <span class="toggle ${on ? 'on' : ''}" data-key="${def.key}"><span class="knob"></span></span>
+      </label>`;
+  }).join('');
+  back.innerHTML = `
+    <div class="modal settings-modal">
+      <h2>⚙️ SETTINGS</h2>
+      <div class="settings-list">${rows}</div>
+      <button id="settingsCloseBtn">Done</button>
+    </div>`;
+  document.body.appendChild(back);
+  back.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', (e) => {
+      e.preventDefault();
+      const key = t.dataset.key;
+      state.settings[key] = !state.settings[key];
+      t.classList.toggle('on', !!state.settings[key]);
+      beep(state.settings[key] ? 720 : 520, 0.05, 'sine', 0.05);
+      saveGame();
+    });
+  });
+  const close = () => back.remove();
+  back.querySelector('#settingsCloseBtn').addEventListener('click', close);
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+}
+
+// ---------- Zen Mode ----------
+function setZenMode(enabled) {
+  state.zenMode = !!enabled;
+  document.body.classList.toggle('zen-mode', state.zenMode);
+  if (state.zenMode) {
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    }
+    state.fuel = CFG.fuelMax;
+    toast('🧘 Zen Mode — breathe and watch.', '#c6a8ff');
+  } else {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+  // Canvas size changed; re-fit and rescale positions.
+  const prev = tileSize;
+  resizeCanvas();
+  if (prev && prev !== tileSize) {
+    const scale = tileSize / prev;
+    robots.forEach(r => { r.x *= scale; r.y *= scale; });
+    bees.forEach(b => { b.x *= scale; b.y *= scale; if (b.target) { b.target.x *= scale; b.target.y *= scale; } });
+    visitorGnomes.forEach(g => {
+      g.x *= scale; g.y *= scale;
+      g.targetX *= scale; g.targetY *= scale;
+      g.exitX *= scale; g.exitY *= scale;
+    });
+    treasures.forEach(t => {
+      t.x = (t.tileX + 0.5) * tileSize;
+      t.y = (t.tileY + 0.5) * tileSize;
+    });
+  }
+  saveGame();
+}
+function toggleZenMode() { setZenMode(!state.zenMode); }
+
 // ---------- Toasts ----------
 function toast(msg, color = '#ffd34e') {
   const c = document.getElementById('toasts');
@@ -612,5 +688,17 @@ function wireUIEvents() {
     state.muted = !state.muted;
     muteBtn.textContent = state.muted ? '🔇 Muted' : '🔊 Sound';
     saveGame();
+  });
+
+  document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+  document.getElementById('zenBtn').addEventListener('click', toggleZenMode);
+  document.getElementById('zenExit').addEventListener('click', () => setZenMode(false));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.zenMode) setZenMode(false);
+  });
+  document.addEventListener('fullscreenchange', () => {
+    // If the user exits fullscreen via browser UI, leave zen mode too.
+    if (!document.fullscreenElement && state.zenMode) setZenMode(false);
   });
 }

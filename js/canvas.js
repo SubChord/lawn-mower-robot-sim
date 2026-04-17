@@ -89,3 +89,26 @@ function beep(freq = 440, dur = 0.06, type = 'square', vol = 0.05) {
   osc.connect(gain).connect(ac.destination);
   osc.start(); osc.stop(ac.currentTime + dur);
 }
+
+// Mischievous up-down arpeggio followed by a quick "hee-hee" — the sound a
+// gnome makes when he's just hidden something for you to find.
+function playGnomeGiggle() {
+  if (state.muted) return;
+  const ac = ensureAudio(); if (!ac) return;
+  // Bouncy arpeggio C5-E5-G5-E5
+  const notes = [523, 659, 784, 659];
+  notes.forEach((f, i) => {
+    setTimeout(() => beep(f, 0.07, 'triangle', 0.05), i * 70);
+  });
+  // "hee-hee" — two short chirps with vibrato-ish pitch wiggle
+  setTimeout(() => {
+    beep(880, 0.05, 'sine', 0.045);
+    beep(990, 0.05, 'square', 0.02);
+  }, 340);
+  setTimeout(() => {
+    beep(820, 0.05, 'sine', 0.045);
+    beep(940, 0.05, 'square', 0.02);
+  }, 430);
+  // Cheeky low "hmph"
+  setTimeout(() => beep(260, 0.12, 'triangle', 0.05), 560);
+}

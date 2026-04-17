@@ -198,41 +198,47 @@ aside.shop {
 .upgrade {
   background: linear-gradient(180deg, rgba(20,50,30,0.7), rgba(10,28,18,0.7));
   border: 1px solid rgba(143,240,158,0.18);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
+  border-radius: 10px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
   display: grid;
-  grid-template-columns: 42px 1fr auto;
+  grid-template-columns: 34px 1fr auto;
   gap: 10px;
   align-items: center;
   transition: border-color .15s, transform .1s;
 }
+.upgrade.maxed { opacity: 0.78; }
 .upgrade:hover { border-color: rgba(143,240,158,0.4); }
 .upgrade.affordable { border-color: rgba(255,211,78,0.45); box-shadow: 0 0 0 1px rgba(255,211,78,0.15), 0 0 16px rgba(255,211,78,0.08); }
 .upgrade.active { border-color: rgba(143,240,158,0.55); box-shadow: 0 0 0 1px rgba(143,240,158,0.25), 0 0 16px rgba(143,240,158,0.12); }
 .upgrade .icon {
-  font-size: 28px; text-align: center;
+  font-size: 22px; text-align: center;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
 }
 .upgrade .info { min-width: 0; }
-.upgrade .name { font-weight: 700; font-size: 14px; }
-.upgrade .lvl { color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-.upgrade .effect { color: var(--grass-xlight); font-size: 12px; margin-top: 2px; }
+.upgrade .name { font-weight: 700; font-size: 13px; display: flex; align-items: baseline; gap: 6px; }
+.upgrade .name .lvl {
+  font-weight: 700; font-size: 10px; color: var(--ink-dim);
+  background: rgba(0,0,0,0.35);
+  padding: 1px 6px; border-radius: 999px;
+  letter-spacing: 0.4px;
+}
+.upgrade .effect { color: var(--grass-xlight); font-size: 11px; margin-top: 1px; opacity: 0.92; }
 .upgrade .buy {
   border: 0;
-  border-radius: 10px;
-  padding: 8px 12px;
+  border-radius: 8px;
+  padding: 6px 10px;
   background: var(--btn);
   color: white;
-  font-weight: 800; font-size: 13px;
-  min-width: 86px;
+  font-weight: 800; font-size: 12px;
+  min-width: 74px;
   transition: transform .08s, filter .1s;
   box-shadow: 0 2px 0 #0a2612, 0 4px 10px rgba(0,0,0,0.4);
 }
 .upgrade .buy:hover:not(:disabled) { background: var(--btn-hover); }
 .upgrade .buy:active { transform: translateY(1px); }
 .upgrade .buy:disabled { background: var(--btn-disabled); color: var(--ink-dim); cursor: not-allowed; box-shadow: none; }
-.upgrade .buy .cost { display: block; font-size: 11px; font-weight: 600; opacity: 0.95; }
+.upgrade .buy .cost { display: block; font-size: 10px; font-weight: 600; opacity: 0.95; margin-top: 1px; }
 
 /* ---------- Crew skill tree ---------- */
 .crew-tree {
@@ -506,6 +512,83 @@ footer button.danger:hover { background: rgba(216,58,58,0.2); border-color: rgba
   50% { box-shadow: 0 0 0 8px rgba(255,211,78,0); }
 }
 .currency.coin.pulse .amt { animation: coinPop .25s ease-out; }
+
+/* ---------- Settings modal ---------- */
+.settings-modal { max-width: 440px; text-align: left; padding: 22px 22px 18px; }
+.settings-modal h2 { text-align: center; }
+.settings-list { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 18px; }
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(143,240,158,0.18);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.settings-row:hover { border-color: rgba(143,240,158,0.4); }
+.settings-info { min-width: 0; flex: 1; }
+.settings-label { font-weight: 700; font-size: 13px; color: var(--ink); }
+.settings-hint  { font-size: 11px; color: var(--ink-dim); margin-top: 2px; line-height: 1.35; }
+.toggle {
+  position: relative;
+  width: 40px; height: 22px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(143,240,158,0.25);
+  transition: background .2s, border-color .2s;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.toggle .knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+  transition: left .2s, background .2s;
+}
+.toggle.on { background: rgba(88,200,95,0.4); border-color: rgba(143,240,158,0.7); }
+.toggle.on .knob { left: 20px; background: var(--grass-xlight); box-shadow: 0 0 8px rgba(143,240,158,0.6); }
+#settingsCloseBtn { width: 100%; }
+
+/* ---------- Zen Mode ---------- */
+#zenExit {
+  position: fixed; top: 16px; right: 16px;
+  z-index: 200;
+  display: none;
+  background: rgba(10,28,18,0.7);
+  color: var(--ink);
+  border: 1px solid rgba(143,240,158,0.35);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity .3s;
+  cursor: pointer;
+}
+body.zen-mode #zenExit { display: block; opacity: 0.35; }
+body.zen-mode #zenExit:hover { opacity: 1; }
+body.zen-mode #app {
+  grid-template-rows: 1fr;
+  grid-template-columns: 1fr;
+  grid-template-areas: "stage";
+  padding: 0;
+  gap: 0;
+}
+body.zen-mode header.top,
+body.zen-mode aside.shop,
+body.zen-mode footer.bottom,
+body.zen-mode .stage-hud,
+body.zen-mode .stage-overlay,
+body.zen-mode #toasts { display: none !important; }
+body.zen-mode main.stage {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  background: radial-gradient(ellipse at 30% 20%, #1f6a34 0%, #113d1d 60%, #05140a 100%);
+}
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {

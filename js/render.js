@@ -298,7 +298,7 @@ function drawRobot(r) {
   ctx.save();
   if (state.fuel <= 0) ctx.globalAlpha = 0.35;
   ctx.translate(r.x, r.y + Math.sin(r.bob) * 0.6);
-  if (r.name) {
+  if (r.name && getSetting('showRobotNames')) {
     const s = Math.max(10, tileSize * 0.9);
     const fs = Math.max(6, Math.round(tileSize * 0.38));
     ctx.font = `bold ${fs}px Inter,sans-serif`;
@@ -385,7 +385,7 @@ function drawVisitorGnome(g) {
   // shadow
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(0, ts * 0.42, ts * 0.30, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
-  if (g.name) {
+  if (g.name && getSetting('showGnomeNames')) {
     const fs = Math.max(6, Math.round(tileSize * 0.35));
     ctx.font = `bold ${fs}px Inter,sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
@@ -611,6 +611,15 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function drawParticles(dt) {
+  if (!getSetting('showParticles')) {
+    // Keep physics ticking (particles still expire) but skip drawing.
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life -= dt * 0.8;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    return;
+  }
   ctx.save();
   ctx.font = 'bold 14px Inter, sans-serif';
   ctx.textAlign = 'center';

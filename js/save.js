@@ -35,6 +35,7 @@ function saveGame() {
       treasuresCollected: state.treasuresCollected,
       gnomeTimer: state.gnomeTimer,
       fuel: state.fuel,
+      settings: state.settings,
     },
     achieved: [...achieved],
     tiles: tilePack,
@@ -72,6 +73,8 @@ function loadGame() {
     if (!isFinite(state.treasuresCollected)) state.treasuresCollected = 0;
     if (!isFinite(state.gnomeTimer)) state.gnomeTimer = 60 + Math.random() * 30;
     if (state.fuel == null) state.fuel = CFG.fuelMax;
+    state.settings = Object.assign({ showRobotNames: true, showGnomeNames: true, showParticles: true }, state.settings || {});
+    state.zenMode = false; // session-only: always start outside Zen after reload
     if (Array.isArray(data.achieved)) data.achieved.forEach(id => achieved.add(id));
     grass = new Float32Array(CFG.gridW * CFG.gridH);
     tiles = new Uint8Array(CFG.gridW * CFG.gridH);

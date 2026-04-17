@@ -70,6 +70,8 @@ function obstacleRepulsion(px, py) {
 }
 
 function updateFuel(dt) {
+  // Zen Mode: infinite fuel, no drain, no refueling needed.
+  if (state.zenMode) { state.fuel = CFG.fuelMax; return; }
   const ft = activeFuelType();
   const net = (ft.recharge - fuelDrainRate()) * dt;
   state.fuel = Math.min(CFG.fuelMax, Math.max(0, state.fuel + net));
@@ -323,7 +325,7 @@ function updateVisitorGnome(g, dt) {
           text: '·', color: '#8b5a2b', size: 10 + Math.random() * 6,
         });
       }
-      beep(420, 0.05, 'triangle', 0.04);
+      playGnomeGiggle();
       toast('🧙 A gnome hid something in the garden!', '#c6a8ff');
     }
     if (g.stateTime > CFG.gnomeDigDuration) {
