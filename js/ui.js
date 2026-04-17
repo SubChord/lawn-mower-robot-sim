@@ -221,6 +221,7 @@ function renderShop() {
   if (activeTab === 'grass')    { renderGrassShop(list); return; }
   if (activeTab === 'quests')   { renderQuests(list);    return; }
   if (activeTab === 'gemshop')  { renderGemShop(list);   return; }
+  if (activeTab === 'rubyshop') { renderRubyShop(list);  return; }
 
   for (const up of UPGRADE_DEFS) {
     if (up.show && !up.show()) continue;
@@ -669,6 +670,79 @@ function buyGemUpgrade(key) {
   saveGame();
 }
 
+// ---------- Ruby shop (persists through Ascend) ----------
+function planRubyBulk(key) {
+  const def = RUBY_BY_KEY[key]; if (!def) return { count: 0, total: 0 };
+  let lvl = rubyLvl(key);
+  let rubiesLeft = state.rubies || 0;
+  let count = 0, total = 0;
+  while (count < buyMult && lvl < def.max) {
+    const c = rubyUpgradeCost(key, lvl);
+    if (!isFinite(c) || rubiesLeft < c) break;
+    rubiesLeft -= c;
+    total += c;
+    count++;
+    lvl++;
+  }
+  return { count, total };
+}
+
+function renderRubyShop(list) {
+  const header = document.createElement('div');
+  const gainableNow = Math.floor(CFG.ascendFormula(state.totalGemsEarned || 0) * rubyShopAscendMult());
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Spend ♦️ rubies on the deepest permanent upgrades. <b style="color:#ff6b8b;">These survive every prestige AND ascend.</b><br>
+      Rubies: <b style="color:#ff6b8b;">${formatShort(state.rubies || 0)} ♦️</b>
+      · Lifetime: ${formatShort(state.totalRubiesEarned || 0)} ♦️
+      · Pending at Ascend: <b style="color:#ff6b8b;">+${gainableNow}</b>
+    </p>`;
+  list.appendChild(header);
+
+  for (const def of RUBY_UPGRADES) {
+    const lvl = rubyLvl(def.key);
+    const maxed = lvl >= def.max;
+    const plan = maxed ? { count: 0, total: 0 } : planRubyBulk(def.key);
+    const singleCost = maxed ? Infinity : rubyUpgradeCost(def.key, lvl);
+    const affordable = plan.count > 0;
+    const row = document.createElement('div');
+    row.className = 'upgrade' + (affordable ? ' affordable' : '') + (maxed ? ' maxed' : '');
+    const label = maxed ? 'MAX' : (plan.count > 1 ? `Buy ×${plan.count}` : 'Buy');
+    const costLabel = maxed ? '—' : '♦️ ' + formatShort(plan.count > 0 ? plan.total : singleCost);
+    row.innerHTML = `
+      <div class="icon">${def.icon}</div>
+      <div class="info">
+        <div class="name">${def.name} <span class="lvl">Lv ${lvl}/${def.max}</span></div>
+        <div class="effect" style="color:#ff8ea5;">${def.statusText(lvl)}</div>
+        <div class="effect" style="opacity:0.7;">${def.desc}</div>
+      </div>
+      <button class="buy" ${affordable ? '' : 'disabled'}>
+        ${label}
+        <span class="cost">${costLabel}</span>
+      </button>
+    `;
+    const btn = row.querySelector('.buy');
+    if (btn && affordable) btn.addEventListener('click', () => buyRubyUpgrade(def.key));
+    list.appendChild(row);
+  }
+}
+
+function buyRubyUpgrade(key) {
+  const def = RUBY_BY_KEY[key]; if (!def) return;
+  const plan = planRubyBulk(key);
+  if (plan.count === 0) return;
+  state.rubies = (state.rubies || 0) - plan.total;
+  state.rubyUpgrades[key] = rubyLvl(key) + plan.count;
+  beep(520 + state.rubyUpgrades[key] * 30, 0.09, 'triangle', 0.08);
+  setTimeout(() => beep(780 + state.rubyUpgrades[key] * 40, 0.1, 'sine', 0.07), 80);
+  addParticle(canvas.width / 2, canvas.height / 2, {
+    text: `${def.icon} ${def.name} Lv ${state.rubyUpgrades[key]}`,
+    color: '#ff6b8b', size: 22,
+  });
+  renderShop();
+  saveGame();
+}
+
 function renderPrestige(list) {
   const can = state.totalEarnedThisRun >= CFG.prestigeThreshold;
   const gain = CFG.prestigeFormula(state.totalEarnedThisRun);
@@ -698,6 +772,43 @@ function renderPrestige(list) {
     </div>
   `;
   list.appendChild(info);
+
+  // --- Ascend (ruby prestige) ---
+  const ascendBase = CFG.ascendFormula(state.totalGemsEarned || 0);
+  const ascendGain = Math.floor(ascendBase * rubyShopAscendMult());
+  const canAscend = (state.totalGemsEarned || 0) >= CFG.ascendThreshold && ascendGain > 0;
+  const ascend = document.createElement('div');
+  ascend.className = 'prestige';
+  ascend.style.background = 'linear-gradient(180deg, rgba(160, 30, 60, 0.65), rgba(40, 8, 20, 0.8))';
+  ascend.style.borderColor = 'rgba(255, 90, 120, 0.55)';
+  ascend.innerHTML = `
+    <h3 style="color:#ff6b8b; text-shadow: 0 0 10px rgba(255,90,120,0.5);">♦️ ASCEND</h3>
+    <p>A deeper reset. <b>Wipes everything</b> — coins, runs, upgrades,
+    garden, crew, grass species, 💎 gems, gem shop. Keeps ♦️ rubies,
+    ruby shop, skins, and patterns.</p>
+    <div class="gain" style="color:#ff6b8b; text-shadow:0 0 10px rgba(255,90,120,0.4);">♦️ +${ascendGain} rubies</div>
+    <p style="font-size:11px; opacity:0.7;">Threshold: ${CFG.ascendThreshold} 💎 earned cumulatively<br>
+    Lifetime 💎 earned: ${formatShort(state.totalGemsEarned || 0)}</p>
+    <button id="ascendBtn" ${canAscend ? '' : 'disabled'}
+      style="background: linear-gradient(180deg,#ff4a6a,#9e1230); box-shadow: 0 4px 14px rgba(255,90,120,0.35);">
+      Ascend (+${ascendGain} ♦️)
+    </button>
+  `;
+  list.appendChild(ascend);
+  const ab = ascend.querySelector('#ascendBtn');
+  if (ab) ab.addEventListener('click', doAscend);
+
+  const rubyInfo = document.createElement('div');
+  rubyInfo.className = 'upgrade';
+  rubyInfo.style.gridTemplateColumns = '42px 1fr';
+  rubyInfo.innerHTML = `
+    <div class="icon">♦️</div>
+    <div class="info">
+      <div class="name" style="color:#ff6b8b;">Current Rubies: ${state.rubies || 0}</div>
+      <div class="effect">Lifetime ♦️: ${state.totalRubiesEarned || 0} · Spend in the ♦️ Rubies tab</div>
+    </div>
+  `;
+  list.appendChild(rubyInfo);
 }
 
 function buy(key) {
@@ -723,7 +834,7 @@ function buy(key) {
 
 function doPrestige() {
   const baseGain = CFG.prestigeFormula(state.totalEarnedThisRun);
-  const gain = Math.floor(baseGain * gemShopPrestigeMult());
+  const gain = Math.floor(baseGain * gemShopPrestigeMult() * rubyShopPrestigeMult());
   if (gain <= 0) return;
   if (!confirm(`Fertilize? You will gain ${gain} 💎 gems (permanent +${gain * 10}% bonus), but reset coins, robots, upgrades and garden.`)) return;
   state.gems += gain;
@@ -764,6 +875,66 @@ function doPrestige() {
   toast(`🌟 Gained ${gain} 💎 Gems!`, '#8ff09e');
   beep(880, 0.15, 'triangle', 0.12);
   setTimeout(() => beep(1320, 0.2, 'triangle', 0.1), 100);
+  renderShop();
+  saveGame();
+}
+
+function doAscend() {
+  const baseGain = CFG.ascendFormula(state.totalGemsEarned || 0);
+  const gain = Math.floor(baseGain * rubyShopAscendMult());
+  if (gain <= 0) return;
+  if (!confirm(
+    `♦️ ASCEND for ${gain} rubies?\n\n` +
+    `This WIPES everything: coins, upgrades, garden, crew, grass unlocks, gems, gem-shop upgrades.\n` +
+    `Your rubies, ruby-shop upgrades, skins, and mow patterns are KEPT.\n\n` +
+    `Rubies are much rarer than gems — spend them wisely.`
+  )) return;
+
+  state.rubies = (state.rubies || 0) + gain;
+  state.totalRubiesEarned = (state.totalRubiesEarned || 0) + gain;
+
+  // Full wipe of the gem tier and below.
+  state.coins = 0;
+  state.totalEarnedThisRun = 0;
+  state.gems = rubyShopStartGems();
+  state.totalGemsEarned = 0;
+  state.gemUpgrades = {
+    startCoins: 0, coinMult: 0, growth: 0, crit: 0,
+    offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
+    grassObsidian: 0, grassFrost: 0, grassVoid: 0,
+  };
+  state.upgrades = {
+    robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
+    fuelEff: 0, fuelType: 0, tool: 0,
+  };
+  state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
+  state.crew     = rubyShopHasStartCrew() ? ['foreman'] : [];
+  state.fuel     = CFG.fuelMax;
+  state.gnomeTimer = 60 + Math.random() * 30;
+  state.activeQuest = null;
+  state.questTimer = 80 + Math.random() * 60;
+  state.questHistory = [];
+  state.questsCompleted = 0;
+  state.grassTypes = {
+    clover:   { unlocked: false, spawnLevel: 0 },
+    thick:    { unlocked: false, spawnLevel: 0 },
+    crystal:  { unlocked: false, spawnLevel: 0 },
+    golden:   { unlocked: false, spawnLevel: 0 },
+    obsidian: { unlocked: false, spawnLevel: 0 },
+    frost:    { unlocked: false, spawnLevel: 0 },
+    void:     { unlocked: false, spawnLevel: 0 },
+  };
+  robots = [];
+  bees = [];
+  visitorGnomes = [];
+  treasures = [];
+  initWorld();
+  ensureRobotCount();
+  ensureBeesFromHives();
+  toast(`♦️ Ascended! +${gain} rubies.`, '#ff6b8b');
+  beep(440, 0.18, 'triangle', 0.12);
+  setTimeout(() => beep(660, 0.18, 'triangle', 0.10), 140);
+  setTimeout(() => beep(990, 0.22, 'triangle', 0.08), 300);
   renderShop();
   saveGame();
 }

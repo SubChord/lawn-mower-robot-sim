@@ -44,6 +44,9 @@ function saveGame() {
       grassTypes: state.grassTypes,
       gemUpgrades: state.gemUpgrades,
       totalGemsEarned: state.totalGemsEarned,
+      rubies: state.rubies,
+      totalRubiesEarned: state.totalRubiesEarned,
+      rubyUpgrades: state.rubyUpgrades,
       zenConfig: state.zenConfig,
       timeOfDay: state.timeOfDay,
       weather: state.weather,
@@ -152,6 +155,13 @@ function loadGame() {
     applyGemGrassUnlocks();
     // Back-fill totalGemsEarned for saves predating the field.
     if (!isFinite(state.totalGemsEarned)) state.totalGemsEarned = state.gems || 0;
+    // Ruby tier defaults — safe for saves that predate it.
+    if (!isFinite(state.rubies)) state.rubies = 0;
+    if (!isFinite(state.totalRubiesEarned)) state.totalRubiesEarned = 0;
+    state.rubyUpgrades = Object.assign({
+      coinMult: 0, gemBank: 0, speed: 0, crit: 0, growth: 0,
+      prestigeGemBoost: 0, ascendBoost: 0, startCrew: 0, offlineCap: 0,
+    }, state.rubyUpgrades || {});
     if (Array.isArray(data.robots)) state._savedRobots = data.robots;
     if (Array.isArray(data.tiles)) {
       for (const entry of data.tiles) {
@@ -162,7 +172,7 @@ function loadGame() {
         if (t === T.FLOWER) flowerColors[idx(x, y)] = col || 0;
       }
     }
-    const elapsed = Math.min(12 * 3600, (Date.now() - data.ts) / 1000);
+    const elapsed = Math.min(rubyShopOfflineCapHours() * 3600, (Date.now() - data.ts) / 1000);
     if (elapsed > 10) {
       const ts = 16;
       const tilesPerSec = state.upgrades.robots * mowRate() * Math.PI * Math.pow(mowRadius()/ts, 2) * 0.25;

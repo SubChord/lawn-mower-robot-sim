@@ -32,6 +32,13 @@ let state = {
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
     grassObsidian: 0, grassFrost: 0, grassVoid: 0,
   },
+  // Ascend (ruby) tier — survives super-prestige.
+  rubies: 0,
+  totalRubiesEarned: 0,
+  rubyUpgrades: {
+    coinMult: 0, gemBank: 0, speed: 0, crit: 0, growth: 0,
+    prestigeGemBoost: 0, ascendBoost: 0, startCrew: 0, offlineCap: 0,
+  },
   // Per-species unlock + spawn-rate upgrade levels. Entries keyed by GRASS_TYPES.key.
   // 'normal' is always the default (idx 0) and doesn't live in here.
   grassTypes: {
@@ -318,6 +325,64 @@ function applyGemGrassUnlocks() {
     if (gemLvl(gemKey) > 0) state.grassTypes[speciesKey].unlocked = true;
   }
 }
+
+// ---------- Ruby shop (permanent, survives BOTH prestige and ascend) ----------
+// Costs are in rubies. Rubies are end-game — very few per ascend.
+const RUBY_UPGRADES = [
+  { key: 'coinMult',         icon: '💰', name: 'Ruby Market',
+    desc: '+10% all coin income per level (stacks with gem Midas).',
+    max: 30, baseCost: 1, growth: 1.6,
+    statusText: (lvl) => `+${lvl * 10}% coin income` },
+  { key: 'gemBank',          icon: '💎', name: 'Gem Dowry',
+    desc: 'Start every ascend with bonus gems (preserved).',
+    max: 10, baseCost: 1, growth: 1.8,
+    statusText: (lvl) => `Start each ascend with ${lvl * 5} gems` },
+  { key: 'speed',            icon: '🏎️', name: 'Master Mower',
+    desc: '+15% robot speed per level.',
+    max: 10, baseCost: 2, growth: 1.9,
+    statusText: (lvl) => `+${lvl * 15}% robot move speed` },
+  { key: 'crit',             icon: '🎯', name: 'Bloody Precision',
+    desc: '+2% permanent crit chance per level.',
+    max: 15, baseCost: 2, growth: 1.7,
+    statusText: (lvl) => `+${lvl * 2}% crit chance` },
+  { key: 'growth',           icon: '🌱', name: 'Scarlet Bloom',
+    desc: '+10% grass growth per level.',
+    max: 10, baseCost: 2, growth: 1.7,
+    statusText: (lvl) => `+${lvl * 10}% grass growth` },
+  { key: 'prestigeGemBoost', icon: '✨', name: 'Prestige Multiplier',
+    desc: '+25% gems per prestige per level (stacks with gem Lens).',
+    max: 10, baseCost: 3, growth: 1.9,
+    statusText: (lvl) => `+${lvl * 25}% prestige gems` },
+  { key: 'ascendBoost',      icon: '♦️', name: 'Ruby Lens',
+    desc: '+15% rubies per ascend per level.',
+    max: 10, baseCost: 4, growth: 2.0,
+    statusText: (lvl) => `+${lvl * 15}% ascend rubies` },
+  { key: 'startCrew',        icon: '👷', name: 'Veteran Foreman',
+    desc: 'Start every ascend with the Foreman already hired.',
+    max: 1, baseCost: 5, growth: 1,
+    statusText: (lvl) => lvl ? 'Foreman hired on every run' : 'Locked' },
+  { key: 'offlineCap',       icon: '💤', name: 'Eternal Ledger',
+    desc: '+4 hours of offline earnings cap per level (base 12h).',
+    max: 12, baseCost: 3, growth: 1.8,
+    statusText: (lvl) => `Offline cap: ${12 + lvl * 4} hours` },
+];
+const RUBY_BY_KEY = Object.fromEntries(RUBY_UPGRADES.map(r => [r.key, r]));
+function rubyLvl(key) { return (state.rubyUpgrades && state.rubyUpgrades[key]) || 0; }
+function rubyUpgradeCost(key, lvl) {
+  const def = RUBY_BY_KEY[key]; if (!def) return Infinity;
+  const n = lvl ?? rubyLvl(key);
+  if (n >= def.max) return Infinity;
+  return Math.ceil(def.baseCost * Math.pow(def.growth, n));
+}
+function rubyShopCoinMult()    { return 1 + rubyLvl('coinMult') * 0.10; }
+function rubyShopSpeedMult()   { return 1 + rubyLvl('speed') * 0.15; }
+function rubyShopCritBonus()   { return rubyLvl('crit') * 0.02; }
+function rubyShopGrowthMult()  { return 1 + rubyLvl('growth') * 0.10; }
+function rubyShopPrestigeMult(){ return 1 + rubyLvl('prestigeGemBoost') * 0.25; }
+function rubyShopAscendMult()  { return 1 + rubyLvl('ascendBoost') * 0.15; }
+function rubyShopStartGems()   { return rubyLvl('gemBank') * 5; }
+function rubyShopOfflineCapHours() { return 12 + rubyLvl('offlineCap') * 4; }
+function rubyShopHasStartCrew() { return rubyLvl('startCrew') > 0; }
 const GEM_BY_KEY = Object.fromEntries(GEM_UPGRADES.map(g => [g.key, g]));
 function gemUpgradeCost(key, lvl) {
   const def = GEM_BY_KEY[key]; if (!def) return Infinity;
@@ -504,12 +569,12 @@ function crewCritBonus(){ return hasCrew('qualityControl') ? 0.04 : 0; }
 function weatherSafeSpeed()  { return typeof weatherSpeedMult  === 'function' ? weatherSpeedMult()  : 1; }
 function weatherSafeGrowth() { return typeof weatherGrowthMult === 'function' ? weatherGrowthMult() : 1; }
 function weatherSafeFlower() { return typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1; }
-function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed(); }
+function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed() * rubyShopSpeedMult(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
-function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult(); }
-function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth(); }
+function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult(); }
+function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult(); }
 function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
-function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus()); }
+function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus()); }
 function critMult()    { return 5; }
 
 function activeTool()  { return TOOL_TYPES[state.upgrades.tool] || TOOL_TYPES[0]; }
