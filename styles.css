@@ -258,6 +258,17 @@ aside.shop {
 .upgrades { overflow-y: auto; padding-right: 6px; flex: 1; scrollbar-width: thin; scrollbar-color: #2d8a3f transparent; }
 .upgrades::-webkit-scrollbar { width: 8px; }
 .upgrades::-webkit-scrollbar-thumb { background: rgba(143,240,158,0.3); border-radius: 4px; }
+.buy-mode-hint {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #0a1f12;
+  background: linear-gradient(180deg, #ffd34e, #ffba1a);
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  text-align: center;
+  box-shadow: 0 0 0 1px rgba(255,211,78,0.35), 0 0 14px rgba(255,211,78,0.2);
+}
 
 .upgrade {
   background: linear-gradient(180deg, rgba(20,50,30,0.7), rgba(10,28,18,0.7));

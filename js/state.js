@@ -25,6 +25,12 @@ let state = {
   treasuresCollected: 0,
   patternsUnlocked: ['plain'],
   activeMowPattern: 'plain',
+  totalGemsEarned: 0,       // cumulative — drives the "+10%/gem" passive bonus
+  // Permanent upgrades purchased with gems. Survive prestige.
+  gemUpgrades: {
+    startCoins: 0, coinMult: 0, growth: 0, crit: 0,
+    offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
+  },
   // Per-species unlock + spawn-rate upgrade levels. Entries keyed by GRASS_TYPES.key.
   // 'normal' is always the default (idx 0) and doesn't live in here.
   grassTypes: {
@@ -193,6 +199,57 @@ const TOOL_TYPES = [
   { name: 'Industrial Beast', icon: '🚜', rateMult: 18.0, radiusTiles: 2.0, upgradeCost: 200000 },
 ];
 
+// ---------- Gem shop (permanent, survives prestige) ----------
+// Costs are in gems. Cost(level) = ceil(base * growth^level).
+const GEM_UPGRADES = [
+  { key: 'startCoins',    icon: '💰', name: 'Cushion Bank',
+    desc: 'Start each run with bonus coins.',
+    max: 10, baseCost: 1, growth: 1.6,
+    statusText: (lvl) => `Start with ${formatShort(startingCoinsFor(lvl))} coins` },
+  { key: 'coinMult',      icon: '✨', name: 'Midas Blessing',
+    desc: '+5% all coin income per level.',
+    max: 20, baseCost: 2, growth: 1.35,
+    statusText: (lvl) => `+${lvl * 5}% coin income` },
+  { key: 'growth',        icon: '🌱', name: 'Green Thumb',
+    desc: '+3% grass regrowth per level.',
+    max: 15, baseCost: 2, growth: 1.35,
+    statusText: (lvl) => `+${lvl * 3}% grass growth` },
+  { key: 'crit',          icon: '🎯', name: 'Lucky Charm',
+    desc: '+1% permanent crit chance per level.',
+    max: 15, baseCost: 3, growth: 1.4,
+    statusText: (lvl) => `+${lvl}% crit chance` },
+  { key: 'offline',       icon: '💤', name: 'Overnight Wages',
+    desc: 'Boost offline earnings.',
+    max: 10, baseCost: 2, growth: 1.4,
+    statusText: (lvl) => `+${lvl * 10}% offline income` },
+  { key: 'prestigeBoost', icon: '💎', name: 'Prismatic Lens',
+    desc: '+10% gems earned per prestige.',
+    max: 10, baseCost: 4, growth: 1.5,
+    statusText: (lvl) => `+${lvl * 10}% prestige gems` },
+  { key: 'startRobot',    icon: '🤖', name: 'Veteran Fleet',
+    desc: 'Start each run with extra robots.',
+    max: 5, baseCost: 5, growth: 2.0,
+    statusText: (lvl) => `Start with ${1 + lvl} robot${lvl > 0 ? 's' : ''}` },
+  { key: 'startTool',     icon: '🛠️', name: 'Apprentice Kit',
+    desc: 'Start each run with a better tool tier.',
+    max: TOOL_TYPES.length - 1, baseCost: 6, growth: 2.2,
+    statusText: (lvl) => {
+      const t = TOOL_TYPES[Math.min(lvl, TOOL_TYPES.length - 1)];
+      return `Start with ${t.icon} ${t.name}`;
+    } },
+];
+const GEM_BY_KEY = Object.fromEntries(GEM_UPGRADES.map(g => [g.key, g]));
+function gemUpgradeCost(key, lvl) {
+  const def = GEM_BY_KEY[key]; if (!def) return Infinity;
+  const n = lvl ?? state.gemUpgrades?.[key] ?? 0;
+  if (n >= def.max) return Infinity;
+  return Math.ceil(def.baseCost * Math.pow(def.growth, n));
+}
+function startingCoinsFor(lvl) {
+  if (!lvl) return 0;
+  return 250 * (Math.pow(2, lvl) - 1);
+}
+
 const COST = {
   robots:   (n) => Math.ceil(25   * Math.pow(1.45, n - 1)),
   speed:    (n) => Math.ceil(40   * Math.pow(1.35, n)),
@@ -327,7 +384,13 @@ function gnomeSpawnIntervalMult() {
 }
 
 // ---------- Derived values ----------
-function gemMult()      { return 1 + state.gems * 0.10; }
+function gemLvl(key)    { return (state.gemUpgrades && state.gemUpgrades[key]) || 0; }
+function gemMult()      { return 1 + (state.totalGemsEarned || state.gems) * 0.10; }
+function gemShopCoinMult() { return 1 + gemLvl('coinMult') * 0.05; }
+function gemShopGrowthMult() { return 1 + gemLvl('growth') * 0.03; }
+function gemShopCritBonus()  { return gemLvl('crit') * 0.01; }
+function gemShopOfflineMult(){ return 1 + gemLvl('offline') * 0.10; }
+function gemShopPrestigeMult(){ return 1 + gemLvl('prestigeBoost') * 0.10; }
 function activeFuelType(){ return FUEL_TYPES[state.upgrades.fuelType] || FUEL_TYPES[0]; }
 function isElectric()   { return !activeFuelType().refuelable; }
 function fuelEffMult()  {
@@ -360,10 +423,10 @@ function crewCritBonus(){ return hasCrew('qualityControl') ? 0.04 : 0; }
 
 function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
-function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult(); }
-function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()); }
+function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult(); }
+function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult(); }
 function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
-function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus()); }
+function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus()); }
 function critMult()    { return 5; }
 
 function activeTool()  { return TOOL_TYPES[state.upgrades.tool] || TOOL_TYPES[0]; }

@@ -15,7 +15,7 @@ function updateHUD() {
     lastCoinDisplay = state.coins;
   }
   document.getElementById('gemAmt').textContent = formatShort(state.gems);
-  document.getElementById('gemBonus').textContent = `+${(state.gems * 10)}% bonus`;
+  document.getElementById('gemBonus').textContent = `+${Math.round((gemMult() - 1) * 100)}% bonus`;
 
   const now = performance.now();
   if (now - lastRateSample.t > 700) {
@@ -149,9 +149,53 @@ const UPGRADE_DEFS = [
 ];
 
 let activeTab = 'upgrades';
+
+// ---------- Bulk-buy modifier ----------
+// Hold Shift for ×10, Ctrl/Cmd for ×100, both for Max affordable.
+// Session-only — never persisted.
+let buyMult = 1;
+function updateBuyMult(e) {
+  const shift = !!e.shiftKey;
+  const ctrl = !!(e.ctrlKey || e.metaKey);
+  let next = 1;
+  if (shift && ctrl) next = Infinity;
+  else if (ctrl) next = 100;
+  else if (shift) next = 10;
+  if (next !== buyMult) {
+    buyMult = next;
+    renderShop();
+  }
+}
+function buyMultLabel() {
+  if (buyMult === Infinity) return 'MAX';
+  if (buyMult > 1) return '×' + buyMult;
+  return '';
+}
+// Plan a sequence of purchases. `nextCost(i)` returns cost of the (i+1)-th purchase,
+// `canBuyMore(i)` returns true if another purchase is still allowed (not maxed).
+// Returns { count, total } limited by buyMult and current coins.
+function planBulk(nextCost, canBuyMore) {
+  let count = 0, total = 0, coinsLeft = state.coins;
+  while (count < buyMult && canBuyMore(count)) {
+    const c = nextCost(count);
+    if (!isFinite(c) || coinsLeft < c) break;
+    coinsLeft -= c;
+    total += c;
+    count++;
+  }
+  return { count, total };
+}
+
 function renderShop() {
   const list = document.getElementById('shopList');
   list.innerHTML = '';
+
+  if (buyMult !== 1) {
+    const hint = document.createElement('div');
+    hint.className = 'buy-mode-hint';
+    hint.textContent = `Bulk-buy mode: ${buyMultLabel()} (Shift ×10 · Ctrl ×100 · Shift+Ctrl MAX)`;
+    list.appendChild(hint);
+  }
 
   if (activeTab === 'prestige') { renderPrestige(list); return; }
   if (activeTab === 'garden')   { renderGarden(list);   return; }
@@ -160,16 +204,23 @@ function renderShop() {
   if (activeTab === 'tools')    { renderTools(list);    return; }
   if (activeTab === 'grass')    { renderGrassShop(list); return; }
   if (activeTab === 'quests')   { renderQuests(list);    return; }
+  if (activeTab === 'gemshop')  { renderGemShop(list);   return; }
 
   for (const up of UPGRADE_DEFS) {
     if (up.show && !up.show()) continue;
     const lvl = state.upgrades[up.key];
     const maxed = lvl >= MAX[up.key];
-    const cost = maxed ? Infinity : COST[up.key](lvl);
-    const affordable = state.coins >= cost && !maxed;
+    const plan = maxed ? { count: 0, total: 0 } : planBulk(
+      (i) => COST[up.key](lvl + i),
+      (i) => lvl + i < MAX[up.key],
+    );
+    const singleCost = maxed ? Infinity : COST[up.key](lvl);
+    const affordable = plan.count > 0;
     const row = document.createElement('div');
     row.className = 'upgrade' + (affordable ? ' affordable' : '') + (maxed ? ' maxed' : '');
     const tooltip = maxed ? 'Fully upgraded' : up.effect(state);
+    const buyLabel = maxed ? 'MAX' : (plan.count > 1 ? `Buy ×${plan.count}` : 'Buy');
+    const costLabel = maxed ? '—' : '💰 ' + formatShort(plan.count > 0 ? plan.total : singleCost);
     row.innerHTML = `
       <div class="icon">${up.icon}</div>
       <div class="info">
@@ -177,8 +228,8 @@ function renderShop() {
         <div class="effect">${maxed ? '⭐ MAXED' : up.desc(state)}</div>
       </div>
       <button class="buy" ${affordable ? '' : 'disabled'} title="${tooltip.replace(/"/g,'&quot;')}">
-        ${maxed ? 'MAX' : 'Buy'}
-        <span class="cost">${maxed ? '—' : '💰 ' + formatShort(cost)}</span>
+        ${buyLabel}
+        <span class="cost">${costLabel}</span>
       </button>
     `;
     row.querySelector('.buy').addEventListener('click', () => buy(up.key));
@@ -272,10 +323,16 @@ function renderGarden(list) {
   for (const def of GARDEN_DEFS) {
     const owned = state.garden[def.key];
     const maxed = owned >= def.max;
-    const cost = maxed ? Infinity : gardenCost(def.key);
-    const affordable = state.coins >= cost && !maxed;
+    const plan = maxed ? { count: 0, total: 0 } : planBulk(
+      (i) => Math.ceil(def.baseCost * Math.pow(def.mult, owned + i)),
+      (i) => owned + i < def.max,
+    );
+    const singleCost = maxed ? Infinity : gardenCost(def.key);
+    const affordable = plan.count > 0;
     const row = document.createElement('div');
     row.className = 'upgrade' + (affordable ? ' affordable' : '');
+    const placeLabel = maxed ? 'MAX' : (plan.count > 1 ? `Place ×${plan.count}` : 'Place');
+    const costLabel = maxed ? '—' : '💰 ' + formatShort(plan.count > 0 ? plan.total : singleCost);
     row.innerHTML = `
       <div class="icon">${def.icon}</div>
       <div class="info">
@@ -283,8 +340,8 @@ function renderGarden(list) {
         <div class="effect">${def.desc()}</div>
       </div>
       <button class="buy" ${affordable ? '' : 'disabled'}>
-        ${maxed ? 'MAX' : 'Place'}
-        <span class="cost">${maxed ? '—' : '💰 ' + formatShort(cost)}</span>
+        ${placeLabel}
+        <span class="cost">${costLabel}</span>
       </button>
     `;
     row.querySelector('.buy').addEventListener('click', () => buyGarden(def.key));
@@ -294,26 +351,41 @@ function renderGarden(list) {
 
 function buyGarden(key) {
   const def = GARDEN_BY_KEY[key];
-  const owned = state.garden[key];
-  if (owned >= def.max) return;
-  const cost = gardenCost(key);
-  if (state.coins < cost) return;
-  const placed = placeAtRandomGrass(def.type);
-  if (!placed) {
+  const startOwned = state.garden[key];
+  // Plan with predictive cost, but each buy also has to actually find free grass —
+  // so we commit one-at-a-time and stop if a placement fails.
+  const plan = planBulk(
+    (i) => Math.ceil(def.baseCost * Math.pow(def.mult, startOwned + i)),
+    (i) => startOwned + i < def.max,
+  );
+  if (plan.count === 0) return;
+  let placedCount = 0;
+  let spentSoFar = 0;
+  let lastPlacement = null;
+  for (let i = 0; i < plan.count; i++) {
+    const cost = Math.ceil(def.baseCost * Math.pow(def.mult, startOwned + i));
+    const placed = placeAtRandomGrass(def.type);
+    if (!placed) break;
+    state.coins -= cost;
+    state.garden[key] = startOwned + i + 1;
+    spentSoFar += cost;
+    placedCount++;
+    lastPlacement = placed;
+  }
+  if (placedCount === 0) {
     toast('⚠️ No free grass tile found!', '#ffb4b4');
     return;
   }
-  state.coins -= cost;
-  state.garden[key] = owned + 1;
-  beep(500 + owned * 15, 0.08, 'sine', 0.07);
+  beep(500 + startOwned * 15, 0.08, 'sine', 0.07);
   if (key === 'beehive') {
     ensureBeesFromHives();
-    toast('🐝 Beehive placed! Bees deployed.', '#ffd34e');
-  } else {
-    addParticle((placed.x + 0.5) * tileSize, (placed.y + 0.5) * tileSize, {
-      text: '+' + def.icon, color: '#8ff09e', size: 18,
+    toast(`🐝 Placed ${placedCount} beehive${placedCount > 1 ? 's' : ''}!`, '#ffd34e');
+  } else if (lastPlacement) {
+    addParticle((lastPlacement.x + 0.5) * tileSize, (lastPlacement.y + 0.5) * tileSize, {
+      text: (placedCount > 1 ? `×${placedCount} ` : '+') + def.icon, color: '#8ff09e', size: 18,
     });
   }
+  if (placedCount < plan.count) toast(`⚠️ Only ${placedCount} of ${plan.count} placed — lawn is full.`, '#ffb4b4');
   renderShop();
   saveGame();
 }
@@ -329,22 +401,32 @@ function renderTools(list) {
     </p>`;
   list.appendChild(header);
 
+  const startIdx = state.upgrades.tool;
+  const toolPlan = planBulk(
+    (i) => TOOL_TYPES[startIdx + 1 + i]?.upgradeCost ?? Infinity,
+    (i) => startIdx + 1 + i < TOOL_TYPES.length,
+  );
+  // Which tiers will this click skip past?
+  const skipUntil = startIdx + toolPlan.count;
+
   for (let i = 0; i < TOOL_TYPES.length; i++) {
     const tool = TOOL_TYPES[i];
     const owned = state.upgrades.tool >= i;
     const isNext = i === state.upgrades.tool + 1;
-    const cost = tool.upgradeCost ?? 0;
-    const affordable = isNext && state.coins >= cost;
     const row = document.createElement('div');
     const classes = ['upgrade'];
-    if (affordable) classes.push('affordable');
+    if (isNext && toolPlan.count > 0) classes.push('affordable');
     if (i === state.upgrades.tool) classes.push('active');
+    if (isNext && i <= skipUntil && toolPlan.count > 1) classes.push('affordable');
     row.className = classes.join(' ');
     let btn;
     if (owned) {
       btn = `<button class="buy" disabled>${i === state.upgrades.tool ? '✔ EQUIPPED' : 'OWNED'}</button>`;
     } else if (isNext) {
-      btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Buy<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+      const canBuy = toolPlan.count > 0;
+      const label = canBuy && toolPlan.count > 1 ? `Buy ×${toolPlan.count}` : 'Buy';
+      const costText = canBuy ? formatShort(toolPlan.total) : formatShort(tool.upgradeCost ?? 0);
+      btn = `<button class="buy" ${canBuy ? '' : 'disabled'}>${label}<span class="cost">💰 ${costText}</span></button>`;
     } else {
       btn = `<button class="buy" disabled>🔒 LOCKED</button>`;
     }
@@ -358,21 +440,25 @@ function renderTools(list) {
       ${btn}
     `;
     const buyBtn = row.querySelector('.buy');
-    if (buyBtn && isNext && affordable) buyBtn.addEventListener('click', () => buyTool(i));
+    if (buyBtn && isNext && toolPlan.count > 0) buyBtn.addEventListener('click', () => buyTool(i));
     list.appendChild(row);
   }
 }
 
 function buyTool(idx) {
   if (idx !== state.upgrades.tool + 1) return;
-  const tool = TOOL_TYPES[idx];
-  if (!tool) return;
-  const cost = tool.upgradeCost;
-  if (state.coins < cost) return;
-  state.coins -= cost;
-  state.upgrades.tool = idx;
-  beep(700 + idx * 40, 0.08, 'sine', 0.07);
-  setTimeout(() => beep(1040 + idx * 50, 0.1, 'triangle', 0.06), 90);
+  // Tiers are strictly sequential, so bulk = advance as many tiers as affordable.
+  const startIdx = state.upgrades.tool;
+  const plan = planBulk(
+    (i) => TOOL_TYPES[startIdx + 1 + i]?.upgradeCost ?? Infinity,
+    (i) => startIdx + 1 + i < TOOL_TYPES.length,
+  );
+  if (plan.count === 0) return;
+  state.coins -= plan.total;
+  state.upgrades.tool = startIdx + plan.count;
+  const tool = TOOL_TYPES[state.upgrades.tool];
+  beep(700 + state.upgrades.tool * 40, 0.08, 'sine', 0.07);
+  setTimeout(() => beep(1040 + state.upgrades.tool * 50, 0.1, 'triangle', 0.06), 90);
   toast(`${tool.icon} Equipped: ${tool.name}!`, '#8ff09e');
   addParticle(canvas.width / 2, canvas.height / 2, {
     text: tool.icon + ' ' + tool.name, color: '#8ff09e', size: 22,
@@ -407,9 +493,21 @@ function renderGrassShop(list) {
     const def = GRASS_TYPES[i];
     const st = state.grassTypes[def.key];
     const unlocked = !!st?.unlocked;
-    const cost = unlocked ? grassSpawnCost(def.key) : def.unlockCost;
     const maxed = unlocked && st.spawnLevel >= GRASS_SPAWN_MAX_LEVEL;
-    const affordable = !maxed && state.coins >= cost;
+    let plan = { count: 0, total: 0 };
+    let affordable = false;
+    let cost = 0;
+    if (!unlocked) {
+      cost = def.unlockCost;
+      affordable = state.coins >= cost;
+    } else if (!maxed) {
+      plan = planBulk(
+        (n) => Math.ceil(def.unlockCost * 0.4 * Math.pow(1.6, st.spawnLevel + n)),
+        (n) => st.spawnLevel + n < GRASS_SPAWN_MAX_LEVEL,
+      );
+      cost = plan.count > 0 ? plan.total : grassSpawnCost(def.key);
+      affordable = plan.count > 0;
+    }
     const row = document.createElement('div');
     const cls = ['upgrade'];
     if (affordable) cls.push('affordable');
@@ -420,9 +518,14 @@ function renderGrassShop(list) {
       ? `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough · on lawn: <b>${counts[i]}</b>`
       : `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough — unlock to spawn`;
     let btn;
-    if (maxed) btn = `<button class="buy" disabled>MAX</button>`;
-    else if (!unlocked) btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Unlock<span class="cost">💰 ${formatShort(cost)}</span></button>`;
-    else btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Spawn +<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+    if (maxed) {
+      btn = `<button class="buy" disabled>MAX</button>`;
+    } else if (!unlocked) {
+      btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Unlock<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+    } else {
+      const label = plan.count > 1 ? `Spawn ×${plan.count}` : 'Spawn +';
+      btn = `<button class="buy" ${affordable ? '' : 'disabled'}>${label}<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+    }
     row.innerHTML = `
       <div class="icon">${def.icon}</div>
       <div class="info">
@@ -460,12 +563,86 @@ function upgradeGrassSpawn(key) {
   const def = GRASS_BY_KEY[key]; if (!def) return;
   const st = state.grassTypes[key];
   if (!st?.unlocked) return;
-  if (st.spawnLevel >= GRASS_SPAWN_MAX_LEVEL) return;
-  const cost = grassSpawnCost(key);
-  if (state.coins < cost) return;
-  state.coins -= cost;
-  st.spawnLevel += 1;
+  const startLvl = st.spawnLevel;
+  const plan = planBulk(
+    (i) => Math.ceil(def.unlockCost * 0.4 * Math.pow(1.6, startLvl + i)),
+    (i) => startLvl + i < GRASS_SPAWN_MAX_LEVEL,
+  );
+  if (plan.count === 0) return;
+  state.coins -= plan.total;
+  st.spawnLevel = startLvl + plan.count;
   beep(700 + st.spawnLevel * 20, 0.06, 'triangle', 0.06);
+  renderShop();
+  saveGame();
+}
+
+// ---------- Gem shop (permanent, persists through prestige) ----------
+function planGemBulk(key) {
+  const def = GEM_BY_KEY[key]; if (!def) return { count: 0, total: 0 };
+  let lvl = gemLvl(key);
+  let gemsLeft = state.gems;
+  let count = 0, total = 0;
+  while (count < buyMult && lvl < def.max) {
+    const c = gemUpgradeCost(key, lvl);
+    if (!isFinite(c) || gemsLeft < c) break;
+    gemsLeft -= c;
+    total += c;
+    count++;
+    lvl++;
+  }
+  return { count, total };
+}
+
+function renderGemShop(list) {
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
+      Spend 💎 gems on permanent upgrades. <b style="color:var(--gem);">These survive prestige.</b><br>
+      Available: <b style="color:var(--gem);">${formatShort(state.gems)} 💎</b>
+      · Lifetime: ${formatShort(state.totalGemsEarned || 0)} 💎 (${Math.round(gemMult() * 100 - 100)}% passive coin bonus)
+    </p>`;
+  list.appendChild(header);
+
+  for (const def of GEM_UPGRADES) {
+    const lvl = gemLvl(def.key);
+    const maxed = lvl >= def.max;
+    const plan = maxed ? { count: 0, total: 0 } : planGemBulk(def.key);
+    const singleCost = maxed ? Infinity : gemUpgradeCost(def.key, lvl);
+    const affordable = plan.count > 0;
+    const row = document.createElement('div');
+    row.className = 'upgrade' + (affordable ? ' affordable' : '') + (maxed ? ' maxed' : '');
+    const label = maxed ? 'MAX' : (plan.count > 1 ? `Buy ×${plan.count}` : 'Buy');
+    const costLabel = maxed ? '—' : '💎 ' + formatShort(plan.count > 0 ? plan.total : singleCost);
+    row.innerHTML = `
+      <div class="icon">${def.icon}</div>
+      <div class="info">
+        <div class="name">${def.name} <span class="lvl">Lv ${lvl}/${def.max}</span></div>
+        <div class="effect">${def.statusText(lvl)}</div>
+        <div class="effect" style="opacity:0.7;">${def.desc}</div>
+      </div>
+      <button class="buy" ${affordable ? '' : 'disabled'}>
+        ${label}
+        <span class="cost">${costLabel}</span>
+      </button>
+    `;
+    const btn = row.querySelector('.buy');
+    if (btn && affordable) btn.addEventListener('click', () => buyGemUpgrade(def.key));
+    list.appendChild(row);
+  }
+}
+
+function buyGemUpgrade(key) {
+  const def = GEM_BY_KEY[key]; if (!def) return;
+  const plan = planGemBulk(key);
+  if (plan.count === 0) return;
+  state.gems -= plan.total;
+  state.gemUpgrades[key] = gemLvl(key) + plan.count;
+  beep(720 + state.gemUpgrades[key] * 35, 0.08, 'triangle', 0.07);
+  setTimeout(() => beep(1120 + state.gemUpgrades[key] * 45, 0.1, 'sine', 0.06), 80);
+  addParticle(canvas.width / 2, canvas.height / 2, {
+    text: `${def.icon} ${def.name} Lv ${state.gemUpgrades[key]}`,
+    color: '#72f2ff', size: 20,
+  });
   renderShop();
   saveGame();
 }
@@ -495,36 +672,48 @@ function renderPrestige(list) {
     <div class="icon">💎</div>
     <div class="info">
       <div class="name">Current Gems: ${state.gems}</div>
-      <div class="effect">Global bonus: +${(state.gems * 10)}% to all coin income</div>
+      <div class="effect">Global bonus: +${Math.round((gemMult() - 1) * 100)}% to all coin income</div>
     </div>
   `;
   list.appendChild(info);
 }
 
 function buy(key) {
-  const lvl = state.upgrades[key];
-  if (lvl >= MAX[key]) return;
-  const cost = COST[key](lvl);
-  if (state.coins < cost) return;
-  state.coins -= cost;
-  state.upgrades[key] = lvl + 1;
+  const startLvl = state.upgrades[key];
+  const plan = planBulk(
+    (i) => COST[key](startLvl + i),
+    (i) => startLvl + i < MAX[key],
+  );
+  if (plan.count === 0) return;
+  state.coins -= plan.total;
+  state.upgrades[key] = startLvl + plan.count;
   if (key === 'robots') {
     ensureRobotCount();
-    addParticle(canvas.width / 2, canvas.height / 2, { text: 'NEW ROBOT!', color: '#8ff09e', size: 18 });
+    addParticle(canvas.width / 2, canvas.height / 2, {
+      text: plan.count > 1 ? `+${plan.count} ROBOTS!` : 'NEW ROBOT!',
+      color: '#8ff09e', size: 18,
+    });
   }
-  beep(660 + lvl * 10, 0.08, 'square', 0.08);
+  beep(660 + startLvl * 10, 0.08, 'square', 0.08);
   renderShop();
   saveGame();
 }
 
 function doPrestige() {
-  const gain = CFG.prestigeFormula(state.totalEarnedThisRun);
+  const baseGain = CFG.prestigeFormula(state.totalEarnedThisRun);
+  const gain = Math.floor(baseGain * gemShopPrestigeMult());
   if (gain <= 0) return;
   if (!confirm(`Fertilize? You will gain ${gain} 💎 gems (permanent +${gain * 10}% bonus), but reset coins, robots, upgrades and garden.`)) return;
   state.gems += gain;
-  state.coins = 0;
+  state.totalGemsEarned = (state.totalGemsEarned || 0) + gain;
+  state.coins = startingCoinsFor(gemLvl('startCoins'));
   state.totalEarnedThisRun = 0;
-  state.upgrades = { robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0, fuelEff: 0, fuelType: 0, tool: 0 };
+  state.upgrades = {
+    robots: 1 + gemLvl('startRobot'),
+    speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
+    fuelEff: 0, fuelType: 0,
+    tool: Math.min(gemLvl('startTool'), TOOL_TYPES.length - 1),
+  };
   state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
   state.crew     = [];
   state.fuel     = CFG.fuelMax;
@@ -1260,7 +1449,10 @@ function wireUIEvents() {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.zenMode) exitZenMode();
+    updateBuyMult(e);
   });
+  document.addEventListener('keyup', updateBuyMult);
+  window.addEventListener('blur', () => { if (buyMult !== 1) { buyMult = 1; renderShop(); } });
   document.addEventListener('fullscreenchange', () => {
     // If the user exits fullscreen via browser UI, leave zen mode too.
     if (!document.fullscreenElement && state.zenMode) exitZenMode();

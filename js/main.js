@@ -33,7 +33,13 @@ function loop(now) {
 function init() {
   const loaded = loadGame();
   resizeCanvas();
-  if (!loaded) initWorld();
+  if (!loaded) {
+    initWorld();
+    // Fresh run: apply starting bonuses from permanent gem upgrades.
+    state.coins = startingCoinsFor(gemLvl('startCoins'));
+    state.upgrades.robots = 1 + gemLvl('startRobot');
+    state.upgrades.tool = Math.min(gemLvl('startTool'), TOOL_TYPES.length - 1);
+  }
   ensureRobotCount();
   if (state._savedRobots) {
     const sr = state._savedRobots;

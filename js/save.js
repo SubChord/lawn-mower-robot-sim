@@ -42,6 +42,8 @@ function saveGame() {
       activeMowPattern: state.activeMowPattern,
       settings: state.settings,
       grassTypes: state.grassTypes,
+      gemUpgrades: state.gemUpgrades,
+      totalGemsEarned: state.totalGemsEarned,
       zenConfig: state.zenConfig,
       activeQuest: state.activeQuest,
       questTimer: state.questTimer,
@@ -125,6 +127,12 @@ function loadGame() {
       crystal: { unlocked: false, spawnLevel: 0 },
       golden:  { unlocked: false, spawnLevel: 0 },
     }, state.grassTypes || {});
+    state.gemUpgrades = Object.assign({
+      startCoins: 0, coinMult: 0, growth: 0, crit: 0,
+      offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
+    }, state.gemUpgrades || {});
+    // Back-fill totalGemsEarned for saves predating the field.
+    if (!isFinite(state.totalGemsEarned)) state.totalGemsEarned = state.gems || 0;
     if (Array.isArray(data.robots)) state._savedRobots = data.robots;
     if (Array.isArray(data.tiles)) {
       for (const entry of data.tiles) {
@@ -139,9 +147,10 @@ function loadGame() {
     if (elapsed > 10) {
       const ts = 16;
       const tilesPerSec = state.upgrades.robots * mowRate() * Math.PI * Math.pow(mowRadius()/ts, 2) * 0.25;
-      const mowOffline = Math.floor(tilesPerSec * CFG.coinPerUnitBase * coinMult() * elapsed * 0.5);
-      const flowerOffline = Math.floor(state.garden.flower * CFG.flowerCoinPerSec * coinMult() * elapsed);
-      const beeOffline = Math.floor(state.garden.beehive * CFG.beePerHive * (CFG.beeRewardPerVisit / (CFG.beeVisitDuration + 0.5)) * coinMult() * elapsed * 0.6);
+      const offlineBonus = gemShopOfflineMult();
+      const mowOffline = Math.floor(tilesPerSec * CFG.coinPerUnitBase * coinMult() * elapsed * 0.5 * offlineBonus);
+      const flowerOffline = Math.floor(state.garden.flower * CFG.flowerCoinPerSec * coinMult() * elapsed * offlineBonus);
+      const beeOffline = Math.floor(state.garden.beehive * CFG.beePerHive * (CFG.beeRewardPerVisit / (CFG.beeVisitDuration + 0.5)) * coinMult() * elapsed * 0.6 * offlineBonus);
       const offlineCoins = mowOffline + flowerOffline + beeOffline;
       if (offlineCoins > 0) {
         state.coins += offlineCoins;
