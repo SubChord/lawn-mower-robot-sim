@@ -12,13 +12,13 @@ const CFG = {
   coinPerUnitBase: 1.0,
   targetRecheck: 0.35,
   maxParticles: 260,
-  prestigeThreshold: 10000,
-  prestigeFormula: (totalThisRun) => Math.floor(Math.pow(totalThisRun / 2500, 0.55)),
+  prestigeThreshold: 7000,
+  prestigeFormula: (totalThisRun) => Math.floor(Math.pow(totalThisRun / 1500, 0.60)),
   // Ascend (ruby) prestige: wipes gem-tier progress (coins/upgrades/garden/
   // crew/grass/gemUpgrades/gems/totalGemsEarned). Keeps rubies + rubyUpgrades.
-  // totalGemsEarned drives the reward; 50 gems earned ≈ 1 ruby.
+  // totalGemsEarned drives the reward; 40 gems earned ≈ 1 ruby.
   ascendThreshold: 50,
-  ascendFormula: (totalGemsEarned) => Math.floor(Math.pow(totalGemsEarned / 50, 0.5)),
+  ascendFormula: (totalGemsEarned) => Math.floor(Math.pow(totalGemsEarned / 40, 0.55)),
   beePerHive: 3,
   beeSpeed: 80,
   flowerCoinPerSec: 0.35,

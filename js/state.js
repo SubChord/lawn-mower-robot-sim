@@ -194,36 +194,36 @@ const GRASS_TYPES = [
     color: null, accent: null },
   // Vivid jade-teal — clearly cooler than normal grass.
   { key: 'clover',  name: 'Lucky Clover',  icon: '☘️',
-    coinMult: 2.2, toughness: 1.6, unlockCost: 3500, spawnBase: 12,
+    coinMult: 2.0, toughness: 1.6, unlockCost: 3500, spawnBase: 12,
     color: [25, 200, 140], accent: [180, 255, 220] },
   // Warm amber/khaki — clearly yellow-brown, not green.
   { key: 'thick',   name: 'Thick Turf',    icon: '🌾',
-    coinMult: 4.0, toughness: 2.4, unlockCost: 18000, spawnBase: 7,
+    coinMult: 3.5, toughness: 2.4, unlockCost: 18000, spawnBase: 7,
     color: [190, 140, 30], accent: [255, 220, 120] },
   // Magenta/violet — completely off the green spectrum.
   { key: 'crystal', name: 'Crystal Grass', icon: '💎',
-    coinMult: 9.0, toughness: 4.0, unlockCost: 110000, spawnBase: 3,
+    coinMult: 7.0, toughness: 4.0, unlockCost: 110000, spawnBase: 3,
     color: [180, 90, 230], accent: [230, 200, 255] },
   // Bright saturated gold.
   { key: 'golden',  name: 'Golden Grass',  icon: '🌟',
-    coinMult: 22.0, toughness: 7.0, unlockCost: 650000, spawnBase: 1,
+    coinMult: 16.0, toughness: 7.0, unlockCost: 650000, spawnBase: 1,
     color: [255, 200, 30], accent: [255, 245, 180] },
   // ---- Exotic tiers — ONLY unlockable from the 💎 Gem Shop ----
   // unlockCost is null (can't be coin-unlocked); spawnUpgradeBase is the
   // starting coin cost for the per-species spawn-rate upgrade.
   // Smoky obsidian: deep charcoal with silver veins.
   { key: 'obsidian', name: 'Obsidian Turf', icon: '🌑',
-    coinMult: 55.0, toughness: 12.0, unlockCost: null, gemGated: true, spawnBase: 0.6,
+    coinMult: 35.0, toughness: 12.0, unlockCost: null, gemGated: true, spawnBase: 0.6,
     spawnUpgradeBase: 50000,
     color: [45, 50, 65], accent: [210, 220, 245] },
   // Frost grass: pale ice-blue with a bright white sparkle.
   { key: 'frost',    name: 'Frost Grass',   icon: '❄️',
-    coinMult: 140.0, toughness: 20.0, unlockCost: null, gemGated: true, spawnBase: 0.3,
+    coinMult: 75.0, toughness: 20.0, unlockCost: null, gemGated: true, spawnBase: 0.3,
     spawnUpgradeBase: 300000,
     color: [170, 225, 255], accent: [240, 250, 255] },
   // Void grass: violet-black with neon edges.
   { key: 'void',     name: 'Void Grass',    icon: '🌌',
-    coinMult: 360.0, toughness: 35.0, unlockCost: null, gemGated: true, spawnBase: 0.12,
+    coinMult: 150.0, toughness: 35.0, unlockCost: null, gemGated: true, spawnBase: 0.12,
     spawnUpgradeBase: 2000000,
     color: [70, 20, 110], accent: [230, 120, 255] },
 ];
@@ -264,12 +264,12 @@ const GEM_UPGRADES = [
     max: 10, baseCost: 1, growth: 1.6,
     statusText: (lvl) => `Start with ${formatShort(startingCoinsFor(lvl))} coins` },
   { key: 'coinMult',      icon: '✨', name: 'Midas Blessing',
-    desc: '+5% all coin income per level.',
-    max: 20, baseCost: 2, growth: 1.35,
-    statusText: (lvl) => `+${lvl * 5}% coin income` },
+    desc: '+8% all coin income per level.',
+    max: 25, baseCost: 2, growth: 1.35,
+    statusText: (lvl) => `+${lvl * 8}% coin income` },
   { key: 'growth',        icon: '🌱', name: 'Green Thumb',
     desc: '+3% grass regrowth per level.',
-    max: 15, baseCost: 2, growth: 1.35,
+    max: 20, baseCost: 2, growth: 1.35,
     statusText: (lvl) => `+${lvl * 3}% grass growth` },
   { key: 'crit',          icon: '🎯', name: 'Lucky Charm',
     desc: '+1% permanent crit chance per level.',
@@ -296,16 +296,16 @@ const GEM_UPGRADES = [
     } },
   // ---- Exotic grass unlocks (one-shot flags, persistent across prestige) ----
   { key: 'grassObsidian', icon: '🌑', name: 'Unlock Obsidian Turf',
-    desc: '55× coin grass. 12× toughness. Rare spawns.',
-    max: 1, baseCost: 15, growth: 1,
+    desc: '35× coin grass. 12× toughness. Rare spawns.',
+    max: 1, baseCost: 10, growth: 1,
     statusText: (lvl) => lvl ? '🌑 Obsidian Turf — spawning on every run' : 'Locked' },
   { key: 'grassFrost',    icon: '❄️', name: 'Unlock Frost Grass',
-    desc: '140× coin grass. Icy, stubborn, pays beautifully.',
-    max: 1, baseCost: 40, growth: 1,
+    desc: '75× coin grass. Icy, stubborn, pays beautifully.',
+    max: 1, baseCost: 25, growth: 1,
     statusText: (lvl) => lvl ? '❄️ Frost Grass — spawning on every run' : 'Locked' },
   { key: 'grassVoid',     icon: '🌌', name: 'Unlock Void Grass',
-    desc: '360× coin grass. End-game tier. Barely spawns.',
-    max: 1, baseCost: 100, growth: 1,
+    desc: '150× coin grass. End-game tier. Barely spawns.',
+    max: 1, baseCost: 60, growth: 1,
     statusText: (lvl) => lvl ? '🌌 Void Grass — spawning on every run' : 'Locked' },
   { key: 'autoQuest',     icon: '🤝', name: 'Open Door Policy',
     desc: 'Neighbor quests auto-accept — no more modal popups.',
@@ -537,8 +537,11 @@ function gnomeSpawnIntervalMult() {
 
 // ---------- Derived values ----------
 function gemLvl(key)    { return (state.gemUpgrades && state.gemUpgrades[key]) || 0; }
-function gemMult()      { return 1 + (state.totalGemsEarned || state.gems) * 0.10; }
-function gemShopCoinMult() { return 1 + gemLvl('coinMult') * 0.05; }
+function gemMult()      {
+  const g = state.totalGemsEarned || state.gems;
+  return 1 + 0.35 * Math.pow(g, 0.65);
+}
+function gemShopCoinMult() { return 1 + gemLvl('coinMult') * 0.08; }
 function gemShopGrowthMult() { return 1 + gemLvl('growth') * 0.03; }
 function gemShopCritBonus()  { return gemLvl('crit') * 0.01; }
 function gemShopOfflineMult(){ return 1 + gemLvl('offline') * 0.10; }
