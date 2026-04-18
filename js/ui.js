@@ -77,7 +77,7 @@ function updateHUD() {
   const qBanner = document.getElementById('questBanner');
   if (qBanner) {
     const q = state.activeQuest;
-    if (q) {
+    if (q && !state.zenMode) {
       const tpl = QUEST_BY_ID[q.id];
       const progress = tpl ? Math.max(0, tpl.getDelta(q)) : 0;
       const pctQ = Math.min(100, (progress / q.goal) * 100);

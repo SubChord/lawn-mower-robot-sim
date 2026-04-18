@@ -387,6 +387,7 @@ function updateGrass(dt) {
 
 // ---------- Neighbor quests ----------
 function updateQuestTimer(dt) {
+  if (state.zenMode) return; // Zen is a peaceful screensaver — no quests.
   if (state.activeQuest) { updateActiveQuest(dt); return; }
   if (document.querySelector('.quest-offer')) return; // modal already up
   state.questTimer -= dt;
