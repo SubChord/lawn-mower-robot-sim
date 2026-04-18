@@ -56,17 +56,22 @@ function updateHUD() {
   // Atmosphere pill: weather icon + name, plus a small clock when relevant.
   const atmoEl = document.getElementById('hudAtmo');
   if (atmoEl && typeof activeWeather === 'function') {
+    const weatherMode = (state.settings && state.settings.weather) || 'auto';
+    const dayMode = (state.settings && state.settings.dayNight) || 'auto';
+    const showW = weatherMode !== 'off';
+    const showD = dayMode !== 'off';
     const w = activeWeather();
     const hour = Math.floor(state.timeOfDay || 12);
-    const mode = (state.settings && state.settings.dayNight) || 'auto';
     let timeIco = '';
-    if (mode !== 'off') {
+    if (showD) {
       if (hour < 5 || hour >= 20) timeIco = ' 🌙';
       else if (hour < 7)          timeIco = ' 🌅';
       else if (hour < 17)         timeIco = '';        // daytime — no icon clutter
       else if (hour < 20)         timeIco = ' 🌇';
     }
-    atmoEl.textContent = `${w.icon} ${w.name}${timeIco}`;
+    const weatherText = showW ? `${w.icon} ${w.name}` : '';
+    atmoEl.textContent = `${weatherText}${timeIco}`.trim();
+    atmoEl.style.display = (showW || timeIco) ? '' : 'none';
   }
 
   const qBanner = document.getElementById('questBanner');
@@ -248,7 +253,6 @@ function renderShop() {
   if (activeTab === 'tools')    { renderTools(list);    return; }
   if (activeTab === 'grass')    { renderGrassShop(list); return; }
   if (activeTab === 'quests')   { renderQuests(list);    return; }
-  if (activeTab === 'stats')    { renderStats(list);     return; }
   if (activeTab === 'gemshop')  { renderGemShop(list);   return; }
   if (activeTab === 'rubyshop') { renderRubyShop(list);  return; }
 
@@ -660,19 +664,17 @@ function statRow(icon, label, value) {
 }
 
 function renderStats(list) {
+  list.innerHTML = '';
   const header = document.createElement('div');
   header.innerHTML = `
-    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
-      Stats for your ${statsScope === 'current' ? '<b>current prestige run</b>' : '<b>entire lifetime</b>'}.
-    </p>
-    <div class="tabs" style="margin-bottom:10px;">
+    <div class="tabs stats-scope-tabs" style="margin-bottom:10px;">
       <button class="tab ${statsScope === 'current'  ? 'active' : ''}" data-scope="current"><span class="tab-label">Current Prestige</span></button>
       <button class="tab ${statsScope === 'lifetime' ? 'active' : ''}" data-scope="lifetime"><span class="tab-label">Lifetime</span></button>
     </div>
   `;
   list.appendChild(header);
   header.querySelectorAll('[data-scope]').forEach(b =>
-    b.addEventListener('click', () => { statsScope = b.dataset.scope; renderShop(); }));
+    b.addEventListener('click', () => { statsScope = b.dataset.scope; renderStats(list); }));
 
   const gardenTotal = Object.values(state.garden || {}).reduce((a, b) => a + b, 0);
   const skinsTotal = (typeof SKIN_DEFS !== 'undefined') ? SKIN_DEFS.length : (state.skinsUnlocked || []).length;
@@ -700,6 +702,27 @@ function renderStats(list) {
     list.appendChild(statRow('🎨', 'Skins unlocked',               `${(state.skinsUnlocked || []).length} / ${skinsTotal}`));
     list.appendChild(statRow('〽️', 'Mow patterns unlocked',        (state.patternsUnlocked || []).length));
   }
+}
+
+function openStatsModal() {
+  if (document.querySelector('.stats-modal-backdrop')) return;
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop stats-modal-backdrop';
+  back.innerHTML = `
+    <div class="modal stats-modal">
+      <h2>📊 STATS</h2>
+      <div class="upgrades stats-list"></div>
+      <button id="statsCloseBtn">Done</button>
+    </div>`;
+  document.body.appendChild(back);
+  const list = back.querySelector('.stats-list');
+  renderStats(list);
+  const close = () => back.remove();
+  back.querySelector('#statsCloseBtn').addEventListener('click', close);
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+  document.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
+  });
 }
 
 function renderGemShop(list) {
@@ -1370,20 +1393,24 @@ function openSettingsModal() {
     if (def.type === 'select') {
       const options = typeof def.options === 'function' ? def.options() : (def.options || []);
       const current = state.settings[def.key];
-      const chips = options.map(opt => {
-        const active = opt.value === current;
-        return `<button type="button" class="settings-chip${active ? ' active' : ''}" data-key="${def.key}" data-value="${opt.value}" title="${(opt.desc || '').replace(/"/g,'&quot;')}">${opt.label}</button>`;
+      const opts = options.map(opt => {
+        const sel = opt.value === current ? ' selected' : '';
+        const title = (opt.desc || '').replace(/"/g,'&quot;');
+        return `<option value="${opt.value}"${sel} title="${title}">${opt.label}</option>`;
       }).join('');
       return `
-        <div class="settings-row settings-row-stack">
+        <div class="settings-row settings-row-select">
           <div class="settings-info">
             <div class="settings-label">${def.label}</div>
             <div class="settings-hint">${def.hint || ''}</div>
           </div>
-          <div class="settings-chips">${chips}</div>
+          <select class="settings-select" data-key="${def.key}">${opts}</select>
         </div>`;
     }
-    const on = !!state.settings[def.key];
+    const hasValueMap = ('onValue' in def) || ('offValue' in def);
+    const on = hasValueMap
+      ? (state.settings[def.key] !== def.offValue)
+      : !!state.settings[def.key];
     return `
       <label class="settings-row" data-key="${def.key}">
         <div class="settings-info">
@@ -1404,19 +1431,26 @@ function openSettingsModal() {
     t.addEventListener('click', (e) => {
       e.preventDefault();
       const key = t.dataset.key;
-      state.settings[key] = !state.settings[key];
-      t.classList.toggle('on', !!state.settings[key]);
-      beep(state.settings[key] ? 720 : 520, 0.05, 'sine', 0.05);
+      const def = SETTING_DEFS.find(d => d.key === key);
+      const hasValueMap = def && (('onValue' in def) || ('offValue' in def));
+      if (hasValueMap) {
+        const isOn = state.settings[key] !== def.offValue;
+        state.settings[key] = isOn ? def.offValue : def.onValue;
+        t.classList.toggle('on', !isOn);
+        beep(!isOn ? 720 : 520, 0.05, 'sine', 0.05);
+      } else {
+        state.settings[key] = !state.settings[key];
+        t.classList.toggle('on', !!state.settings[key]);
+        beep(state.settings[key] ? 720 : 520, 0.05, 'sine', 0.05);
+      }
       saveGame();
     });
   });
-  back.querySelectorAll('.settings-chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.key;
-      const value = btn.dataset.value;
+  back.querySelectorAll('.settings-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const key = sel.dataset.key;
+      const value = sel.value;
       state.settings[key] = value;
-      // refresh active state among siblings
-      btn.parentElement.querySelectorAll('.settings-chip').forEach(s => s.classList.toggle('active', s === btn));
       if (key === 'theme' && typeof applyThemeDom === 'function') applyThemeDom();
       beep(620, 0.05, 'sine', 0.05);
       saveGame();
@@ -1771,7 +1805,7 @@ function toast(msg, color = '#ffd34e') {
   const t = document.createElement('div');
   t.className = 'toast';
   t.style.background = `linear-gradient(180deg, ${color}ee, ${color}aa)`;
-  t.innerHTML = `<span class="t-ico">🏆</span> ${msg}`;
+  t.innerHTML = msg;
   c.appendChild(t);
   setTimeout(() => t.remove(), 3200);
 }
@@ -1912,6 +1946,7 @@ function wireUIEvents() {
 
   document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
   document.getElementById('zenBtn').addEventListener('click', openZenSetupModal);
+  document.getElementById('statsBtn').addEventListener('click', openStatsModal);
   document.getElementById('zenExit').addEventListener('click', exitZenMode);
 
   document.addEventListener('keydown', (e) => {

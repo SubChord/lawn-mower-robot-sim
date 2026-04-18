@@ -112,14 +112,10 @@ const SETTING_DEFS = [
   { type: 'toggle', key: 'scientificNumbers', label: 'Scientific notation', hint: 'Display big numbers as 1.23e6 instead of 1.23M.' },
   { type: 'select', key: 'theme',          label: 'Theme pack',       hint: 'Swap the lawn palette and stage background.',
     options: () => (typeof THEMES !== 'undefined' ? THEMES.map(t => ({ value: t.id, label: t.name, desc: t.desc })) : [{ value: 'classic', label: 'Classic' }]) },
-  { type: 'select', key: 'dayNight',       label: 'Day / Night',      hint: 'Tint the lawn by time of day — or pin a specific hour.',
-    options: () => (typeof DAY_TIME_PRESETS !== 'undefined'
-      ? DAY_TIME_KEYS.map(k => ({ value: k, label: DAY_TIME_PRESETS[k].label || k }))
-      : [{ value: 'auto', label: 'Cycle' }]) },
-  { type: 'select', key: 'weather',        label: 'Weather',          hint: 'Let weather auto-cycle, or pin one kind.',
-    options: () => (typeof WEATHER_TYPES !== 'undefined'
-      ? [{ value: 'auto', label: 'Auto' }, ...WEATHER_TYPES.map(w => ({ value: w.id, label: `${w.icon} ${w.name}`, desc: `growth ×${w.growthMult} · speed ×${w.speedMult}` }))]
-      : [{ value: 'auto', label: 'Auto' }]) },
+  { type: 'toggle', key: 'dayNight',       label: 'Day / Night overlay', hint: 'Tint the lawn by time of day.',
+    onValue: 'auto', offValue: 'off' },
+  { type: 'toggle', key: 'weather',        label: 'Weather overlay',     hint: 'Show weather visuals and effects on the lawn.',
+    onValue: 'auto', offValue: 'off' },
 ];
 function getSetting(key) {
   if (!state.settings) state.settings = {};

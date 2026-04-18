@@ -108,9 +108,13 @@ const WEATHER_TYPES = [
 ];
 const WEATHER_BY_ID = Object.fromEntries(WEATHER_TYPES.map(w => [w.id, w]));
 const WEATHER_KEYS = ['auto', ...WEATHER_TYPES.map(w => w.id)];
+// Synthetic "no overlay" mode: economy behaves like clear, but nothing renders.
+const WEATHER_NONE = { id: 'none', name: 'No overlay', icon: '🚫',
+  growthMult: 1.0, speedMult: 1.0, flowerMult: 1.0, beesFly: true };
 
 function activeWeather() {
   const mode = (state.settings && state.settings.weather) || 'auto';
+  if (mode === 'off') return WEATHER_NONE;
   if (mode !== 'auto' && WEATHER_BY_ID[mode]) return WEATHER_BY_ID[mode];
   return WEATHER_BY_ID[state.weather && state.weather.id] || WEATHER_TYPES[0];
 }
@@ -129,6 +133,12 @@ function rollNextWeather() {
 function updateWeather(dt) {
   if (!state.weather) state.weather = { id: 'clear', intensity: 0, cycleTimer: 120 };
   const mode = (state.settings && state.settings.weather) || 'auto';
+  // "No overlay": fade any lingering effect to 0 and freeze the cycle.
+  if (mode === 'off') {
+    state.weather.intensity = Math.max(0, state.weather.intensity - dt * 0.6);
+    state.weather.cycleTimer = 120;
+    return;
+  }
   // Manual override: lock to chosen weather and keep fading in.
   if (mode !== 'auto' && WEATHER_BY_ID[mode]) {
     if (state.weather.id !== mode) state.weather.intensity = 0;
@@ -161,6 +171,8 @@ const snowFlakes = [];
 let lightningFlashTime = 0;
 
 function drawWeather() {
+  const mode = (state.settings && state.settings.weather) || 'auto';
+  if (mode === 'off') { rainDrops.length = 0; snowFlakes.length = 0; return; }
   const w = activeWeather();
   const intensity = (state.weather && state.weather.intensity) || 0;
   const cw = canvas.width, ch = canvas.height;
