@@ -173,6 +173,7 @@ function loadGame() {
     state.rubyUpgrades = Object.assign({
       coinMult: 0, gemBank: 0, speed: 0, crit: 0, growth: 0,
       prestigeGemBoost: 0, ascendBoost: 0, startCrew: 0, offlineCap: 0,
+      weatherControl: 0,
     }, state.rubyUpgrades || {});
     if (Array.isArray(data.robots)) state._savedRobots = data.robots;
     if (Array.isArray(data.tiles)) {
