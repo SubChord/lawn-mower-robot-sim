@@ -126,6 +126,16 @@ function loadGame() {
     state.zenConfig = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
     state.zenMode = false; // session-only: always start outside Zen after reload
     if (Array.isArray(data.achieved)) data.achieved.forEach(id => achieved.add(id));
+    // Restore gemUpgrades early so applyMapDimensions can set grid size
+    // before typed arrays are allocated.
+    state.gemUpgrades = Object.assign({
+      startCoins: 0, coinMult: 0, growth: 0, crit: 0,
+      offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
+      grassObsidian: 0, grassFrost: 0, grassVoid: 0,
+      autoQuest: 0, mapExpand: 0,
+    }, state.gemUpgrades || {});
+    applyGemGrassUnlocks();
+    applyMapDimensions();
     grass = new Float32Array(CFG.gridW * CFG.gridH);
     tiles = new Uint8Array(CFG.gridW * CFG.gridH);
     flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
@@ -153,14 +163,6 @@ function loadGame() {
       frost:    { unlocked: false, spawnLevel: 0 },
       void:     { unlocked: false, spawnLevel: 0 },
     }, state.grassTypes || {});
-    state.gemUpgrades = Object.assign({
-      startCoins: 0, coinMult: 0, growth: 0, crit: 0,
-      offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
-      grassObsidian: 0, grassFrost: 0, grassVoid: 0,
-      autoQuest: 0, mapExpand: 0,
-    }, state.gemUpgrades || {});
-    applyGemGrassUnlocks();
-    applyMapDimensions();
     // Back-fill totalGemsEarned for saves predating the field.
     if (!isFinite(state.totalGemsEarned)) state.totalGemsEarned = state.gems || 0;
     if (!isFinite(state.prestigeCount)) state.prestigeCount = 0;
