@@ -15,7 +15,11 @@ function initWorld() {
   tiles = new Uint8Array(CFG.gridW * CFG.gridH);
   flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
   grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
+  const speciesIdx = (typeof currentAreaSpeciesIdx === 'function') ? currentAreaSpeciesIdx() : 0;
   for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
+  if (speciesIdx !== 0) {
+    for (let i = 0; i < grassSpecies.length; i++) grassSpecies[i] = speciesIdx;
+  }
 
   const area = CFG.gridW * CFG.gridH;
   const baseArea = CFG.baseGridW * CFG.baseGridH;
@@ -26,6 +30,38 @@ function initWorld() {
   for (let i = 0; i < rockCount; i++) placeAtRandomGrass(T.ROCK);
   const pondCount = Math.max(1, Math.round(scale));
   for (let i = 0; i < pondCount; i++) placePondBlob();
+}
+
+// Travel to a different unlocked area. Fresh world each time — previous tile
+// state in the old area is discarded (per design).
+function switchArea(id) {
+  if (!areaUnlocked(id)) return false;
+  state.activeArea = id;
+  applyMapDimensions();
+  robots = [];
+  bees = [];
+  if (typeof visitorGnomes !== 'undefined') visitorGnomes = [];
+  if (typeof treasures !== 'undefined') treasures = [];
+  if (typeof moles !== 'undefined') moles = [];
+  initWorld();
+  if (typeof resizeCanvas === 'function') resizeCanvas();
+  if (typeof clearTileCache === 'function') clearTileCache();
+  if (typeof ensureRobotCount === 'function') ensureRobotCount();
+  if (typeof ensureBeesFromHives === 'function') ensureBeesFromHives();
+  return true;
+}
+
+// Pay 1000 💎 to triple the current area's grid. Persists per-area.
+function expandCurrentArea() {
+  const id = state.activeArea;
+  if (!areaUnlocked(id)) return false;
+  if (areaIsExpanded(id)) return false;
+  if ((state.gems || 0) < AREA_EXPAND_COST_GEMS) return false;
+  state.gems -= AREA_EXPAND_COST_GEMS;
+  if (!state.areaExpanded) state.areaExpanded = {};
+  state.areaExpanded[id] = true;
+  expandMapLive();
+  return true;
 }
 
 function placeAtRandomGrass(type, triesMax = 40) {
@@ -293,9 +329,9 @@ function spawnTreasureAt(tx, ty) {
   });
 }
 
-// Live map expansion — called when the player buys the mapExpand gem upgrade
-// mid-session. Reallocates typed arrays, copies old data, scatters new
-// obstacles in the expanded area, and rescales all entity pixel positions.
+// Live map expansion — called when the player spends 💎 on a per-area
+// expansion. Reallocates typed arrays, copies old data, scatters new obstacles
+// in the expanded area, and rescales all entity pixel positions.
 function expandMapLive() {
   const oldW = CFG.baseGridW, oldH = CFG.baseGridH;
   const oldGrass = grass, oldTiles = tiles, oldFlower = flowerColors, oldSpecies = grassSpecies;
@@ -310,8 +346,12 @@ function expandMapLive() {
   flowerColors = new Uint8Array(len);
   grassSpecies = new Uint8Array(len);
 
-  // Fill everything with fresh grass first.
+  // Fill everything with fresh grass first, seeded with the current area species.
+  const speciesIdx = (typeof currentAreaSpeciesIdx === 'function') ? currentAreaSpeciesIdx() : 0;
   for (let i = 0; i < len; i++) grass[i] = 0.7 + Math.random() * 0.3;
+  if (speciesIdx !== 0) {
+    for (let i = 0; i < len; i++) grassSpecies[i] = speciesIdx;
+  }
 
   // Copy old world into the top-left corner.
   for (let y = 0; y < oldH; y++) {

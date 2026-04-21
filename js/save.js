@@ -45,7 +45,9 @@ function saveGame() {
       patternsUnlocked: state.patternsUnlocked,
       activeMowPattern: state.activeMowPattern,
       settings: state.settings,
-      grassTypes: state.grassTypes,
+      areasUnlocked: state.areasUnlocked,
+      activeArea: state.activeArea,
+      areaExpanded: state.areaExpanded,
       gemUpgrades: state.gemUpgrades,
       totalGemsEarned: state.totalGemsEarned,
       prestigeCount: state.prestigeCount,
@@ -126,15 +128,34 @@ function loadGame() {
     state.zenConfig = Object.assign({}, ZEN_CONFIG_DEFAULT, state.zenConfig || {});
     state.zenMode = false; // session-only: always start outside Zen after reload
     if (Array.isArray(data.achieved)) data.achieved.forEach(id => achieved.add(id));
-    // Restore gemUpgrades early so applyMapDimensions can set grid size
-    // before typed arrays are allocated.
     state.gemUpgrades = Object.assign({
       startCoins: 0, coinMult: 0, growth: 0, crit: 0,
       offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
-      grassObsidian: 0, grassFrost: 0, grassVoid: 0,
-      autoQuest: 0, mapExpand: 0,
+      autoQuest: 0,
     }, state.gemUpgrades || {});
-    applyGemGrassUnlocks();
+    // Restore area state early so applyMapDimensions can pick the right grid
+    // size before typed arrays are allocated.
+    if (!Array.isArray(state.areasUnlocked) || state.areasUnlocked.length === 0) state.areasUnlocked = ['home'];
+    if (!state.activeArea || !AREA_BY_ID[state.activeArea]) state.activeArea = 'home';
+    if (state.areasUnlocked.indexOf(state.activeArea) < 0) state.activeArea = 'home';
+    if (!state.areaExpanded || typeof state.areaExpanded !== 'object') state.areaExpanded = {};
+    // Migration from old grass-unlock gem upgrades + grassTypes → areasUnlocked.
+    const legacyUnlock = {
+      clover: 'clover', thick: 'thicket', crystal: 'crystal',
+      golden: 'goldshire', obsidian: 'obsidian', frost: 'frostmoor', void: 'voidlands',
+    };
+    if (state.grassTypes && typeof state.grassTypes === 'object') {
+      for (const [species, areaId] of Object.entries(legacyUnlock)) {
+        if (state.grassTypes[species]?.unlocked && state.areasUnlocked.indexOf(areaId) < 0) {
+          state.areasUnlocked.push(areaId);
+        }
+      }
+    }
+    // Migration: old global Land Deed → home area expanded.
+    if (data.state && isFinite(data.state.gemUpgrades?.mapExpand) && data.state.gemUpgrades.mapExpand > 0) {
+      state.areaExpanded.home = true;
+    }
+    delete state.grassTypes;
     applyMapDimensions();
     grass = new Float32Array(CFG.gridW * CFG.gridH);
     tiles = new Uint8Array(CFG.gridW * CFG.gridH);
@@ -154,15 +175,6 @@ function loadGame() {
         for (let i = 0; i < grassSpecies.length && i < bin.length; i++) grassSpecies[i] = bin.charCodeAt(i);
       } catch(e) { /* leave zeroed */ }
     }
-    state.grassTypes = Object.assign({
-      clover:   { unlocked: false, spawnLevel: 0 },
-      thick:    { unlocked: false, spawnLevel: 0 },
-      crystal:  { unlocked: false, spawnLevel: 0 },
-      golden:   { unlocked: false, spawnLevel: 0 },
-      obsidian: { unlocked: false, spawnLevel: 0 },
-      frost:    { unlocked: false, spawnLevel: 0 },
-      void:     { unlocked: false, spawnLevel: 0 },
-    }, state.grassTypes || {});
     // Back-fill totalGemsEarned for saves predating the field.
     if (!isFinite(state.totalGemsEarned)) state.totalGemsEarned = state.gems || 0;
     if (!isFinite(state.prestigeCount)) state.prestigeCount = 0;
@@ -173,7 +185,7 @@ function loadGame() {
     state.rubyUpgrades = Object.assign({
       coinMult: 0, gemBank: 0, speed: 0, crit: 0, growth: 0,
       prestigeGemBoost: 0, ascendBoost: 0, startCrew: 0, offlineCap: 0,
-      weatherControl: 0,
+      weatherControl: 0, unlockAreas: 0,
     }, state.rubyUpgrades || {});
     if (Array.isArray(data.robots)) state._savedRobots = data.robots;
     if (Array.isArray(data.tiles)) {

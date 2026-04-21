@@ -226,7 +226,8 @@ function planBulk(nextCost, canBuyMore) {
 function updateTabsVisibility() {
   const hasGems = (state.totalGemsEarned || 0) > 0 || (state.gems || 0) > 0;
   const hasRubies = (state.totalRubiesEarned || 0) > 0 || (state.rubies || 0) > 0;
-  const vis = { gemshop: hasGems, rubyshop: hasRubies };
+  const hasAreas = rubyLvl('unlockAreas') > 0;
+  const vis = { gemshop: hasGems, rubyshop: hasRubies, areas: hasAreas };
   for (const tab of document.querySelectorAll('.tab')) {
     const key = tab.dataset.tab;
     if (key in vis) tab.style.display = vis[key] ? '' : 'none';
@@ -256,7 +257,7 @@ function renderShop() {
   if (activeTab === 'crew')     { renderCrew(list);     return; }
   if (activeTab === 'skins')    { renderSkins(list);    return; }
   if (activeTab === 'tools')    { renderTools(list);    return; }
-  if (activeTab === 'grass')    { renderGrassShop(list); return; }
+  if (activeTab === 'areas')    { renderAreas(list);     return; }
   if (activeTab === 'quests')   { renderQuests(list);    return; }
   if (activeTab === 'gemshop')  { renderGemShop(list);   return; }
   if (activeTab === 'rubyshop') { renderRubyShop(list);  return; }
@@ -522,118 +523,123 @@ function buyTool(idx) {
   saveGame();
 }
 
-// ---------- Grass shop ----------
-function countSpecies() {
-  const counts = new Array(GRASS_TYPES.length).fill(0);
-  if (!grassSpecies) return counts;
-  for (let i = 0; i < grassSpecies.length; i++) {
-    if (tiles[i] !== T.GRASS) continue;
-    counts[grassSpecies[i]]++;
-  }
-  return counts;
+// ---------- Areas (travel) ----------
+// Each area is a distinct plot with its own default grass species. The
+// player unlocks areas with coins / gems / rubies, then travels to them.
+// World resets fresh on every travel — tile state does not persist per-area.
+function canAffordArea(def) {
+  return state.coins >= (def.costCoins || 0)
+      && state.gems  >= (def.costGems  || 0)
+      && state.rubies >= (def.costRubies || 0);
 }
 
-function renderGrassShop(list) {
+function payAreaCost(def) {
+  state.coins  -= def.costCoins  || 0;
+  state.gems   -= def.costGems   || 0;
+  state.rubies -= def.costRubies || 0;
+}
+
+function formatAreaCost(def) {
+  const parts = [];
+  if (def.costCoins)  parts.push(`💰 ${formatShort(def.costCoins)}`);
+  if (def.costGems)   parts.push(`💎 ${def.costGems}`);
+  if (def.costRubies) parts.push(`♦️ ${def.costRubies}`);
+  return parts.length ? parts.join(' + ') : 'Free';
+}
+
+function unlockArea(id) {
+  const def = AREA_BY_ID[id]; if (!def) return;
+  if (areaUnlocked(id)) return;
+  if (!canAffordArea(def)) return;
+  payAreaCost(def);
+  state.areasUnlocked.push(id);
+  toast(`${def.icon} ${def.name} unlocked!`, '#8ff09e');
+  beep(600, 0.08, 'sine', 0.07);
+  setTimeout(() => beep(960, 0.10, 'triangle', 0.06), 90);
+  renderShop();
+  saveGame();
+}
+
+function travelToArea(id) {
+  if (state.activeArea === id) return;
+  if (!switchArea(id)) return;
+  const def = AREA_BY_ID[id];
+  toast(`${def.icon} Travelled to ${def.name}`, '#ffd34e');
+  beep(520, 0.12, 'sine', 0.08);
+  renderShop();
+  saveGame();
+}
+
+function buyAreaExpansion() {
+  if (!expandCurrentArea()) return;
+  const def = currentArea();
+  toast(`🗺️ ${def.name} expanded to 3× size!`, '#ffd34e');
+  beep(440, 0.18, 'triangle', 0.08);
+  renderShop();
+  saveGame();
+}
+
+function renderAreas(list) {
+  const active = state.activeArea;
   const header = document.createElement('div');
   header.innerHTML = `
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
-      Unlock rare grass species that spawn randomly on your lawn.
-      They pay more coins per mow but are tougher to cut.
-      <b style="color:var(--grass-xlight);">Buy spawn-rate upgrades</b> to see them more often.
-    </p>`;
+      Unlock plots of premium grass and travel to them. Each area has its own default species — higher tiers pay far more per mow.
+      Unlocked areas persist through Prestige and Ascend. Travelling resets the current plot's tile state.
+    </p>
+  `;
   list.appendChild(header);
 
-  const counts = countSpecies();
-  for (let i = 1; i < GRASS_TYPES.length; i++) {
-    const def = GRASS_TYPES[i];
-    const st = state.grassTypes[def.key];
-    const unlocked = !!st?.unlocked;
-    const maxed = unlocked && st.spawnLevel >= GRASS_SPAWN_MAX_LEVEL;
-    const gemGated = !!def.gemGated;
-    let plan = { count: 0, total: 0 };
-    let affordable = false;
-    let cost = 0;
-    if (!unlocked && !gemGated) {
-      cost = def.unlockCost;
-      affordable = state.coins >= cost;
-    } else if (!maxed && unlocked) {
-      plan = planBulk(
-        (n) => Math.ceil(grassSpawnBaseCost(def) * Math.pow(1.6, st.spawnLevel + n)),
-        (n) => st.spawnLevel + n < GRASS_SPAWN_MAX_LEVEL,
-      );
-      cost = plan.count > 0 ? plan.total : grassSpawnCost(def.key);
-      affordable = plan.count > 0;
-    }
+  for (const def of AREA_DEFS) {
+    const unlocked = areaUnlocked(def.id);
+    const isActive = active === def.id;
+    const affordable = unlocked ? true : canAffordArea(def);
     const row = document.createElement('div');
-    const cls = ['upgrade'];
-    if (affordable) cls.push('affordable');
-    if (maxed) cls.push('maxed');
-    row.className = cls.join(' ');
-    const lvlBadge = unlocked ? `<span class="lvl">Lv ${st.spawnLevel}/${GRASS_SPAWN_MAX_LEVEL}</span>` : `<span class="lvl">🔒</span>`;
-    const effectText = unlocked
-      ? `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough · on lawn: <b>${counts[i]}</b>`
-      : gemGated
-      ? `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough — unlock with 💎 in the Gems tab`
-      : `${def.coinMult.toFixed(1)}× coins · ${def.toughness.toFixed(1)}× tough — unlock to spawn`;
+    row.className = 'upgrade' + (isActive ? ' active' : '') + (!unlocked && affordable ? ' affordable' : '');
+
+    const speciesDef = GRASS_BY_KEY[def.species];
+    const mult = speciesDef ? `${speciesDef.coinMult.toFixed(1)}× coins` : '';
+    const effect = unlocked
+      ? `${def.desc}${isActive ? ' · <b>You are here.</b>' : ''}`
+      : `${def.desc}${mult ? ` · ${mult}` : ''}`;
+    const lvlBadge = unlocked
+      ? (isActive ? '<span class="lvl">ACTIVE</span>' : '<span class="lvl">OWNED</span>')
+      : '<span class="lvl">🔒</span>';
+
     let btn;
-    if (maxed) {
-      btn = `<button class="buy" disabled>MAX</button>`;
-    } else if (!unlocked && gemGated) {
-      btn = `<button class="buy" disabled>🔒 💎 Gem Shop</button>`;
-    } else if (!unlocked) {
-      btn = `<button class="buy" ${affordable ? '' : 'disabled'}>Unlock<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+    if (!unlocked) {
+      btn = `<button class="buy" data-action="unlock" ${affordable ? '' : 'disabled'}>Unlock<span class="cost">${formatAreaCost(def)}</span></button>`;
+    } else if (isActive) {
+      const canExpand = !areaIsExpanded(def.id) && state.gems >= AREA_EXPAND_COST_GEMS;
+      const expanded = areaIsExpanded(def.id);
+      if (expanded) {
+        btn = `<button class="buy" disabled>🗺️ Expanded</button>`;
+      } else {
+        btn = `<button class="buy" data-action="expand" ${canExpand ? '' : 'disabled'}>🗺️ Expand<span class="cost">💎 ${AREA_EXPAND_COST_GEMS}</span></button>`;
+      }
     } else {
-      const label = plan.count > 1 ? `Spawn ×${plan.count}` : 'Spawn +';
-      btn = `<button class="buy" ${affordable ? '' : 'disabled'}>${label}<span class="cost">💰 ${formatShort(cost)}</span></button>`;
+      btn = `<button class="buy" data-action="travel">Travel ➜</button>`;
     }
+
     row.innerHTML = `
       <div class="icon">${def.icon}</div>
       <div class="info">
         <div class="name">${def.name} ${lvlBadge}</div>
-        <div class="effect">${effectText}</div>
+        <div class="effect">${effect}</div>
       </div>
       ${btn}
     `;
     const btnEl = row.querySelector('.buy');
-    if (btnEl && affordable) {
-      btnEl.addEventListener('click', () => unlocked ? upgradeGrassSpawn(def.key) : unlockGrass(def.key));
+    if (btnEl) {
+      const action = btnEl.dataset.action;
+      btnEl.addEventListener('click', () => {
+        if (action === 'unlock') unlockArea(def.id);
+        else if (action === 'travel') travelToArea(def.id);
+        else if (action === 'expand') buyAreaExpansion();
+      });
     }
     list.appendChild(row);
   }
-}
-
-function unlockGrass(key) {
-  const def = GRASS_BY_KEY[key]; if (!def) return;
-  const st = state.grassTypes[key];
-  if (!st || st.unlocked) return;
-  if (state.coins < def.unlockCost) return;
-  state.coins -= def.unlockCost;
-  st.unlocked = true;
-  beep(600, 0.08, 'sine', 0.07);
-  setTimeout(() => beep(960, 0.10, 'triangle', 0.06), 90);
-  toast(`${def.icon} Unlocked ${def.name}!`, '#8ff09e');
-  addParticle(canvas.width / 2, canvas.height / 2, {
-    text: def.icon + ' ' + def.name, color: '#8ff09e', size: 22,
-  });
-  renderShop();
-  saveGame();
-}
-
-function upgradeGrassSpawn(key) {
-  const def = GRASS_BY_KEY[key]; if (!def) return;
-  const st = state.grassTypes[key];
-  if (!st?.unlocked) return;
-  const startLvl = st.spawnLevel;
-  const plan = planBulk(
-    (i) => Math.ceil(grassSpawnBaseCost(def) * Math.pow(1.6, startLvl + i)),
-    (i) => startLvl + i < GRASS_SPAWN_MAX_LEVEL,
-  );
-  if (plan.count === 0) return;
-  state.coins -= plan.total;
-  st.spawnLevel = startLvl + plan.count;
-  beep(700 + st.spawnLevel * 20, 0.06, 'triangle', 0.06);
-  renderShop();
-  saveGame();
 }
 
 // ---------- Gem shop (permanent, persists through prestige) ----------
@@ -774,8 +780,6 @@ function buyGemUpgrade(key) {
   if (plan.count === 0) return;
   state.gems -= plan.total;
   state.gemUpgrades[key] = gemLvl(key) + plan.count;
-  applyGemGrassUnlocks();
-  if (key === 'mapExpand') expandMapLive();
   beep(720 + state.gemUpgrades[key] * 35, 0.08, 'triangle', 0.07);
   setTimeout(() => beep(1120 + state.gemUpgrades[key] * 45, 0.1, 'sine', 0.06), 80);
   addParticle(canvas.width / 2, canvas.height / 2, {
@@ -976,16 +980,6 @@ function doPrestige() {
   state.questTimer = 80 + Math.random() * 60;
   state.questHistory = [];
   state.questsCompleted = 0;
-  state.grassTypes = {
-    clover:   { unlocked: false, spawnLevel: 0 },
-    thick:    { unlocked: false, spawnLevel: 0 },
-    crystal:  { unlocked: false, spawnLevel: 0 },
-    golden:   { unlocked: false, spawnLevel: 0 },
-    obsidian: { unlocked: false, spawnLevel: 0 },
-    frost:    { unlocked: false, spawnLevel: 0 },
-    void:     { unlocked: false, spawnLevel: 0 },
-  };
-  applyGemGrassUnlocks();
   applyMapDimensions();
   robots = [];
   bees = [];
@@ -1027,8 +1021,7 @@ function doAscend() {
   state.gemUpgrades = {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
-    grassObsidian: 0, grassFrost: 0, grassVoid: 0,
-    autoQuest: 0, mapExpand: 0,
+    autoQuest: 0,
   };
   state.upgrades = {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
@@ -1042,15 +1035,8 @@ function doAscend() {
   state.questTimer = 80 + Math.random() * 60;
   state.questHistory = [];
   state.questsCompleted = 0;
-  state.grassTypes = {
-    clover:   { unlocked: false, spawnLevel: 0 },
-    thick:    { unlocked: false, spawnLevel: 0 },
-    crystal:  { unlocked: false, spawnLevel: 0 },
-    golden:   { unlocked: false, spawnLevel: 0 },
-    obsidian: { unlocked: false, spawnLevel: 0 },
-    frost:    { unlocked: false, spawnLevel: 0 },
-    void:     { unlocked: false, spawnLevel: 0 },
-  };
+  // Come home on ascend (areas and per-area expansion persist).
+  state.activeArea = 'home';
   applyMapDimensions();
   robots = [];
   bees = [];

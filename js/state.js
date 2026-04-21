@@ -32,9 +32,7 @@ let state = {
   gemUpgrades: {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
-    grassObsidian: 0, grassFrost: 0, grassVoid: 0,
     autoQuest: 0,
-    mapExpand: 0,
   },
   // Ascend (ruby) tier — survives super-prestige.
   rubies: 0,
@@ -42,19 +40,15 @@ let state = {
   rubyUpgrades: {
     coinMult: 0, gemBank: 0, speed: 0, crit: 0, growth: 0,
     prestigeGemBoost: 0, ascendBoost: 0, startCrew: 0, offlineCap: 0,
-    weatherControl: 0,
+    weatherControl: 0, unlockAreas: 0,
   },
-  // Per-species unlock + spawn-rate upgrade levels. Entries keyed by GRASS_TYPES.key.
-  // 'normal' is always the default (idx 0) and doesn't live in here.
-  grassTypes: {
-    clover:   { unlocked: false, spawnLevel: 0 },
-    thick:    { unlocked: false, spawnLevel: 0 },
-    crystal:  { unlocked: false, spawnLevel: 0 },
-    golden:   { unlocked: false, spawnLevel: 0 },
-    obsidian: { unlocked: false, spawnLevel: 0 },
-    frost:    { unlocked: false, spawnLevel: 0 },
-    void:     { unlocked: false, spawnLevel: 0 },
-  },
+  // Travel areas — each area has its own default grass species. 'home' is always
+  // unlocked. Unlocked areas persist through Prestige AND Ascend (like rubies/skins).
+  areasUnlocked: ['home'],
+  activeArea: 'home',
+  // Per-area 3× map expansion. Unlocked by spending 1000 💎 per area from the
+  // Areas tab. Persists forever (same lifetime as areasUnlocked).
+  areaExpanded: {},
   settings: {
     showRobotNames: true,
     showGnomeNames: true,
@@ -230,22 +224,53 @@ const GRASS_TYPES = [
     color: [70, 20, 110], accent: [230, 120, 255] },
 ];
 const GRASS_BY_KEY = Object.fromEntries(GRASS_TYPES.map((g, i) => [g.key, { ...g, idx: i }]));
-// Base coin cost for the level-0 spawn-rate upgrade. Gem-gated species define
-// spawnUpgradeBase directly; others derive from unlockCost so their pricing
-// is unchanged.
-function grassSpawnBaseCost(def) {
-  if (!def) return 0;
-  if (def.spawnUpgradeBase != null) return def.spawnUpgradeBase;
-  return (def.unlockCost || 0) * 0.4;
+
+// ---------- Travel areas ----------
+// Each area has a default grass species (seeded on every tile when you travel
+// there). Unlocks persist forever (like skins/patterns/rubies). Revealed behind
+// the 'unlockAreas' ruby upgrade. Coin prices are big on purpose — owning an
+// entire plot of high-tier grass is a major income boost.
+const AREA_DEFS = [
+  { id: 'home',     name: 'Home Lawn',        icon: '🏡', species: 'normal',
+    costCoins: 0,        costGems: 0,  costRubies: 0,
+    desc: 'The starter plot. Always yours.' },
+  { id: 'clover',   name: 'Clover Meadow',    icon: '☘️', species: 'clover',
+    costCoins: 35000,    costGems: 0,  costRubies: 0,
+    desc: 'A lucky emerald meadow. 2.0× coin grass.' },
+  { id: 'thicket',  name: 'Thicket Hollow',   icon: '🌾', species: 'thick',
+    costCoins: 180000,   costGems: 5,  costRubies: 0,
+    desc: 'Dense amber turf. 3.5× coin grass.' },
+  { id: 'crystal',  name: 'Crystal Glade',    icon: '💎', species: 'crystal',
+    costCoins: 1100000,  costGems: 20, costRubies: 0,
+    desc: 'Shimmering violet growth. 7× coin grass.' },
+  { id: 'goldshire',name: 'Goldshire',        icon: '🌟', species: 'golden',
+    costCoins: 6500000,  costGems: 80, costRubies: 0,
+    desc: 'Fields of solid gold. 16× coin grass.' },
+  { id: 'obsidian', name: 'Obsidian Wastes',  icon: '🌑', species: 'obsidian',
+    costCoins: 0,        costGems: 0,  costRubies: 1,
+    desc: 'Volcanic charcoal fields. 35× coin grass.' },
+  { id: 'frostmoor',name: 'Frostmoor',        icon: '❄️', species: 'frost',
+    costCoins: 0,        costGems: 0,  costRubies: 3,
+    desc: 'Icebound silver grass. 75× coin grass.' },
+  { id: 'voidlands',name: 'The Voidlands',    icon: '🌌', species: 'void',
+    costCoins: 0,        costGems: 0,  costRubies: 8,
+    desc: 'Grass from beyond the veil. 150× coin grass.' },
+];
+const AREA_BY_ID = Object.fromEntries(AREA_DEFS.map(a => [a.id, a]));
+const AREA_EXPAND_COST_GEMS = 1000;
+
+function currentArea() { return AREA_BY_ID[state.activeArea] || AREA_BY_ID.home; }
+function currentAreaSpeciesIdx() {
+  const a = currentArea();
+  const g = GRASS_BY_KEY[a.species];
+  return g ? g.idx : 0;
 }
-function grassSpawnCost(key) {
-  const def = GRASS_BY_KEY[key]; if (!def) return Infinity;
-  const base = grassSpawnBaseCost(def);
-  if (base <= 0) return Infinity;
-  const lvl = state.grassTypes?.[key]?.spawnLevel ?? 0;
-  return Math.ceil(base * Math.pow(1.6, lvl));
+function areaUnlocked(id) {
+  return Array.isArray(state.areasUnlocked) && state.areasUnlocked.includes(id);
 }
-const GRASS_SPAWN_MAX_LEVEL = 12;
+function areaIsExpanded(id) {
+  return !!(state.areaExpanded && state.areaExpanded[id]);
+}
 
 // ---------- Player tools (progressive tiers) ----------
 // rateMult multiplies CFG.playerBaseMowRate; radiusTiles is cutting radius in tile units.
@@ -296,53 +321,20 @@ const GEM_UPGRADES = [
       const t = TOOL_TYPES[Math.min(lvl, TOOL_TYPES.length - 1)];
       return `Start with ${t.icon} ${t.name}`;
     } },
-  // ---- Exotic grass unlocks (one-shot flags, persistent across prestige) ----
-  { key: 'grassObsidian', icon: '🌑', name: 'Unlock Obsidian Turf',
-    desc: '35× coin grass. 12× toughness. Rare spawns.',
-    max: 1, baseCost: 10, growth: 1,
-    statusText: (lvl) => lvl ? '🌑 Obsidian Turf — spawning on every run' : 'Locked' },
-  { key: 'grassFrost',    icon: '❄️', name: 'Unlock Frost Grass',
-    desc: '75× coin grass. Icy, stubborn, pays beautifully.',
-    max: 1, baseCost: 25, growth: 1,
-    statusText: (lvl) => lvl ? '❄️ Frost Grass — spawning on every run' : 'Locked' },
-  { key: 'grassVoid',     icon: '🌌', name: 'Unlock Void Grass',
-    desc: '150× coin grass. End-game tier. Barely spawns.',
-    max: 1, baseCost: 60, growth: 1,
-    statusText: (lvl) => lvl ? '🌌 Void Grass — spawning on every run' : 'Locked' },
   { key: 'autoQuest',     icon: '🤝', name: 'Open Door Policy',
     desc: 'Neighbor quests auto-accept — no more modal popups.',
     max: 1, baseCost: 8, growth: 1,
     statusText: (lvl) => lvl ? 'Quests auto-accepted' : 'Manual accept/decline' },
-  { key: 'mapExpand',    icon: '🗺️', name: 'Land Deed',
-    desc: 'Buy the neighboring plots — triple your lawn in each direction!',
-    max: 1, baseCost: 1000, growth: 1,
-    statusText: (lvl) => lvl ? `🗺️ Mega Lawn active (${CFG.baseGridW*3}×${CFG.baseGridH*3})` : `Lawn: ${CFG.baseGridW}×${CFG.baseGridH}` },
 ];
 
-// Apply map dimensions based on the mapExpand gem upgrade.
+// Apply map dimensions based on the current area's expansion flag.
 function applyMapDimensions() {
-  if (gemLvl('mapExpand') > 0) {
+  if (areaIsExpanded(state.activeArea)) {
     CFG.gridW = CFG.baseGridW * 3;
     CFG.gridH = CFG.baseGridH * 3;
   } else {
     CFG.gridW = CFG.baseGridW;
     CFG.gridH = CFG.baseGridH;
-  }
-}
-
-// Maps exotic-species keys → the gem-upgrade key that unlocks them.
-const GEM_GRASS_UNLOCK = {
-  obsidian: 'grassObsidian',
-  frost:    'grassFrost',
-  void:     'grassVoid',
-};
-// Applies gem-based grass unlocks onto state.grassTypes. Call after prestige
-// reset, fresh-run init, loadGame, or a gem-shop purchase.
-function applyGemGrassUnlocks() {
-  if (!state.grassTypes) return;
-  for (const [speciesKey, gemKey] of Object.entries(GEM_GRASS_UNLOCK)) {
-    if (!state.grassTypes[speciesKey]) state.grassTypes[speciesKey] = { unlocked: false, spawnLevel: 0 };
-    if (gemLvl(gemKey) > 0) state.grassTypes[speciesKey].unlocked = true;
   }
 }
 
@@ -389,6 +381,10 @@ const RUBY_UPGRADES = [
     desc: 'Click the weather pill in the HUD to lock any weather you want.',
     max: 1, baseCost: 8, growth: 1,
     statusText: (lvl) => lvl ? '🌦️ Click HUD pill to choose weather' : 'Locked' },
+  { key: 'unlockAreas',     icon: '🗺️', name: 'Travel Papers',
+    desc: 'Reveals the 🗺️ Areas tab — travel to plots of premium grass.',
+    max: 1, baseCost: 5, growth: 1,
+    statusText: (lvl) => lvl ? '🗺️ Areas unlocked' : 'Locked' },
 ];
 const RUBY_BY_KEY = Object.fromEntries(RUBY_UPGRADES.map(r => [r.key, r]));
 function rubyLvl(key) { return (state.rubyUpgrades && state.rubyUpgrades[key]) || 0; }

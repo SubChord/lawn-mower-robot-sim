@@ -126,7 +126,6 @@ function updatePlayer(dt) {
       mowedThisTick += cut;
       coinUnits += cut * spec.coinMult;
       if (prev > 0.9 && grass[k] <= 0.9) state.totalTilesMowed++;
-      if (grass[k] <= 0 && grassSpecies[k] !== 0) grassSpecies[k] = 0;
     }
   }
   if (mowedThisTick > 0) {
@@ -228,7 +227,6 @@ function updateRobot(r, dt) {
       mowedThisTick += cut;
       coinUnits += cut * spec.coinMult;
       if (prev > 0.9 && grass[k] <= 0.9) state.totalTilesMowed++;
-      if (grass[k] <= 0 && grassSpecies[k] !== 0) grassSpecies[k] = 0;
     }
   }
   if (mowedThisTick > 0) {
@@ -325,57 +323,6 @@ function updateBee(b, dt) {
 }
 
 // ---------- Grass + Flower income ----------
-// ---------- Special grass spawning ----------
-// Attempts to convert one fully-grown grass tile per call into a rare species,
-// weighted by each species' base weight + (spawnLevel * 0.5) bonus per level.
-// Called on a timer from updateGrassSpawn.
-function trySpawnSpecialGrass() {
-  if (!grass || !grassSpecies) return;
-  // Gather weights for unlocked species
-  const weights = [];
-  let total = 0;
-  for (let i = 1; i < GRASS_TYPES.length; i++) {
-    const def = GRASS_TYPES[i];
-    const st = state.grassTypes?.[def.key];
-    if (!st?.unlocked) continue;
-    const w = def.spawnBase * (1 + st.spawnLevel * 0.5);
-    weights.push([i, w]);
-    total += w;
-  }
-  if (total <= 0) return;
-  // Pick a random fully-grown normal grass tile (a few tries)
-  for (let i = 0; i < 12; i++) {
-    const k = Math.floor(Math.random() * grass.length);
-    if (tiles[k] !== T.GRASS) continue;
-    if (grass[k] < 0.85) continue;
-    if (grassSpecies[k] !== 0) continue;
-    // Roll species
-    let r = Math.random() * total;
-    for (const [idx, w] of weights) {
-      r -= w;
-      if (r <= 0) { grassSpecies[k] = idx; return; }
-    }
-    return;
-  }
-}
-
-let grassSpawnTimer = 0;
-function updateGrassSpawn(dt) {
-  grassSpawnTimer += dt;
-  // Try every ~1.5s; each unlocked species with spawnLevel accelerates further
-  let totalLevels = 0;
-  for (let i = 1; i < GRASS_TYPES.length; i++) {
-    const st = state.grassTypes?.[GRASS_TYPES[i].key];
-    if (st?.unlocked) totalLevels += 1 + st.spawnLevel;
-  }
-  if (totalLevels === 0) return;
-  const interval = Math.max(0.25, 1.8 / Math.sqrt(totalLevels));
-  while (grassSpawnTimer >= interval) {
-    grassSpawnTimer -= interval;
-    trySpawnSpecialGrass();
-  }
-}
-
 function updateGrass(dt) {
   const rate = growthRate() * dt;
   for (let i = 0; i < grass.length; i++) {
