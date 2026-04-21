@@ -15,7 +15,7 @@ function resizeCanvas() {
   const hPx = rect.height * dpr;
   const tileW = wPx / CFG.gridW;
   const tileH = hPx / CFG.gridH;
-  tileSize = Math.floor(Math.min(tileW, tileH));
+  tileSize = Math.max(1, Math.floor(Math.min(tileW, tileH)));
   canvas.width = CFG.gridW * tileSize;
   canvas.height = CFG.gridH * tileSize;
 }

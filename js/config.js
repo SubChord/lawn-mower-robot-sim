@@ -44,6 +44,10 @@ const CFG = {
   moleLifetimeMax: 45,        // how long a mole-hole blocks a tile (max)
 };
 
+// Base grid dimensions (before map expansion upgrades).
+CFG.baseGridW = CFG.gridW;
+CFG.baseGridH = CFG.gridH;
+
 // Tile types
 const T = {
   GRASS: 0, TREE: 1, ROCK: 2, POND: 3, FLOWER: 4,

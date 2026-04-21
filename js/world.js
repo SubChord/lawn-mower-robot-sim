@@ -17,11 +17,15 @@ function initWorld() {
   grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
   for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
 
-  const treeCount = 8 + Math.floor(Math.random() * 4);
-  const rockCount = 6 + Math.floor(Math.random() * 4);
+  const area = CFG.gridW * CFG.gridH;
+  const baseArea = CFG.baseGridW * CFG.baseGridH;
+  const scale = area / baseArea;
+  const treeCount = Math.floor((8 + Math.floor(Math.random() * 4)) * scale);
+  const rockCount = Math.floor((6 + Math.floor(Math.random() * 4)) * scale);
   for (let i = 0; i < treeCount; i++) placeAtRandomGrass(T.TREE);
   for (let i = 0; i < rockCount; i++) placeAtRandomGrass(T.ROCK);
-  placePondBlob();
+  const pondCount = Math.max(1, Math.round(scale));
+  for (let i = 0; i < pondCount; i++) placePondBlob();
 }
 
 function placeAtRandomGrass(type, triesMax = 40) {
@@ -287,4 +291,83 @@ function spawnTreasureAt(tx, ty) {
     born: 0,
     phase: Math.random() * 10,
   });
+}
+
+// Live map expansion — called when the player buys the mapExpand gem upgrade
+// mid-session. Reallocates typed arrays, copies old data, scatters new
+// obstacles in the expanded area, and rescales all entity pixel positions.
+function expandMapLive() {
+  const oldW = CFG.baseGridW, oldH = CFG.baseGridH;
+  const oldGrass = grass, oldTiles = tiles, oldFlower = flowerColors, oldSpecies = grassSpecies;
+  const oldTileSize = tileSize;
+
+  applyMapDimensions();
+  const newW = CFG.gridW, newH = CFG.gridH;
+  const len = newW * newH;
+
+  grass = new Float32Array(len);
+  tiles = new Uint8Array(len);
+  flowerColors = new Uint8Array(len);
+  grassSpecies = new Uint8Array(len);
+
+  // Fill everything with fresh grass first.
+  for (let i = 0; i < len; i++) grass[i] = 0.7 + Math.random() * 0.3;
+
+  // Copy old world into the top-left corner.
+  for (let y = 0; y < oldH; y++) {
+    for (let x = 0; x < oldW; x++) {
+      const oi = y * oldW + x;
+      const ni = y * newW + x;
+      grass[ni] = oldGrass[oi];
+      tiles[ni] = oldTiles[oi];
+      flowerColors[ni] = oldFlower[oi];
+      grassSpecies[ni] = oldSpecies[oi];
+    }
+  }
+
+  // Scatter obstacles in the new area (outside old bounds).
+  const newArea = newW * newH - oldW * oldH;
+  const baseArea = CFG.baseGridW * CFG.baseGridH;
+  const areaScale = newArea / baseArea;
+  const newTrees = Math.floor((8 + Math.floor(Math.random() * 4)) * areaScale);
+  const newRocks = Math.floor((6 + Math.floor(Math.random() * 4)) * areaScale);
+  for (let i = 0; i < newTrees; i++) placeInExpandedArea(T.TREE, oldW, oldH);
+  for (let i = 0; i < newRocks; i++) placeInExpandedArea(T.ROCK, oldW, oldH);
+  const newPonds = Math.max(1, Math.round(areaScale));
+  for (let i = 0; i < newPonds; i++) placePondBlob();
+
+  // Resize canvas to recompute tileSize.
+  resizeCanvas();
+  if (typeof clearTileCache === 'function') clearTileCache();
+
+  // Rescale entity pixel positions.
+  const scale = tileSize / oldTileSize;
+  robots.forEach(r => { r.x *= scale; r.y *= scale; if (r.target) { r.target = null; } });
+  bees.forEach(b => { b.x *= scale; b.y *= scale; b.target = null; });
+  if (typeof visitorGnomes !== 'undefined') {
+    visitorGnomes.forEach(g => {
+      g.x *= scale; g.y *= scale;
+      g.targetX *= scale; g.targetY *= scale;
+      g.exitX *= scale; g.exitY *= scale;
+    });
+  }
+  if (typeof treasures !== 'undefined') {
+    treasures.forEach(t => {
+      t.x = (t.tileX + 0.5) * tileSize;
+      t.y = (t.tileY + 0.5) * tileSize;
+    });
+  }
+}
+
+// Place an obstacle in the expanded region (outside the old grid area).
+function placeInExpandedArea(type, oldW, oldH) {
+  for (let i = 0; i < 60; i++) {
+    const x = 1 + Math.floor(Math.random() * (CFG.gridW - 2));
+    const y = 1 + Math.floor(Math.random() * (CFG.gridH - 2));
+    if (x < oldW && y < oldH) continue;
+    if (tiles[idx(x, y)] !== T.GRASS) continue;
+    tiles[idx(x, y)] = type;
+    grass[idx(x, y)] = 0;
+    return;
+  }
 }

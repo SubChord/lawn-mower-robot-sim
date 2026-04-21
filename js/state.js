@@ -34,6 +34,7 @@ let state = {
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
     grassObsidian: 0, grassFrost: 0, grassVoid: 0,
     autoQuest: 0,
+    mapExpand: 0,
   },
   // Ascend (ruby) tier — survives super-prestige.
   rubies: 0,
@@ -311,7 +312,22 @@ const GEM_UPGRADES = [
     desc: 'Neighbor quests auto-accept — no more modal popups.',
     max: 1, baseCost: 8, growth: 1,
     statusText: (lvl) => lvl ? 'Quests auto-accepted' : 'Manual accept/decline' },
+  { key: 'mapExpand',    icon: '🗺️', name: 'Land Deed',
+    desc: 'Buy the neighboring plots — 10× lawn in each direction! Massive zoom-out.',
+    max: 1, baseCost: 1000, growth: 1,
+    statusText: (lvl) => lvl ? '🗺️ Mega Lawn active (480×300)' : `Lawn: ${CFG.baseGridW}×${CFG.baseGridH}` },
 ];
+
+// Apply map dimensions based on the mapExpand gem upgrade.
+function applyMapDimensions() {
+  if (gemLvl('mapExpand') > 0) {
+    CFG.gridW = CFG.baseGridW * 10;
+    CFG.gridH = CFG.baseGridH * 10;
+  } else {
+    CFG.gridW = CFG.baseGridW;
+    CFG.gridH = CFG.baseGridH;
+  }
+}
 
 // Maps exotic-species keys → the gem-upgrade key that unlocks them.
 const GEM_GRASS_UNLOCK = {
