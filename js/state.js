@@ -313,16 +313,16 @@ const GEM_UPGRADES = [
     max: 1, baseCost: 8, growth: 1,
     statusText: (lvl) => lvl ? 'Quests auto-accepted' : 'Manual accept/decline' },
   { key: 'mapExpand',    icon: '🗺️', name: 'Land Deed',
-    desc: 'Buy the neighboring plots — 10× lawn in each direction! Massive zoom-out.',
+    desc: 'Buy the neighboring plots — triple your lawn in each direction!',
     max: 1, baseCost: 1000, growth: 1,
-    statusText: (lvl) => lvl ? '🗺️ Mega Lawn active (480×300)' : `Lawn: ${CFG.baseGridW}×${CFG.baseGridH}` },
+    statusText: (lvl) => lvl ? `🗺️ Mega Lawn active (${CFG.baseGridW*3}×${CFG.baseGridH*3})` : `Lawn: ${CFG.baseGridW}×${CFG.baseGridH}` },
 ];
 
 // Apply map dimensions based on the mapExpand gem upgrade.
 function applyMapDimensions() {
   if (gemLvl('mapExpand') > 0) {
-    CFG.gridW = CFG.baseGridW * 10;
-    CFG.gridH = CFG.baseGridH * 10;
+    CFG.gridW = CFG.baseGridW * 3;
+    CFG.gridH = CFG.baseGridH * 3;
   } else {
     CFG.gridW = CFG.baseGridW;
     CFG.gridH = CFG.baseGridH;
