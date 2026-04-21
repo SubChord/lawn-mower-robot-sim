@@ -75,6 +75,7 @@ function updateHUD() {
     atmoEl.textContent = `${weatherText}${lockLabel}${timeIco}`.trim();
     atmoEl.style.display = (showW || timeIco) ? '' : 'none';
     atmoEl.style.cursor = hasControl ? 'pointer' : '';
+    atmoEl.style.pointerEvents = hasControl ? 'auto' : '';
     atmoEl.title = hasControl ? 'Click to change weather' : 'Weather and time of day';
   }
 
