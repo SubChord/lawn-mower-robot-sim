@@ -38,6 +38,7 @@ function init() {
   const loaded = loadGame();
   resizeCanvas();
   if (!loaded) {
+    applyMapDimensions();
     initWorld();
     // Fresh run: apply starting bonuses from permanent gem upgrades.
     state.coins = startingCoinsFor(gemLvl('startCoins'));

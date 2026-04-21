@@ -770,6 +770,7 @@ function buyGemUpgrade(key) {
   state.gems -= plan.total;
   state.gemUpgrades[key] = gemLvl(key) + plan.count;
   applyGemGrassUnlocks();
+  if (key === 'mapExpand') expandMapLive();
   beep(720 + state.gemUpgrades[key] * 35, 0.08, 'triangle', 0.07);
   setTimeout(() => beep(1120 + state.gemUpgrades[key] * 45, 0.1, 'sine', 0.06), 80);
   addParticle(canvas.width / 2, canvas.height / 2, {
@@ -980,12 +981,15 @@ function doPrestige() {
     void:     { unlocked: false, spawnLevel: 0 },
   };
   applyGemGrassUnlocks();
+  applyMapDimensions();
   robots = [];
   bees = [];
   visitorGnomes = [];
   treasures = [];
   moles = [];
   initWorld();
+  resizeCanvas();
+  if (typeof clearTileCache === 'function') clearTileCache();
   ensureRobotCount();
   ensureBeesFromHives();
   toast(`🌟 Gained ${gain} 💎 Gems!`, '#8ff09e');
@@ -1019,7 +1023,7 @@ function doAscend() {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
     grassObsidian: 0, grassFrost: 0, grassVoid: 0,
-    autoQuest: 0,
+    autoQuest: 0, mapExpand: 0,
   };
   state.upgrades = {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
@@ -1042,11 +1046,14 @@ function doAscend() {
     frost:    { unlocked: false, spawnLevel: 0 },
     void:     { unlocked: false, spawnLevel: 0 },
   };
+  applyMapDimensions();
   robots = [];
   bees = [];
   visitorGnomes = [];
   treasures = [];
   initWorld();
+  resizeCanvas();
+  if (typeof clearTileCache === 'function') clearTileCache();
   ensureRobotCount();
   ensureBeesFromHives();
   toast(`♦️ Ascended! +${gain} rubies.`, '#ff6b8b');
