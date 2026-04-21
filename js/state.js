@@ -41,6 +41,7 @@ let state = {
   rubyUpgrades: {
     coinMult: 0, gemBank: 0, speed: 0, crit: 0, growth: 0,
     prestigeGemBoost: 0, ascendBoost: 0, startCrew: 0, offlineCap: 0,
+    weatherControl: 0,
   },
   // Per-species unlock + spawn-rate upgrade levels. Entries keyed by GRASS_TYPES.key.
   // 'normal' is always the default (idx 0) and doesn't live in here.
@@ -368,6 +369,10 @@ const RUBY_UPGRADES = [
     desc: '+4 hours of offline earnings cap per level (base 12h).',
     max: 12, baseCost: 3, growth: 1.8,
     statusText: (lvl) => `Offline cap: ${12 + lvl * 4} hours` },
+  { key: 'weatherControl',  icon: '🌦️', name: 'Weather Machine',
+    desc: 'Click the weather pill in the HUD to lock any weather you want.',
+    max: 1, baseCost: 8, growth: 1,
+    statusText: (lvl) => lvl ? '🌦️ Click HUD pill to choose weather' : 'Locked' },
 ];
 const RUBY_BY_KEY = Object.fromEntries(RUBY_UPGRADES.map(r => [r.key, r]));
 function rubyLvl(key) { return (state.rubyUpgrades && state.rubyUpgrades[key]) || 0; }
@@ -386,6 +391,7 @@ function rubyShopAscendMult()  { return 1 + rubyLvl('ascendBoost') * 0.15; }
 function rubyShopStartGems()   { return rubyLvl('gemBank') * 5; }
 function rubyShopOfflineCapHours() { return 12 + rubyLvl('offlineCap') * 4; }
 function rubyShopHasStartCrew() { return rubyLvl('startCrew') > 0; }
+function rubyShopHasWeatherControl() { return rubyLvl('weatherControl') > 0; }
 const GEM_BY_KEY = Object.fromEntries(GEM_UPGRADES.map(g => [g.key, g]));
 function gemUpgradeCost(key, lvl) {
   const def = GEM_BY_KEY[key]; if (!def) return Infinity;

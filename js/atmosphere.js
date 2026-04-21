@@ -98,7 +98,7 @@ const WEATHER_TYPES = [
   { id: 'clear', name: 'Clear',  icon: '☀️', weight: 55, minDur: 80, maxDur: 180,
     growthMult: 1.0,  speedMult: 1.0, flowerMult: 1.0, beesFly: true  },
   { id: 'rain',  name: 'Rain',   icon: '🌧️', weight: 22, minDur: 60, maxDur: 120,
-    growthMult: 1.35, speedMult: 1.0, flowerMult: 1.0, beesFly: false },
+    growthMult: 1.50, speedMult: 1.0, flowerMult: 1.0, beesFly: false },
   { id: 'snow',  name: 'Snow',   icon: '❄️', weight: 10, minDur: 50, maxDur: 100,
     growthMult: 0.4,  speedMult: 0.7, flowerMult: 0.2, beesFly: false },
   { id: 'storm', name: 'Storm',  icon: '⛈️', weight: 6,  minDur: 30, maxDur: 70,

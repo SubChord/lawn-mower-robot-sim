@@ -70,8 +70,12 @@ function updateHUD() {
       else if (hour < 20)         timeIco = ' 🌇';
     }
     const weatherText = showW ? `${w.icon} ${w.name}` : '';
-    atmoEl.textContent = `${weatherText}${timeIco}`.trim();
+    const hasControl = typeof rubyShopHasWeatherControl === 'function' && rubyShopHasWeatherControl();
+    const lockLabel = hasControl && weatherMode !== 'auto' ? ' 🔒' : '';
+    atmoEl.textContent = `${weatherText}${lockLabel}${timeIco}`.trim();
     atmoEl.style.display = (showW || timeIco) ? '' : 'none';
+    atmoEl.style.cursor = hasControl ? 'pointer' : '';
+    atmoEl.title = hasControl ? 'Click to change weather' : 'Weather and time of day';
   }
 
   const qBanner = document.getElementById('questBanner');
@@ -1948,6 +1952,23 @@ function wireUIEvents() {
   document.getElementById('zenBtn').addEventListener('click', openZenSetupModal);
   document.getElementById('statsBtn').addEventListener('click', openStatsModal);
   document.getElementById('zenExit').addEventListener('click', exitZenMode);
+
+  // Weather Machine: click HUD pill to cycle weather when ruby upgrade owned.
+  const atmoEl = document.getElementById('hudAtmo');
+  if (atmoEl) {
+    const weatherCycle = ['auto', ...WEATHER_TYPES.map(w => w.id)];
+    atmoEl.addEventListener('click', () => {
+      if (typeof rubyShopHasWeatherControl !== 'function' || !rubyShopHasWeatherControl()) return;
+      const cur = (state.settings && state.settings.weather) || 'auto';
+      const idx = weatherCycle.indexOf(cur);
+      const next = weatherCycle[(idx + 1) % weatherCycle.length];
+      state.settings.weather = next;
+      const label = next === 'auto' ? 'Auto' : (WEATHER_BY_ID[next] || {}).name || next;
+      toast(`🌦️ Weather → ${label}`, '#72f2ff');
+      beep(620, 0.06, 'sine', 0.05);
+      saveGame();
+    });
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.zenMode) exitZenMode();
