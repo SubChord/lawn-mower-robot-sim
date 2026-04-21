@@ -1078,18 +1078,20 @@ function renderCrew(list) {
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
   // coords in percentage space (0..100)
-  const COL_X = [12.5, 37.5, 62.5, 87.5];
+  const COL_X = [10, 30, 50, 70, 90];
   const TIER_Y = [14, 50, 86];
-  // Foreman sits between cols 1 and 2 so the fan-out stays symmetric across 4 cols.
-  const FOREMAN_X = (COL_X[1] + COL_X[2]) / 2;
+  // Foreman sits at the center column so the fan-out stays symmetric across 5 cols.
+  const FOREMAN_X = COL_X[2];
   const lines = [
     { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[0], TIER_Y[1]], id: 'mechanic' },
     { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[1], TIER_Y[1]], id: 'keenEye' },
     { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[2], TIER_Y[1]], id: 'qualityControl' },
     { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[3], TIER_Y[1]], id: 'moleWarden' },
+    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[4], TIER_Y[1]], id: 'sprinkler' },
     { from: [COL_X[0], TIER_Y[1]], to: [COL_X[0], TIER_Y[2]], id: 'autoRefuel', parent: 'mechanic' },
     { from: [COL_X[1], TIER_Y[1]], to: [COL_X[1], TIER_Y[2]], id: 'scout', parent: 'keenEye' },
     { from: [COL_X[2], TIER_Y[1]], to: [COL_X[2], TIER_Y[2]], id: 'efficiency', parent: 'qualityControl' },
+    { from: [COL_X[4], TIER_Y[1]], to: [COL_X[4], TIER_Y[2]], id: 'headGardener', parent: 'sprinkler' },
   ];
   for (const L of lines) {
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1120,7 +1122,7 @@ function renderCrew(list) {
       + (owned ? ' owned' : '')
       + (buyable ? ' buyable' : '')
       + (locked ? ' locked' : '');
-    // Foreman (tier 0) centers between the 4 cols; others sit on grid cols.
+    // Foreman (tier 0) centers on col 2; others sit on their grid col.
     const x = (node.tier === 0 && node.id === 'foreman') ? FOREMAN_X : COL_X[node.col];
     el.style.left = x + '%';
     el.style.top  = TIER_Y[node.tier] + '%';

@@ -467,6 +467,9 @@ const SKILL_TREE = [
   { id: 'moleWarden', tier: 1, col: 3, icon: '🐹', name: 'Mole Warden', crewName: 'Burrow Bob',
     desc: 'Moles appear half as often and are evicted twice as fast.',
     cost: 6000, req: 'foreman' },
+  { id: 'sprinkler', tier: 1, col: 4, icon: '💧', name: 'Sprinkler Tech', crewName: 'Drizzle Doug',
+    desc: '+15% grass regrowth speed.',
+    cost: 5500, req: 'foreman' },
 
   { id: 'autoRefuel', tier: 2, col: 0, icon: '⛽', name: 'Auto-Refueler',      crewName: 'Nozzle Dave',
     desc: 'Automatically refuel when fuel hits 25%.',
@@ -477,6 +480,9 @@ const SKILL_TREE = [
   { id: 'efficiency', tier: 2, col: 2, icon: '⚙️', name: 'Efficiency Expert',  crewName: 'Spreadsheet Karen',
     desc: '+20% mow rate and +10% global coin income.',
     cost: 18000, req: 'qualityControl' },
+  { id: 'headGardener', tier: 2, col: 4, icon: '🌻', name: 'Head Gardener',    crewName: 'Flora Faye',
+    desc: '+30% grass regrowth (stacks with Sprinkler Tech).',
+    cost: 20000, req: 'sprinkler' },
 ];
 const SKILL_BY_ID = Object.fromEntries(SKILL_TREE.map(s => [s.id, s]));
 function hasCrew(id) { return state.crew && state.crew.indexOf(id) >= 0; }
@@ -575,6 +581,12 @@ function crewSpeedMult(){ return hasCrew('foreman') ? 1.05 : 1; }
 function crewCoinMult(){ return hasCrew('efficiency') ? 1.10 : 1; }
 function crewMowRateMult(){ return hasCrew('efficiency') ? 1.20 : 1; }
 function crewCritBonus(){ return hasCrew('qualityControl') ? 0.04 : 0; }
+function crewGrowthMult(){
+  let m = 1;
+  if (hasCrew('sprinkler')) m *= 1.15;
+  if (hasCrew('headGardener')) m *= 1.30;
+  return m;
+}
 // Mole mitigation — stacks upgrade × crew. Larger interval = rarer moles;
 // smaller lifetime = shorter downtime per tile.
 function moleSpawnIntervalMult() {
@@ -594,7 +606,7 @@ function weatherSafeFlower() { return typeof weatherFlowerMult === 'function' ? 
 function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed() * rubyShopSpeedMult(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
 function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult(); }
-function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult(); }
+function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * crewGrowthMult(); }
 function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
 function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus()); }
 function critMult()    { return 5; }
