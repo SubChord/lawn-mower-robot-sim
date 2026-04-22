@@ -18,7 +18,7 @@ per-second simulation of coins, gems, and rubies. Two balance variants are
 defined in `balance.js`:
 
 - **current** — the numbers as shipped in `js/config.js` / `js/state.js`.
-- **proposed** — the numbers from `REBALANCE.md` (§3).
+- **proposed** — the candidate rebalance numbers under evaluation.
 
 The simulator models:
 

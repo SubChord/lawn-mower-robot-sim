@@ -12,9 +12,6 @@ Browser-based idle game. Robots mow a grid-based lawn for coins, player buys upg
 .
 ├── index.html        # shell + script load order
 ├── styles.css        # all CSS
-├── IDEAS.md          # unstructured backlog of gameplay ideas
-├── REBALANCE.md      # live rebalance plan — diagnosis + §3 proposal (sim-validated)
-├── docs/plans/       # dated design & implementation plans (bee-flower, pixel-art terrain)
 ├── sim/              # Node-only balance simulator (see sim/CLAUDE.md)
 └── js/               # ES modules — single `<script type="module" src="js/main.js">` entry
     ├── config.js     # CFG constants (base + live grid size), tile type enum T, OBSTACLE set, FLOWER_PALETTE, prestige/ascend thresholds + formulas
@@ -44,7 +41,7 @@ Browser-based idle game. Robots mow a grid-based lawn for coins, player buys upg
 | Tweak Ascend / ruby perks | `RUBY_SHOP` in `state.js`, `rubyShop*Mult()` derived getters, `doAscend()` in `ui.js` |
 | Add a shop tab | `<button data-tab="X">` in `index.html`, matching render branch in `ui.js` shop rendering, gate in `revealAscend`-style hide logic if premature |
 | Tune hazards | `CFG.gnomeSpawn*` / `CFG.moleSpawn*` in `config.js`, logic in `ai.js` (evil gnomes steal treasures, moles dig mounds) |
-| Propose/validate balance changes | Edit `PROPOSED` in `sim/balance.js`, run `node sim/simulate.js`; record rationale in `REBALANCE.md` |
+| Propose/validate balance changes | Edit `PROPOSED` in `sim/balance.js`, run `node sim/simulate.js` |
 
 ## CONVENTIONS
 - **ES modules with explicit imports/exports.** Each file has an `// ===== AUTO-IMPORTS =====` block at top and `// ===== AUTO-EXPORTS =====` block at bottom. Loaded as a single `<script type="module" src="js/main.js">`; the rest are pulled in transitively.
@@ -87,7 +84,7 @@ node sim/simulate.js
 
 ## NOTES
 - **Offline earnings** in `loadGame` are approximate — mow rate estimated via `tilesPerSec ≈ robots × mowRate × π × (mowRadius/ts)² × 0.25`, capped at 12h, scaled 0.5× for mowing income.
-- **Prestige formula (post-rebalance):** `floor((totalThisRun / 1500) ^ 0.60)`. Threshold: 7 000 coins/run. Each lifetime gem = +10% coin income (via `gemMult()` — capped/softened per REBALANCE.md §3.1, see `state.js`).
+- **Prestige formula (post-rebalance):** `floor((totalThisRun / 1500) ^ 0.60)`. Threshold: 7 000 coins/run. Each lifetime gem = +10% coin income (via `gemMult()` — capped/softened, see `state.js`).
 - **Ascend** (ruby tier) wipes gems + coin-tier upgrades/garden/crew/grass unlocks but keeps rubies, ruby-shop perks, skins, and patterns. Threshold: 50 💎 cumulatively. Gain = `floor((totalGemsEarned / 40) ^ 0.55) × rubyShopAscendMult()`. UI tab hidden until player can first Ascend (or already has rubies) — see `revealAscend` in `ui.js`. Reset wipes rubies too (see `resetGame` in `save.js`).
 - **Bees** only exist when beehives placed; `ensureBeesFromHives()` reconciles `bees[]` to `garden.beehive × CFG.beePerHive`.
 - **Gnomes & moles** are hazard actors in `world.js` (`gnomes[]`, `moles[]`), driven by `ai.js` spawn timers. Evil gnomes steal dropped treasure; moles leave mounds that block tiles until Pest Control / Mole Warden crew handles them. Gnome timer is gated — `updateGnomeSpawnTimer` early-returns until `state.garden.gnome > 0` (first Garden Gnome purchased).

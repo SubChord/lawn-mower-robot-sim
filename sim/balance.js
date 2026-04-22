@@ -3,7 +3,7 @@
    Pure data + formula functions. No game state, no DOM.
 
    Export CURRENT (shipped numbers from config.js/state.js) and
-   PROPOSED (numbers from REBALANCE.md). The simulator swaps
+   PROPOSED (tweaked numbers under evaluation). The simulator swaps
    between them to produce side-by-side projections.
 
    Keep this file in lock-step with:
@@ -147,7 +147,7 @@ const CURRENT = {
   rubyShopAscendMult:   (lvl) => 1 + lvl * 0.15,
 };
 
-// ---------- PROPOSED (from REBALANCE.md) ----------
+// ---------- PROPOSED (rebalance candidate) ----------
 // Copy CURRENT first, then overlay the proposed deltas. Keeps diff readable.
 const PROPOSED = {
   ...CURRENT,

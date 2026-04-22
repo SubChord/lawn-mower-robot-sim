@@ -15,7 +15,6 @@ import { state } from './state.js';
    code should null-check Assets.image(...) and fall back to the
    procedural colors below. This lets us drop in downloaded tilesets
    (e.g. Kenney, OpenGameArt CC0 packs) without rewriting the renderer.
-   See IDEAS.md for vetted CC0 sources.
 */
 
 const THEMES = [
