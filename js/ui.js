@@ -7,6 +7,7 @@ import { allocateWorldArrays, bees, clearActors, ensureBeesFromHives, ensureRobo
 import { applyThemeDom } from './themes.js';
 import { clearTileCache, mowPatternTint } from './render.js';
 import { resetGame, saveGame } from './save.js';
+import { updateEventBanner } from './events.js';
 // ===== END AUTO-IMPORTS =====
 
 /* ============================================================
@@ -126,6 +127,7 @@ function updateHUD() {
       qBanner.style.display = 'none';
     }
   }
+  updateEventBanner();
 }
 
 function showQuestOfferModal(quest) {

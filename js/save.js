@@ -72,6 +72,8 @@ function saveGame() {
       questTimer: state.questTimer,
       questsCompleted: state.questsCompleted,
       questHistory: state.questHistory,
+      activeEvent: state.activeEvent,
+      eventTimer: state.eventTimer,
     },
     achieved: [...achieved],
     tiles: tilePack,
@@ -123,11 +125,19 @@ function loadGame() {
     if (!isFinite(state.critCascadeStack)) state.critCascadeStack = 0;
     if (state.activeQuest && !QUEST_BY_ID[state.activeQuest.id]) state.activeQuest = null;
     if (!Array.isArray(state.questHistory)) state.questHistory = [];
+    // Random events: drop if already expired, default the spawn timer.
+    if (state.activeEvent && typeof state.activeEvent === 'object') {
+      const remaining = (state.activeEvent.duration || 0) - ((Date.now() / 1000) - (state.activeEvent.started || 0));
+      if (!isFinite(remaining) || remaining <= 0) state.activeEvent = null;
+    } else {
+      state.activeEvent = null;
+    }
+    if (!isFinite(state.eventTimer)) state.eventTimer = 240 + Math.random() * 180;
     state.settings = Object.assign({
       showRobotNames: true, showGnomeNames: true, showParticles: true,
       scientificNumbers: false,
       theme: 'classic', dayNight: 'auto', weather: 'auto', rivalry: true,
-      autoBuyer: true,
+      autoBuyer: true, newsTicker: true,
     }, state.settings || {});
     if (!isFinite(state.autoBuyTimer)) state.autoBuyTimer = 0;
     if (!isFinite(state.timeOfDay)) state.timeOfDay = 12;

@@ -111,8 +111,8 @@ canvas#lawn {
   pointer-events: none;
 }
 .stage-hud-bottom {
-  position: absolute; bottom: 12px; left: 12px; right: 12px;
-  display: flex; justify-content: center;
+  position: absolute; bottom: 36px; left: 12px; right: 12px;
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 8px;
   pointer-events: none;
 }
 .stage-hud-bottom .hud-fuel {
@@ -189,6 +189,50 @@ canvas#lawn {
   font-variant-numeric: tabular-nums; color: var(--ink-dim); white-space: nowrap;
 }
 .hud-quest .q-reward { color: #ffd34e; font-weight: 700; }
+.hud-event {
+  background: linear-gradient(90deg, rgba(255,140,80,0.22), rgba(255,211,78,0.22));
+  border-color: rgba(255,170,80,0.55);
+  box-shadow: 0 0 12px rgba(255,170,80,0.15);
+}
+.hud-event .q-name { color: #ffb070; }
+.hud-event .ev-action {
+  background: linear-gradient(180deg,#3bd4ff,#0a8cb8);
+  border: 0; border-radius: 8px; padding: 4px 10px;
+  font-size: 11px; color: white; font-weight: 700; cursor: pointer;
+  white-space: nowrap;
+}
+.hud-event .ev-action:hover:not(:disabled) { filter: brightness(1.2); }
+.hud-event .ev-action:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.news-ticker {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  height: 22px;
+  background: rgba(0,0,0,0.55);
+  border-top: 1px solid rgba(143,240,158,0.25);
+  border-bottom: 1px solid rgba(143,240,158,0.25);
+  font-size: 12px;
+  color: #cfead6;
+  font-family: 'Press Start 2P', monospace;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+.news-track {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: news-scroll 60s linear infinite;
+  line-height: 22px;
+}
+.news-track .item { padding: 0 32px; }
+.news-track .item.alert { color: #ffd34e; }
+.news-track .item.danger { color: #ff7676; }
+.news-track .item.win { color: #8ff09e; }
+@keyframes news-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
 
 .quest-offer .modal { border: 2px solid rgba(255,211,78,0.6); }
 .quest-offer .modal .big { color: #ffd34e; font-size: 20px; margin: 12px 0; }
@@ -991,6 +1035,7 @@ body.zen-mode footer.bottom,
 body.zen-mode .stage-hud,
 body.zen-mode .stage-hud-bottom,
 body.zen-mode .stage-overlay,
+body.zen-mode .news-ticker,
 body.zen-mode #toasts { display: none !important; }
 body.zen-mode main.stage {
   border-radius: 0;

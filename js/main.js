@@ -8,6 +8,7 @@ import { render } from './render.js';
 import { resizeCanvas } from './canvas.js';
 import { updateAutoBuy, updateBee, updateBuffs, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGoldenGnomes, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes } from './ai.js';
 import { updateDayNight, updateRivalry, updateWeather } from './atmosphere.js';
+import { updateEvents } from './events.js';
 // ===== END AUTO-IMPORTS =====
 
 /* ============================================================
@@ -43,6 +44,7 @@ function loop(now) {
     updateCrew(TICK);
     updateAutoBuy(TICK);
     decayCritCascade(TICK);
+    updateEvents(TICK);
     accumulator -= TICK;
   }
   render();

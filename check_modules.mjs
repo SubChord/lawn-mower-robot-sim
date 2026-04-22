@@ -9,7 +9,7 @@ import fs from 'fs';
 
 const FILES = process.argv.length > 2
   ? process.argv.slice(2)
-  : ['config','state','themes','world','canvas','assets','atmosphere','ai','render','save','ui','main'].map(n => `js/${n}.js`);
+  : ['config','state','themes','world','canvas','assets','atmosphere','ai','render','save','ui','events','main'].map(n => `js/${n}.js`);
 
 const BROWSER_GLOBALS = new Set([
   'document','window','localStorage','performance','requestAnimationFrame','setInterval','setTimeout','clearTimeout','clearInterval',
