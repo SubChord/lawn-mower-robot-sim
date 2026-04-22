@@ -1,3 +1,10 @@
+// ===== AUTO-IMPORTS =====
+import { addParticle, beep, canvas, ctx } from './canvas.js';
+import { robots } from './world.js';
+import { state } from './state.js';
+import { toast } from './ui.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    Atmosphere — day/night cycle, weather, robot rivalry
    ============================================================ */
@@ -324,3 +331,6 @@ function takeZenPhoto() {
     if (typeof toast === 'function') toast('📸 Snapshot failed', '#ffb4b4');
   }
 }
+
+// ===== AUTO-EXPORTS =====
+export { DAY_TIME_KEYS, DAY_TIME_PRESETS, WEATHER_BY_ID, WEATHER_TYPES, activeWeather, beesAreActive, drawDayNightOverlay, drawWeather, rivalrySpeedBonus, takeZenPhoto, trackRivalryEarnings, updateDayNight, updateRivalry, updateWeather, weatherFlowerMult, weatherGrowthMult, weatherSpeedMult };

@@ -1,3 +1,11 @@
+// ===== AUTO-IMPORTS =====
+import { CFG, T } from './config.js';
+import { THEMES } from './themes.js';
+import { displayedRate } from './ui.js';
+import { tileSize } from './canvas.js';
+import { weatherFlowerMult, weatherGrowthMult, weatherSpeedMult } from './atmosphere.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    State, costs, garden defs, derived values
    ============================================================ */
@@ -648,3 +656,6 @@ function formatShort(n) {
   while (n >= 1000 && i < SUFFIX.length - 1) { n /= 1000; i++; }
   return n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0) + SUFFIX[i];
 }
+
+// ===== AUTO-EXPORTS =====
+export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, critChance, critMult, currentArea, currentAreaSpeciesIdx, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state };

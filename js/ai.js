@@ -1,3 +1,14 @@
+// ===== AUTO-IMPORTS =====
+import { CFG, NEIGHBOR_NAMES, OBSTACLE, T } from './config.js';
+import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, state } from './state.js';
+import { addParticle, beep, canvas, playGnomeGiggle, tileSize } from './canvas.js';
+import { beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
+import { collectTreasureIndex, showQuestOfferModal, toast } from './ui.js';
+import { despawnMole, grass, grassSpecies, inBounds, moles, player, robots, spawnEvilGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, tiles, treasures, visitorGnomes } from './world.js';
+import { mowPatternIsDark } from './render.js';
+import { saveGame } from './save.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    Robot AI, Bee AI, grass + flower income
    ============================================================ */
@@ -653,3 +664,6 @@ function updateFlowerIncome(dt) {
     if (flowerIncomeAccum > 20) flowerIncomeAccum = 0;
   }
 }
+
+// ===== AUTO-EXPORTS =====
+export { updateBee, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes };

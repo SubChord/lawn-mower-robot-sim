@@ -1,3 +1,8 @@
+// ===== AUTO-IMPORTS =====
+import { clearTileCache } from './render.js';
+import { state } from './state.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    Theme / texture packs
    ============================================================
@@ -96,3 +101,6 @@ function applyThemeDom() {
   if (stage) stage.style.background = t.stageBg;
   if (typeof clearTileCache === 'function') clearTileCache();
 }
+
+// ===== AUTO-EXPORTS =====
+export { THEMES, activeTheme, applyThemeDom };

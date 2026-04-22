@@ -1,3 +1,12 @@
+// ===== AUTO-IMPORTS =====
+import { CFG, FLOWER_PALETTE, T } from './config.js';
+import { GRASS_TYPES, SKIN_BY_KEY, getSetting, mowRadius, playerMowRadius, state } from './state.js';
+import { activeTheme } from './themes.js';
+import { bees, flowerColors, grass, grassSpecies, idx, moles, player, robots, tiles, treasures, visitorGnomes } from './world.js';
+import { canvas, particles, tileSize } from './canvas.js';
+import { drawDayNightOverlay, drawWeather } from './atmosphere.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    Rendering + tile sprites
    ============================================================ */
@@ -1020,3 +1029,6 @@ function render() {
   if (typeof drawDayNightOverlay === 'function') drawDayNightOverlay();
   if (typeof drawWeather === 'function') drawWeather();
 }
+
+// ===== AUTO-EXPORTS =====
+export { clearTileCache, mowPatternIsDark, mowPatternTint, render };

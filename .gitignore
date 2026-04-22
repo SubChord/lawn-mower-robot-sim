@@ -11,3 +11,8 @@
 # Save files
 *.coin-save
 .coin-save
+
+# Node
+node_modules/
+package-lock.json
+package.json

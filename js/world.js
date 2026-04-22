@@ -1,3 +1,11 @@
+// ===== AUTO-IMPORTS =====
+import { AREA_EXPAND_COST_GEMS, MOW_PATTERN_DEFS, SKIN_DEFS, applyMapDimensions, areaIsExpanded, areaUnlocked, currentAreaSpeciesIdx, hasCrew, moleLifetimeMult, skinDropChance, state } from './state.js';
+import { CFG, EVIL_GNOME_NAMES, FLOWER_PALETTE, GNOME_NAMES, ROBOT_NAMES, T } from './config.js';
+import { addParticle, beep, getTileSize, resizeCanvas, tileSize } from './canvas.js';
+import { clearTileCache } from './render.js';
+import { displayedRate, toast } from './ui.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    World grid, robots, bees
    ============================================================ */
@@ -399,6 +407,40 @@ function expandMapLive() {
   }
 }
 
+// ---------- Mutators (live-binding helpers for cross-module rebinding) ----------
+// ES module exports of `let` bindings are live, but only the *declaring* module
+// may reassign them. save.js / ui.js used to do `grass = new Float32Array(...)`
+// directly under the classic-script global-scope model — that no longer works
+// once each file is its own module. These helpers preserve the same behaviour
+// while keeping all reassignments inside world.js.
+function allocateWorldArrays(len = CFG.gridW * CFG.gridH) {
+  grass = new Float32Array(len);
+  tiles = new Uint8Array(len);
+  flowerColors = new Uint8Array(len);
+  grassSpecies = new Uint8Array(len);
+}
+
+function clearActors() {
+  robots = [];
+  bees = [];
+  visitorGnomes = [];
+  treasures = [];
+  moles = [];
+}
+
+function restoreWorldFromSnapshot(snap) {
+  if (!snap) return;
+  if (snap.grass) grass = snap.grass;
+  if (snap.tiles) tiles = snap.tiles;
+  if (snap.flowerColors) flowerColors = snap.flowerColors;
+  if (snap.grassSpecies) grassSpecies = snap.grassSpecies;
+  if (snap.robots) robots = snap.robots;
+  if (snap.bees) bees = snap.bees;
+  if (snap.visitorGnomes) visitorGnomes = snap.visitorGnomes;
+  if (snap.treasures) treasures = snap.treasures;
+  moles = snap.moles || [];
+}
+
 // Place an obstacle in the expanded region (outside the old grid area).
 function placeInExpandedArea(type, oldW, oldH) {
   for (let i = 0; i < 60; i++) {
@@ -411,3 +453,6 @@ function placeInExpandedArea(type, oldW, oldH) {
     return;
   }
 }
+
+// ===== AUTO-EXPORTS =====
+export { allocateWorldArrays, bees, clearActors, despawnMole, ensureBeesFromHives, ensureRobotCount, expandCurrentArea, flowerColors, grass, grassSpecies, idx, inBounds, initWorld, moles, placeAtRandomGrass, player, restoreWorldFromSnapshot, robots, spawnEvilGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, switchArea, tiles, treasures, visitorGnomes };

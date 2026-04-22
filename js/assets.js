@@ -92,3 +92,6 @@ const Assets = (() => {
 // Example:
 //   Assets.register('mower_pro', { type: 'image', src: 'assets/mower_pro.png' });
 //   Assets.register('gnome_giggle', { type: 'audio', src: 'assets/gnome_giggle.mp3' });
+
+// ===== AUTO-EXPORTS =====
+export { Assets };

@@ -95,3 +95,6 @@ const FLOWER_PALETTE = [
   ['#ffffff', '#ffe24b'],
   ['#ff9f1c', '#fff1cf'],
 ];
+
+// ===== AUTO-EXPORTS =====
+export { CFG, EVIL_GNOME_NAMES, FLOWER_PALETTE, GNOME_NAMES, NEIGHBOR_NAMES, OBSTACLE, ROBOT_NAMES, T };

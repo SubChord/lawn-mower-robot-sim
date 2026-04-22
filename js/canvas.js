@@ -1,3 +1,9 @@
+// ===== AUTO-IMPORTS =====
+import { CFG } from './config.js';
+import { bees, robots, treasures, visitorGnomes } from './world.js';
+import { state } from './state.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    Canvas, particles, coin flash, sound
    ============================================================ */
@@ -112,3 +118,6 @@ function playGnomeGiggle() {
   // Cheeky low "hmph"
   setTimeout(() => beep(260, 0.12, 'triangle', 0.05), 560);
 }
+
+// ===== AUTO-EXPORTS =====
+export { addParticle, beep, canvas, ctx, flashCoin, getTileSize, particles, playGnomeGiggle, resizeCanvas, tileSize };

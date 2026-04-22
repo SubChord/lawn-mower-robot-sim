@@ -1,3 +1,14 @@
+// ===== AUTO-IMPORTS =====
+import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, isElectric, playerMowRate, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state } from './state.js';
+import { CFG, T } from './config.js';
+import { DAY_TIME_KEYS, DAY_TIME_PRESETS, WEATHER_BY_ID, WEATHER_TYPES, activeWeather, takeZenPhoto } from './atmosphere.js';
+import { addParticle, beep, canvas, flashCoin, particles, resizeCanvas, tileSize } from './canvas.js';
+import { allocateWorldArrays, bees, clearActors, ensureBeesFromHives, ensureRobotCount, expandCurrentArea, flowerColors, grass, grassSpecies, initWorld, moles, placeAtRandomGrass, player, restoreWorldFromSnapshot, robots, switchArea, tiles, treasures, visitorGnomes } from './world.js';
+import { applyThemeDom } from './themes.js';
+import { clearTileCache, mowPatternTint } from './render.js';
+import { resetGame, saveGame } from './save.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    HUD, shop UI, toasts, achievements, tabs, footer buttons
    ============================================================ */
@@ -981,11 +992,7 @@ function doPrestige() {
   state.questHistory = [];
   state.questsCompleted = 0;
   applyMapDimensions();
-  robots = [];
-  bees = [];
-  visitorGnomes = [];
-  treasures = [];
-  moles = [];
+  clearActors();
   initWorld();
   resizeCanvas();
   if (typeof clearTileCache === 'function') clearTileCache();
@@ -1038,10 +1045,7 @@ function doAscend() {
   // Come home on ascend (areas and per-area expansion persist).
   state.activeArea = 'home';
   applyMapDimensions();
-  robots = [];
-  bees = [];
-  visitorGnomes = [];
-  treasures = [];
+  clearActors();
   initWorld();
   resizeCanvas();
   if (typeof clearTileCache === 'function') clearTileCache();
@@ -1665,7 +1669,7 @@ function enterZenMode() {
     moles: moles.slice(),
     particles: particles.slice(),
   };
-  moles = [];
+  // Note: moles are replaced by buildZenWorld → clearActors() below.
 
   state.zenMode = true;
   document.body.classList.add('zen-mode');
@@ -1703,15 +1707,7 @@ function exitZenMode() {
   if (zenSnapshot.settings) state.settings = zenSnapshot.settings;
   if (zenSnapshot.timeOfDay != null) state.timeOfDay = zenSnapshot.timeOfDay;
   if (zenSnapshot.weather) state.weather = zenSnapshot.weather;
-  grass = zenSnapshot.grass;
-  tiles = zenSnapshot.tiles;
-  flowerColors = zenSnapshot.flowerColors;
-  if (zenSnapshot.grassSpecies) grassSpecies = zenSnapshot.grassSpecies;
-  robots = zenSnapshot.robots;
-  bees = zenSnapshot.bees;
-  visitorGnomes = zenSnapshot.visitorGnomes;
-  treasures = zenSnapshot.treasures;
-  moles = zenSnapshot.moles || [];
+  restoreWorldFromSnapshot(zenSnapshot);
   particles.length = 0;
   for (const p of zenSnapshot.particles) particles.push(p);
   zenSnapshot = null;
@@ -1727,16 +1723,9 @@ function exitZenMode() {
 }
 
 function buildZenWorld(cfg) {
-  grass = new Float32Array(CFG.gridW * CFG.gridH);
-  tiles = new Uint8Array(CFG.gridW * CFG.gridH);
-  flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
-  grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
+  allocateWorldArrays();
   for (let i = 0; i < grass.length; i++) grass[i] = 0.7 + Math.random() * 0.3;
-  robots = [];
-  bees = [];
-  visitorGnomes = [];
-  treasures = [];
-  moles = [];
+  clearActors();
   particles.length = 0;
 
   const placeMany = (type, n) => { for (let i = 0; i < n; i++) placeAtRandomGrass(type); };
@@ -1988,3 +1977,6 @@ function wireUIEvents() {
     if (!document.fullscreenElement && state.zenMode) exitZenMode();
   });
 }
+
+// ===== AUTO-EXPORTS =====
+export { achieved, checkAchievements, collectTreasureIndex, displayedRate, renderShop, showQuestOfferModal, toast, updateHUD, wireUIEvents };

@@ -1,3 +1,10 @@
+// ===== AUTO-IMPORTS =====
+import { AREA_BY_ID, MOW_PATTERN_BY_KEY, QUEST_BY_ID, SKIN_BY_KEY, ZEN_CONFIG_DEFAULT, applyMapDimensions, coinMult, formatShort, gemShopOfflineMult, mowRadius, mowRate, rubyShopOfflineCapHours, state } from './state.js';
+import { CFG, T } from './config.js';
+import { achieved } from './ui.js';
+import { allocateWorldArrays, flowerColors, grass, grassSpecies, idx, inBounds, robots, tiles } from './world.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    Save / Load / offline earnings / reset
    ============================================================ */
@@ -157,10 +164,7 @@ function loadGame() {
     }
     delete state.grassTypes;
     applyMapDimensions();
-    grass = new Float32Array(CFG.gridW * CFG.gridH);
-    tiles = new Uint8Array(CFG.gridW * CFG.gridH);
-    flowerColors = new Uint8Array(CFG.gridW * CFG.gridH);
-    grassSpecies = new Uint8Array(CFG.gridW * CFG.gridH);
+    allocateWorldArrays();
     if (data.grass) {
       try {
         const bin = atob(data.grass);
@@ -239,3 +243,6 @@ function showOfflineModal(coins, seconds) {
   document.body.appendChild(back);
   back.querySelector('#okBtn').addEventListener('click', () => back.remove());
 }
+
+// ===== AUTO-EXPORTS =====
+export { SAVE_KEY, loadGame, resetGame, saveGame };
