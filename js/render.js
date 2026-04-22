@@ -3,7 +3,7 @@ import { CFG, FLOWER_PALETTE, T } from './config.js';
 import { GRASS_TYPES, SKIN_BY_KEY, getSetting, mowRadius, playerMowRadius, state } from './state.js';
 import { activeTheme } from './themes.js';
 import { bees, flowerColors, grass, grassSpecies, idx, moles, player, robots, tiles, treasures, visitorGnomes } from './world.js';
-import { canvas, particles, tileSize } from './canvas.js';
+import { canvas, ctx, particles, tileSize } from './canvas.js';
 import { drawDayNightOverlay, drawWeather } from './atmosphere.js';
 // ===== END AUTO-IMPORTS =====
 

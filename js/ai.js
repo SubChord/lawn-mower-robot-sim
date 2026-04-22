@@ -4,7 +4,7 @@ import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelTyp
 import { addParticle, beep, canvas, playGnomeGiggle, tileSize } from './canvas.js';
 import { beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
 import { collectTreasureIndex, showQuestOfferModal, toast } from './ui.js';
-import { despawnMole, grass, grassSpecies, inBounds, moles, player, robots, spawnEvilGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, tiles, treasures, visitorGnomes } from './world.js';
+import { despawnMole, grass, grassSpecies, idx, inBounds, moles, player, robots, spawnEvilGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, tiles, treasures, visitorGnomes } from './world.js';
 import { mowPatternIsDark } from './render.js';
 import { saveGame } from './save.js';
 // ===== END AUTO-IMPORTS =====
