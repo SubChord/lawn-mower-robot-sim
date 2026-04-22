@@ -1,4 +1,5 @@
 // ===== AUTO-IMPORTS =====
+import { Assets } from './assets.js';
 import { SAVE_KEY, loadGame, saveGame } from './save.js';
 import { TOOL_TYPES, applyMapDimensions, decayCritCascade, gemLvl, startingCoinsFor, state } from './state.js';
 import { applyThemeDom } from './themes.js';
@@ -84,6 +85,10 @@ function init() {
   if (!localStorage.getItem(SAVE_KEY)) {
     setTimeout(() => toast('🤖 Welcome, CEO! Let the mowing begin.', '#8ff09e'), 300);
   }
+  // Preload sprites in the background. Render code null-checks, so the loop
+  // can start immediately; sprites pop in as they finish decoding. If the
+  // sprite flag is off the preloaded images sit idle and cost nothing.
+  Assets.preloadAll().catch(() => {});
   requestAnimationFrame(loop);
 }
 

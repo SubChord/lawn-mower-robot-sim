@@ -1,4 +1,5 @@
 // ===== AUTO-IMPORTS =====
+import { Sprites } from './assets.js';
 import { CFG, FLOWER_PALETTE, T } from './config.js';
 import { GRASS_TYPES, SKIN_BY_KEY, getSetting, mowRadius, playerMowRadius, state } from './state.js';
 import { activeTheme } from './themes.js';
@@ -166,9 +167,13 @@ function drawGrass() {
 }
 
 // ---------- Sprites for tile types ----------
+// Each feature drawer checks the sprite pack first; if a sprite is available
+// (flag on + image loaded) it's drawn instead of the vector primitives.
+// Vector code below remains the authoritative fallback.
 function drawTree(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  if (Sprites.drawGrounded(ctx, 'tree', cx, cy + ts * 0.42, ts * 1.1)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.32)';
   ctx.beginPath(); ctx.ellipse(cx + 1, cy + ts * 0.38, ts * 0.46, ts * 0.18, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#5a3a1e';
@@ -191,6 +196,7 @@ function drawTree(x, y) {
 function drawRock(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  if (Sprites.drawGrounded(ctx, 'rock', cx, cy + ts * 0.34, ts * 0.95)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.32, ts * 0.38, ts * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   const grad = ctx.createLinearGradient(cx, cy - ts * 0.35, cx, cy + ts * 0.3);
@@ -217,6 +223,7 @@ function drawRock(x, y) {
 function drawPond(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  if (Sprites.drawCentered(ctx, 'pond', cx, cy, ts * 1.05)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath(); ctx.ellipse(cx, cy + 2, ts * 0.48, ts * 0.32, 0, 0, Math.PI * 2); ctx.fill();
   const grad = ctx.createRadialGradient(cx - ts * 0.1, cy - ts * 0.1, 2, cx, cy, ts * 0.5);
@@ -236,10 +243,21 @@ function drawPond(x, y) {
   ctx.globalAlpha = 1;
 }
 
+// Map FLOWER_PALETTE indices (see config.js) to sprite keys. The palette order
+// there is: pink/yellow, orange/yellow, purple/white, red/yellow, white/yellow,
+// orange/cream — pick whichever sprite reads best.
+const FLOWER_SPRITE_KEYS = [
+  'flower_pink', 'flower_orange', 'flower_purple',
+  'flower_red', 'flower_white', 'flower_yellow',
+];
+
 function drawFlower(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
-  const palette = FLOWER_PALETTE[flowerColors[idx(x, y)] || 0];
+  const paletteIdx = flowerColors[idx(x, y)] || 0;
+  const spriteKey = FLOWER_SPRITE_KEYS[paletteIdx % FLOWER_SPRITE_KEYS.length];
+  if (Sprites.drawGrounded(ctx, spriteKey, cx, cy + ts * 0.45, ts * 0.9)) return;
+  const palette = FLOWER_PALETTE[paletteIdx];
   ctx.fillStyle = '#3c9042';
   ctx.fillRect(x * ts, y * ts + ts * 0.7, ts, ts * 0.3);
   const positions = [
@@ -266,6 +284,7 @@ function drawFlower(x, y) {
 function drawBeehive(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  if (Sprites.drawGrounded(ctx, 'beehive', cx, cy + ts * 0.42, ts * 0.95)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.38, ts * 0.38, ts * 0.12, 0, 0, Math.PI * 2); ctx.fill();
   const layers = 4;
@@ -286,6 +305,7 @@ function drawBeehive(x, y) {
 function drawFountain(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  if (Sprites.drawGrounded(ctx, 'fountain', cx, cy + ts * 0.42, ts * 1.05)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.35, ts * 0.45, ts * 0.14, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#a1a8ad';
@@ -310,6 +330,7 @@ function drawFountain(x, y) {
 function drawShed(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  if (Sprites.drawGrounded(ctx, 'shed', cx, cy + ts * 0.42, ts * 1.05)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.38, ts * 0.4, ts * 0.1, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#9b6a3a';
@@ -336,6 +357,7 @@ function drawShed(x, y) {
 function drawGnome(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
+  if (Sprites.drawGrounded(ctx, 'gnome_friendly', cx, cy + ts * 0.4, ts * 0.75)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.36, ts * 0.25, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#3a82d9';
@@ -362,6 +384,21 @@ function drawMoleHole(x, y) {
   const ts = tileSize;
   const cx = (x + 0.5) * ts, cy = (y + 0.5) * ts;
   const m = moles ? moles.find(mm => mm.tileX === x && mm.tileY === y) : null;
+  // Sprite path: replace the static mound art only. Peek animation + timer
+  // ring still draw on top so gameplay feedback is preserved.
+  if (Sprites.drawCentered(ctx, 'mole_mound', cx, cy + ts * 0.06, ts * 1.05)) {
+    if (m) {
+      if (m.life < 6) {
+        const pct = Math.max(0, m.life / 6);
+        ctx.strokeStyle = 'rgba(255, 140, 90, 0.85)';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(cx, cy + ts * 0.06, ts * 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+        ctx.stroke();
+      }
+    }
+    return;
+  }
   // Dirt mound ring around the hole
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.3, ts * 0.42, ts * 0.12, 0, 0, Math.PI * 2); ctx.fill();
@@ -859,6 +896,37 @@ function drawTreasure(t) {
   // shadow
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
   ctx.beginPath(); ctx.ellipse(0, ts * 0.3, ts * 0.3, ts * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Sprite path: use chest_open for gold (lootable now), chest_closed for
+  // skin/pattern chests so the type stays readable. We still overlay the
+  // sparkle label + expiry ring below for gameplay clarity.
+  if (Sprites.enabled()) {
+    const key = t.type === 'gold' ? 'chest_open' : 'chest_closed';
+    if (Sprites.drawCentered(ctx, key, 0, ts * 0.08, ts * 0.9)) {
+      // sparkle icon above (kept)
+      const iconY = -ts * 0.34 + Math.sin(t.phase * 3) * 1.5;
+      const trim = t.type === 'skin' ? '#ff6bcf' : t.type === 'pattern' ? '#8ff09e' : '#ffd34e';
+      ctx.fillStyle = trim;
+      ctx.font = `bold ${Math.max(9, ts * 0.5)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+      ctx.lineWidth = 3;
+      const label = t.type === 'skin' ? '?' : t.type === 'pattern' ? '🪚' : '✦';
+      ctx.strokeText(label, 0, iconY);
+      ctx.fillText(label, 0, iconY);
+      // expiration ring when low
+      if (t.life < 15) {
+        const pct = t.life / 15;
+        ctx.strokeStyle = 'rgba(255, 90, 90, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, ts * 0.14, ts * 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+  }
 
   const isSkin = t.type === 'skin';
   const isPattern = t.type === 'pattern';

@@ -80,6 +80,7 @@ let state = {
     rivalry: true,      // crown the top-earning robot each 30s
     autoBuyer: true,    // Bookkeeper auto-buys cheapest Bot/Tool upgrade
     newsTicker: true,   // bottom-of-stage news ticker + random events
+    useSprites: false,  // prefer PNG sprite pack over procedural drawing
   },
   timeOfDay: 12,                // 0..24, advances in auto mode
   weather: { id: 'clear', intensity: 0, cycleTimer: 90 },
@@ -142,6 +143,7 @@ const SETTING_DEFS = [
   { type: 'toggle', key: 'showGnomeNames', label: 'Show gnome names', hint: 'Display names above visiting gnomes.' },
   { type: 'toggle', key: 'showParticles',  label: 'Floating numbers', hint: 'Show +coin pop-ups over the lawn.' },
   { type: 'toggle', key: 'rivalry',        label: 'Robot rivalry',    hint: 'Crown the top-earning robot every 30s (+5% speed).' },
+  { type: 'toggle', key: 'useSprites',     label: 'Use sprite art',   hint: 'Render garden features, flowers and characters with the PNG sprite pack. Turn off for the original vector look.' },
   { type: 'toggle', key: 'scientificNumbers', label: 'Scientific notation', hint: 'Display big numbers as 1.23e6 instead of 1.23M.' },
   { type: 'select', key: 'theme',          label: 'Theme pack',       hint: 'Swap the lawn palette and stage background.',
     options: () => (typeof THEMES !== 'undefined' ? THEMES.map(t => ({ value: t.id, label: t.name, desc: t.desc })) : [{ value: 'classic', label: 'Classic' }]) },

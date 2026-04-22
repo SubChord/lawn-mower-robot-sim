@@ -1,3 +1,7 @@
+// ===== AUTO-IMPORTS =====
+import { state } from './state.js';
+// ===== END AUTO-IMPORTS =====
+
 /* ============================================================
    Asset registry — preload and retrieve complex assets
    ============================================================
@@ -93,5 +97,95 @@ const Assets = (() => {
 //   Assets.register('mower_pro', { type: 'image', src: 'assets/mower_pro.png' });
 //   Assets.register('gnome_giggle', { type: 'audio', src: 'assets/gnome_giggle.mp3' });
 
+// ------------------------------------------------------------
+// Sprite pack — generated via scripts/gen_sheets.py + slice_sheets.py.
+// See assets/sprites/ for the sliced PNGs. Rendering honours the
+// `useSprites` setting so the procedural (vector) fallbacks in render.js
+// remain the default. Missing files degrade silently.
+// ------------------------------------------------------------
+const SPRITE_MANIFEST = {
+  // key => 'assets/sprites/<sheet>/<name>.png'
+  'tree':            'features/tree',
+  'rock':            'features/rock',
+  'pond':            'features/pond',
+  'flower_cluster':  'features/flower_cluster',
+  'beehive':         'features/beehive',
+  'fountain':        'features/fountain',
+  'shed':            'features/shed',
+  'gnome_friendly':  'features/gnome_friendly',
+  'gnome_evil':      'features/gnome_evil',
+  'mole_mound':      'features/mole_mound',
+
+  // Robots (generic visual variants, picked by tier/skin hash in render.js)
+  'robot_basic':     'robots/basic_red',
+  'robot_blue':      'robots/upgraded_blue',
+  'robot_gold':      'robots/gold_premium',
+  'robot_rusty':     'robots/rusty',
+  'robot_neon':      'robots/neon',
+  'robot_evil':      'robots/evil',
+
+  // Characters
+  'bee':             'characters/bee',
+  'mole':            'characters/mole',
+  'neighbor_granny': 'characters/neighbor_granny',
+  'neighbor_chad':   'characters/neighbor_chad',
+  'mayor':           'characters/mayor',
+  'player_mower':    'characters/player_mower',
+
+  // Flowers (6 palette variants — indexed to FLOWER_PALETTE)
+  'flower_pink':     'flowers/pink',
+  'flower_orange':   'flowers/orange',
+  'flower_purple':   'flowers/purple',
+  'flower_red':      'flowers/red',
+  'flower_white':    'flowers/white',
+  'flower_yellow':   'flowers/yellow',
+
+  // Currency / items
+  'coin':            'items/coin',
+  'coin_stack':      'items/coin_stack',
+  'gem':             'items/gem',
+  'ruby':            'items/ruby',
+  'chest_closed':    'items/chest_closed',
+  'chest_open':      'items/chest_open',
+  'fuel_can':        'items/fuel_can',
+  'energy_crystal':  'items/energy_crystal',
+};
+
+for (const [key, rel] of Object.entries(SPRITE_MANIFEST)) {
+  Assets.register('sprite_' + key, { type: 'image', src: 'assets/sprites/' + rel + '.png' });
+}
+
+// Convenience façade so render code can do `Sprites.get('tree')` without
+// caring about the 'sprite_' prefix or whether the global flag is on.
+const Sprites = {
+  // Master switch — reflects state.settings.useSprites. Returns false if
+  // state hasn't loaded yet (first frame), forcing vector fallback.
+  enabled() {
+    return !!(typeof state !== 'undefined' && state && state.settings && state.settings.useSprites);
+  },
+  // Return HTMLImageElement or null if sprite not loaded / flag off.
+  get(key) {
+    if (!this.enabled()) return null;
+    return Assets.image('sprite_' + key);
+  },
+  // Draw centred at (cx, cy) with target width w (height preserves aspect).
+  // Returns true if drawn (caller should skip vector fallback).
+  drawCentered(ctx, key, cx, cy, w) {
+    const img = this.get(key);
+    if (!img) return false;
+    const h = w * (img.naturalHeight / img.naturalWidth);
+    ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    return true;
+  },
+  // Draw so the sprite's bottom sits on cy (feet on ground), centred horizontally.
+  drawGrounded(ctx, key, cx, cy, w) {
+    const img = this.get(key);
+    if (!img) return false;
+    const h = w * (img.naturalHeight / img.naturalWidth);
+    ctx.drawImage(img, cx - w / 2, cy - h, w, h);
+    return true;
+  },
+};
+
 // ===== AUTO-EXPORTS =====
-export { Assets };
+export { Assets, Sprites };

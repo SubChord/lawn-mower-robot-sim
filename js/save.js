@@ -138,6 +138,7 @@ function loadGame() {
       scientificNumbers: false,
       theme: 'classic', dayNight: 'auto', weather: 'auto', rivalry: true,
       autoBuyer: true, newsTicker: true,
+      useSprites: false,
     }, state.settings || {});
     if (!isFinite(state.autoBuyTimer)) state.autoBuyTimer = 0;
     if (!isFinite(state.timeOfDay)) state.timeOfDay = 12;
