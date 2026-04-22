@@ -3,7 +3,7 @@ import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_
 import { CFG, T } from './config.js';
 import { DAY_TIME_KEYS, DAY_TIME_PRESETS, WEATHER_BY_ID, WEATHER_TYPES, activeWeather, takeZenPhoto } from './atmosphere.js';
 import { addParticle, beep, canvas, flashCoin, particles, resizeCanvas, tileSize } from './canvas.js';
-import { allocateWorldArrays, bees, clearActors, ensureBeesFromHives, ensureRobotCount, expandCurrentArea, flowerColors, grass, grassSpecies, initWorld, moles, placeAtRandomGrass, player, restoreWorldFromSnapshot, robots, switchArea, tiles, treasures, visitorGnomes } from './world.js';
+import { allocateWorldArrays, bees, clearActors, ensureBeesFromHives, ensureRobotCount, expandCurrentArea, flowerColors, goldenGnomes, grass, grassSpecies, initWorld, moles, placeAtRandomGrass, player, restoreWorldFromSnapshot, robots, switchArea, tiles, treasures, visitorGnomes } from './world.js';
 import { applyThemeDom } from './themes.js';
 import { clearTileCache, mowPatternTint } from './render.js';
 import { resetGame, saveGame } from './save.js';
@@ -88,6 +88,21 @@ function updateHUD() {
     atmoEl.style.cursor = hasControl ? 'pointer' : '';
     atmoEl.style.pointerEvents = hasControl ? 'auto' : '';
     atmoEl.title = hasControl ? 'Click to change weather' : 'Weather and time of day';
+  }
+
+  // Active buff pill — show timed buffs + countdown. Hidden if none active.
+  const buffsEl = document.getElementById('hudBuffs');
+  if (buffsEl) {
+    const list = Array.isArray(state.activeBuffs) ? state.activeBuffs : [];
+    if (list.length === 0) {
+      buffsEl.style.display = 'none';
+      buffsEl.textContent = '';
+    } else {
+      buffsEl.style.display = '';
+      buffsEl.textContent = list
+        .map(b => `${b.icon || '⏳'} ${b.name} ${Math.max(0, Math.ceil(b.expires))}s`)
+        .join(' · ');
+    }
   }
 
   const qBanner = document.getElementById('questBanner');
@@ -1410,6 +1425,16 @@ function handleCanvasClick(e) {
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) * (canvas.width / rect.width);
   const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+  // Golden gnomes win the click — checked first so a hit consumes the event
+  // and never falls through to garden-placement / treasure pickup.
+  for (let i = goldenGnomes.length - 1; i >= 0; i--) {
+    const g = goldenGnomes[i];
+    if (Math.hypot(g.x - x, g.y - y) < tileSize) {
+      triggerGoldenBuff(g);
+      goldenGnomes.splice(i, 1);
+      return;
+    }
+  }
   for (let i = treasures.length - 1; i >= 0; i--) {
     const t = treasures[i];
     const dx = t.x - x, dy = t.y - y;
@@ -1418,6 +1443,55 @@ function handleCanvasClick(e) {
       return;
     }
   }
+}
+
+// ---------- Golden Gnome buff trigger ----------
+const GOLDEN_BUFF_DEFS = {
+  frenzy:    { name: 'Mowing Frenzy', icon: '🔥', duration: 30, color: '#ff8a3d' },
+  lucky:     { name: 'Lucky Strike',  icon: '🍀', duration: 0,  color: '#7df09e' },
+  blessed:   { name: 'Blessed Rain',  icon: '🌧️', duration: 0,  color: '#7ec8ff' },
+  critStorm: { name: 'Crit Storm',    icon: '⚡', duration: 20, color: '#ffe27a' },
+};
+
+function triggerGoldenBuff(g) {
+  const def = GOLDEN_BUFF_DEFS[g.buff] || GOLDEN_BUFF_DEFS.frenzy;
+  // Particle burst at the gnome's position.
+  for (let i = 0; i < 14; i++) {
+    addParticle(g.x, g.y, { text: '✨', color: def.color, size: 10 + Math.random() * 8 });
+  }
+  // Cheery ascending arpeggio.
+  [523, 659, 784, 1047].forEach((f, i) => {
+    setTimeout(() => beep(f, 0.08, 'triangle', 0.06), i * 60);
+  });
+
+  if (g.buff === 'lucky') {
+    const rate = (typeof displayedRate === 'number' && displayedRate > 0) ? displayedRate : 4;
+    const gain = Math.min(1e12, Math.floor(rate * 3600));
+    state.coins += gain;
+    state.totalEarnedAllTime += gain;
+    state.totalEarnedThisRun += gain;
+    flashCoin();
+    toast(`${def.icon} ${def.name}! +${formatShort(gain)} 💰 (1h of income)`, def.color);
+    return;
+  }
+  if (g.buff === 'blessed') {
+    if (grass && tiles) {
+      for (let i = 0; i < grass.length; i++) {
+        if (tiles[i] === T.GRASS) grass[i] = 1.0;
+      }
+    }
+    toast(`${def.icon} ${def.name}! All grass instantly tall.`, def.color);
+    return;
+  }
+  // Timed buffs (frenzy, critStorm) — push to active list.
+  if (!Array.isArray(state.activeBuffs)) state.activeBuffs = [];
+  state.activeBuffs.push({
+    key: g.buff,
+    name: def.name,
+    icon: def.icon,
+    expires: def.duration,
+  });
+  toast(`${def.icon} ${def.name}! ${def.duration}s`, def.color);
 }
 
 // ---------- Settings modal ----------

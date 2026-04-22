@@ -2,9 +2,9 @@
 import { CFG, NEIGHBOR_NAMES, OBSTACLE, T } from './config.js';
 import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, state } from './state.js';
 import { addParticle, beep, canvas, playGnomeGiggle, tileSize } from './canvas.js';
-import { beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
+import { activeWeather, beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
 import { collectTreasureIndex, showQuestOfferModal, toast, autoBuyCheapest } from './ui.js';
-import { despawnMole, grass, grassSpecies, idx, inBounds, moles, player, robots, spawnEvilGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, tiles, treasures, visitorGnomes } from './world.js';
+import { despawnMole, goldenGnomes, grass, grassSpecies, idx, inBounds, moles, player, robots, spawnEvilGnome, spawnGoldenGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, tiles, treasures, visitorGnomes } from './world.js';
 import { mowPatternIsDark } from './render.js';
 import { saveGame } from './save.js';
 // ===== END AUTO-IMPORTS =====
@@ -677,5 +677,58 @@ function updateAutoBuy(dt) {
   autoBuyCheapest();
 }
 
+// ---------- Golden Gnomes (rare clickable buff spawns) ----------
+function updateGoldenGnomes(dt) {
+  // Don't spawn during Zen / storms / night-time. Active gnomes still tick down
+  // so a daylight-spawned one finishes its life cleanly if dusk arrives.
+  const w = (typeof activeWeather === 'function') ? activeWeather() : null;
+  const time = state.timeOfDay || 12;
+  const blockSpawn = state.zenMode
+    || (w && w.id === 'storm')
+    || time < 5 || time >= 21;
+
+  if (!blockSpawn) {
+    if (!isFinite(state.goldenGnomeTimer)) state.goldenGnomeTimer = 60 + Math.random() * 60;
+    state.goldenGnomeTimer -= dt;
+    if (state.goldenGnomeTimer <= 0) {
+      if (goldenGnomes.length === 0) spawnGoldenGnome();
+      const keenBoost = hasCrew('keenEye') ? (1 / 1.5) : 1;
+      state.goldenGnomeTimer = (300 + Math.random() * 240) * keenBoost;
+    }
+  }
+
+  // Update existing gnomes regardless of spawn gating.
+  if (goldenGnomes.length === 0) return;
+  const W = canvas.width, H = canvas.height;
+  for (let i = goldenGnomes.length - 1; i >= 0; i--) {
+    const g = goldenGnomes[i];
+    g.life -= dt;
+    g.pulse += dt * 4;
+    g.x += g.vx * dt * 30;
+    g.y += g.vy * dt * 30;
+    if (g.x < tileSize * 0.5)        { g.x = tileSize * 0.5;        g.vx = Math.abs(g.vx); }
+    if (g.x > W - tileSize * 0.5)    { g.x = W - tileSize * 0.5;    g.vx = -Math.abs(g.vx); }
+    if (g.y < tileSize * 0.5)        { g.y = tileSize * 0.5;        g.vy = Math.abs(g.vy); }
+    if (g.y > H - tileSize * 0.5)    { g.y = H - tileSize * 0.5;    g.vy = -Math.abs(g.vy); }
+    if (g.life <= 0) {
+      goldenGnomes.splice(i, 1);
+      if (typeof toast === 'function') toast('✨ A golden gnome scurried away...', '#aab0c0');
+    }
+  }
+}
+
+// ---------- Active buff timers ----------
+function updateBuffs(dt) {
+  if (!Array.isArray(state.activeBuffs) || state.activeBuffs.length === 0) return;
+  for (let i = state.activeBuffs.length - 1; i >= 0; i--) {
+    const b = state.activeBuffs[i];
+    b.expires -= dt;
+    if (b.expires <= 0) {
+      state.activeBuffs.splice(i, 1);
+      if (typeof toast === 'function') toast(`${b.icon || '⏳'} ${b.name} expired`, '#aab0c0');
+    }
+  }
+}
+
 // ===== AUTO-EXPORTS =====
-export { updateAutoBuy, updateBee, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes };
+export { updateAutoBuy, updateBee, updateBuffs, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGoldenGnomes, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes };

@@ -2,7 +2,7 @@
 import { CFG, FLOWER_PALETTE, T } from './config.js';
 import { GRASS_TYPES, SKIN_BY_KEY, getSetting, mowRadius, playerMowRadius, state } from './state.js';
 import { activeTheme } from './themes.js';
-import { bees, flowerColors, grass, grassSpecies, idx, moles, player, robots, tiles, treasures, visitorGnomes } from './world.js';
+import { bees, flowerColors, goldenGnomes, grass, grassSpecies, idx, moles, player, robots, tiles, treasures, visitorGnomes } from './world.js';
 import { canvas, ctx, particles, tileSize } from './canvas.js';
 import { drawDayNightOverlay, drawWeather } from './atmosphere.js';
 // ===== END AUTO-IMPORTS =====
@@ -1010,6 +1010,78 @@ function drawPlayer() {
   ctx.restore();
 }
 
+function drawGoldenGnomes() {
+  if (!goldenGnomes || goldenGnomes.length === 0) return;
+  const ts = tileSize;
+  for (const g of goldenGnomes) {
+    ctx.save();
+    ctx.translate(g.x, g.y);
+    // Pulsing outer glow ring
+    const pulseAlpha = 0.25 + 0.25 * Math.sin(g.pulse);
+    const pulseR = ts * (0.7 + 0.15 * Math.sin(g.pulse * 1.3));
+    const grad = ctx.createRadialGradient(0, 0, ts * 0.2, 0, 0, pulseR);
+    grad.addColorStop(0, `rgba(255, 220, 80, ${pulseAlpha})`);
+    grad.addColorStop(1, 'rgba(255, 220, 80, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(0, 0, pulseR, 0, Math.PI * 2); ctx.fill();
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(0, ts * 0.42, ts * 0.32, ts * 0.10, 0, 0, Math.PI * 2); ctx.fill();
+    // Body — slightly larger than visitor gnomes
+    ctx.scale(1.15, 1.15);
+    // Boots
+    ctx.fillStyle = '#5a4010';
+    roundRect(ctx, -ts * 0.16, ts * 0.30, ts * 0.18, ts * 0.08, 1); ctx.fill();
+    roundRect(ctx,  ts * 0.00, ts * 0.30, ts * 0.18, ts * 0.08, 1); ctx.fill();
+    // Pants
+    ctx.fillStyle = '#8a6a1f';
+    roundRect(ctx, -ts * 0.14, ts * 0.08, ts * 0.12, ts * 0.24, 1); ctx.fill();
+    roundRect(ctx,  ts * 0.02, ts * 0.08, ts * 0.12, ts * 0.24, 1); ctx.fill();
+    // Tunic — shimmering gold
+    const bodyGrad = ctx.createLinearGradient(0, -ts * 0.1, 0, ts * 0.16);
+    bodyGrad.addColorStop(0, '#ffe27a');
+    bodyGrad.addColorStop(1, '#c98f1c');
+    ctx.fillStyle = bodyGrad;
+    roundRect(ctx, -ts * 0.22, -ts * 0.1, ts * 0.44, ts * 0.28, ts * 0.08); ctx.fill();
+    // Beard
+    ctx.fillStyle = '#fff7d0';
+    ctx.beginPath();
+    ctx.moveTo(-ts * 0.12, -ts * 0.18);
+    ctx.lineTo( ts * 0.12, -ts * 0.18);
+    ctx.lineTo( ts * 0.06, -ts * 0.02);
+    ctx.lineTo(-ts * 0.06, -ts * 0.02);
+    ctx.closePath(); ctx.fill();
+    // Face
+    ctx.fillStyle = '#f4d5b1';
+    ctx.beginPath(); ctx.arc(0, -ts * 0.22, ts * 0.10, 0, Math.PI * 2); ctx.fill();
+    // Cone hat — gold with pointy tip
+    const hatGrad = ctx.createLinearGradient(0, -ts * 0.55, 0, -ts * 0.18);
+    hatGrad.addColorStop(0, '#fff2a8');
+    hatGrad.addColorStop(1, '#b87a18');
+    ctx.fillStyle = hatGrad;
+    ctx.beginPath();
+    ctx.moveTo(-ts * 0.18, -ts * 0.18);
+    ctx.lineTo( ts * 0.18, -ts * 0.18);
+    ctx.lineTo( 0,         -ts * 0.58);
+    ctx.closePath(); ctx.fill();
+    // Sparkle on hat tip
+    const sparkA = 0.5 + 0.5 * Math.sin(g.pulse * 2);
+    ctx.fillStyle = `rgba(255,255,255,${sparkA})`;
+    ctx.beginPath(); ctx.arc(0, -ts * 0.55, ts * 0.05, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // Life ring (fading arc) at base — drawn unscaled for crisp width.
+    ctx.save();
+    ctx.translate(g.x, g.y);
+    const lifeFrac = Math.max(0, Math.min(1, g.life / g.maxLife));
+    ctx.strokeStyle = `rgba(255, 220, 80, ${0.5 + 0.4 * lifeFrac})`;
+    ctx.lineWidth = Math.max(1.5, ts * 0.07);
+    ctx.beginPath();
+    ctx.arc(0, ts * 0.50, ts * 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * lifeFrac);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawGrass();
@@ -1022,6 +1094,7 @@ function render() {
   for (const r of robots) drawRobot(r);
   for (const b of bees) drawBee(b);
   for (const g of visitorGnomes) (g.evil ? drawEvilGnome(g) : drawVisitorGnome(g));
+  drawGoldenGnomes();
   drawPlayer();
   drawParticles(1/60);
   // Atmosphere last: darken the scene for night, then layer weather on top so

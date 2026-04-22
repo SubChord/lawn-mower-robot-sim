@@ -51,6 +51,7 @@ function switchArea(id) {
   if (typeof visitorGnomes !== 'undefined') visitorGnomes = [];
   if (typeof treasures !== 'undefined') treasures = [];
   if (typeof moles !== 'undefined') moles = [];
+  goldenGnomes = [];
   initWorld();
   if (typeof resizeCanvas === 'function') resizeCanvas();
   if (typeof clearTileCache === 'function') clearTileCache();
@@ -271,6 +272,40 @@ function rollTreasurePayload() {
   return { type: 'coin', amount: withGems, skinKey: null, patternKey: null };
 }
 
+// ---------- Golden Gnomes ----------
+// Rare clickable buff spawns. Wander a random grass tile for ~18s; clicking
+// before they leave grants a temporary buff (see triggerGoldenBuff in ui.js).
+// Transient — never persisted, cleared on zen toggle / area switch.
+const GOLDEN_GNOME_BUFFS = ['frenzy', 'lucky', 'blessed', 'critStorm'];
+let goldenGnomes = [];
+
+function spawnGoldenGnome() {
+  const ts = getTileSize();
+  // Pick a random GRASS tile if possible, else fall back to canvas centre.
+  let tx = Math.floor(CFG.gridW / 2), ty = Math.floor(CFG.gridH / 2);
+  for (let i = 0; i < 60; i++) {
+    const rx = 2 + Math.floor(Math.random() * (CFG.gridW - 4));
+    const ry = 2 + Math.floor(Math.random() * (CFG.gridH - 4));
+    if (tiles && tiles[idx(rx, ry)] === T.GRASS) { tx = rx; ty = ry; break; }
+  }
+  const buff = GOLDEN_GNOME_BUFFS[Math.floor(Math.random() * GOLDEN_GNOME_BUFFS.length)];
+  const life = 18;
+  const ang = Math.random() * Math.PI * 2;
+  const speed = 0.5 + Math.random() * 0.6;
+  const g = {
+    x: (tx + 0.5) * ts,
+    y: (ty + 0.5) * ts,
+    vx: Math.cos(ang) * speed,
+    vy: Math.sin(ang) * speed,
+    life,
+    maxLife: life,
+    pulse: Math.random() * Math.PI * 2,
+    buff,
+  };
+  goldenGnomes.push(g);
+  return g;
+}
+
 // ---------- Moles ----------
 // Ephemeral hazard: a mole digs up a grass tile, blocking mowers for a random
 // lifetime. When it expires the tile reverts to GRASS with zero height.
@@ -405,6 +440,7 @@ function expandMapLive() {
       t.y = (t.tileY + 0.5) * tileSize;
     });
   }
+  goldenGnomes.forEach(g => { g.x *= scale; g.y *= scale; });
 }
 
 // ---------- Mutators (live-binding helpers for cross-module rebinding) ----------
@@ -426,6 +462,7 @@ function clearActors() {
   visitorGnomes = [];
   treasures = [];
   moles = [];
+  goldenGnomes = [];
 }
 
 function restoreWorldFromSnapshot(snap) {
@@ -439,6 +476,7 @@ function restoreWorldFromSnapshot(snap) {
   if (snap.visitorGnomes) visitorGnomes = snap.visitorGnomes;
   if (snap.treasures) treasures = snap.treasures;
   moles = snap.moles || [];
+  goldenGnomes = snap.goldenGnomes || [];
 }
 
 // Place an obstacle in the expanded region (outside the old grid area).
@@ -455,4 +493,4 @@ function placeInExpandedArea(type, oldW, oldH) {
 }
 
 // ===== AUTO-EXPORTS =====
-export { allocateWorldArrays, bees, clearActors, despawnMole, ensureBeesFromHives, ensureRobotCount, expandCurrentArea, flowerColors, grass, grassSpecies, idx, inBounds, initWorld, moles, placeAtRandomGrass, player, restoreWorldFromSnapshot, robots, spawnEvilGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, switchArea, tiles, treasures, visitorGnomes };
+export { allocateWorldArrays, bees, clearActors, despawnMole, ensureBeesFromHives, ensureRobotCount, expandCurrentArea, flowerColors, goldenGnomes, grass, grassSpecies, idx, inBounds, initWorld, moles, placeAtRandomGrass, player, restoreWorldFromSnapshot, robots, spawnEvilGnome, spawnGoldenGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, switchArea, tiles, treasures, visitorGnomes };

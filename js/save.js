@@ -48,6 +48,8 @@ function saveGame() {
       activeSkin: state.activeSkin,
       treasuresCollected: state.treasuresCollected,
       gnomeTimer: state.gnomeTimer,
+      goldenGnomeTimer: state.goldenGnomeTimer,
+      activeBuffs: state.activeBuffs,
       fuel: state.fuel,
       patternsUnlocked: state.patternsUnlocked,
       activeMowPattern: state.activeMowPattern,
@@ -111,6 +113,9 @@ function loadGame() {
     if (state.skinsUnlocked.indexOf(state.activeSkin) < 0) state.activeSkin = 'default';
     if (!isFinite(state.treasuresCollected)) state.treasuresCollected = 0;
     if (!isFinite(state.gnomeTimer)) state.gnomeTimer = 60 + Math.random() * 30;
+    if (!isFinite(state.goldenGnomeTimer)) state.goldenGnomeTimer = 60 + Math.random() * 60;
+    if (!Array.isArray(state.activeBuffs)) state.activeBuffs = [];
+    else state.activeBuffs = state.activeBuffs.filter(b => b && typeof b.key === 'string' && isFinite(b.expires) && b.expires > 0);
     if (state.fuel == null) state.fuel = CFG.fuelMax;
     if (state.questTimer == null || !isFinite(state.questTimer)) state.questTimer = 80 + Math.random() * 60;
     if (!isFinite(state.questsCompleted)) state.questsCompleted = 0;

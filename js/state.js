@@ -30,6 +30,11 @@ let state = {
   skinsUnlocked: ['default'],
   activeSkin: 'default',
   gnomeTimer: 60 + Math.random() * 30, // seconds until next wandering gnome
+  // Golden gnome (rare clickable buff spawn). Decremented in updateGoldenGnomes.
+  goldenGnomeTimer: 60 + Math.random() * 60,
+  // Active timed buffs from golden gnomes: { key, name, icon, expires } where
+  // `expires` is seconds remaining. Decremented in updateBuffs.
+  activeBuffs: [],
   autoBuyTimer: 0,          // Bookkeeper accountant: countdown to next auto-purchase
   treasuresCollected: 0,
   patternsUnlocked: ['plain'],
@@ -638,11 +643,22 @@ function weatherSafeGrowth() { return typeof weatherGrowthMult === 'function' ? 
 function weatherSafeFlower() { return typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1; }
 function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed() * rubyShopSpeedMult(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
-function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult(); }
+function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult() * (hasActiveBuff('frenzy') ? 7 : 1); }
 function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * crewGrowthMult(); }
 function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
-function critChance()  { return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus()); }
-function critMult()    { return 5; }
+function critChance()  {
+  if (hasActiveBuff('critStorm')) return 1.0;
+  return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus());
+}
+function critMult()    { return hasActiveBuff('critStorm') ? 10 : 5; }
+
+function hasActiveBuff(key) {
+  if (!state.activeBuffs || state.activeBuffs.length === 0) return false;
+  for (let i = 0; i < state.activeBuffs.length; i++) {
+    if (state.activeBuffs[i].key === key) return true;
+  }
+  return false;
+}
 
 function activeTool()  { return TOOL_TYPES[state.upgrades.tool] || TOOL_TYPES[0]; }
 function playerMowRate()   { return CFG.playerBaseMowRate * activeTool().rateMult * crewMowRateMult(); }
@@ -665,4 +681,4 @@ function formatShort(n) {
 }
 
 // ===== AUTO-EXPORTS =====
-export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, critChance, critMult, currentArea, currentAreaSpeciesIdx, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state };
+export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, critChance, critMult, currentArea, currentAreaSpeciesIdx, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasActiveBuff, hasCrew, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state };
