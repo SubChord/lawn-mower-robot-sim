@@ -1,5 +1,5 @@
 // ===== AUTO-IMPORTS =====
-import { formatShort, getSetting, state } from './state.js';
+import { formatShort, getSetting, state, techOracleEventMult, techOracleRewardMult } from './state.js';
 import { beep } from './canvas.js';
 import { toast } from './ui.js';
 import { T } from './config.js';
@@ -227,6 +227,36 @@ function spawnEvent() {
   if (typeof toast === 'function') toast(`📰 ${def.name}!`, '#ffd34e');
 }
 
+function callRewardWithOracle(fn, ctx) {
+  const mult = techOracleRewardMult();
+  if (mult <= 1) { fn(ctx); return; }
+  const before = {
+    gems: state.gems || 0,
+    totalGemsEarned: state.totalGemsEarned || 0,
+    rubies: state.rubies || 0,
+    totalRubiesEarned: state.totalRubiesEarned || 0,
+    coins: state.coins || 0,
+    totalEarnedThisRun: state.totalEarnedThisRun || 0,
+    totalEarnedAllTime: state.totalEarnedAllTime || 0,
+  };
+  fn(ctx);
+  const extra = (k) => Math.max(0, (state[k] || 0) - (before[k] || 0)) * (mult - 1);
+  const dGems = extra('gems');
+  const dGemsTotal = extra('totalGemsEarned');
+  const dRubies = extra('rubies');
+  const dRubiesTotal = extra('totalRubiesEarned');
+  const dCoins = extra('coins');
+  const dRun = extra('totalEarnedThisRun');
+  const dAll = extra('totalEarnedAllTime');
+  if (dGems)        state.gems              = (state.gems              || 0) + dGems;
+  if (dGemsTotal)   state.totalGemsEarned   = (state.totalGemsEarned   || 0) + dGemsTotal;
+  if (dRubies)      state.rubies            = (state.rubies            || 0) + dRubies;
+  if (dRubiesTotal) state.totalRubiesEarned = (state.totalRubiesEarned || 0) + dRubiesTotal;
+  if (dCoins)       state.coins             = (state.coins             || 0) + dCoins;
+  if (dRun)         state.totalEarnedThisRun= (state.totalEarnedThisRun|| 0) + dRun;
+  if (dAll)         state.totalEarnedAllTime= (state.totalEarnedAllTime|| 0) + dAll;
+}
+
 function updateEvents(dt) {
   if (state.zenMode) return;
   if (getSetting('newsTicker') === false) {
@@ -247,12 +277,12 @@ function updateEvents(dt) {
       const remaining = state.activeEvent.duration - elapsed;
       const goalMet = def.target != null && def.progress(ctx) >= def.target;
       if (goalMet) {
-        if (def.onSuccess) def.onSuccess(ctx);
+        if (def.onSuccess) callRewardWithOracle(def.onSuccess, ctx);
         state.activeEvent = null;
       } else if (remaining <= 0) {
         // No-target events (drought, subsidy) treat expiration as natural success.
         if (def.target == null) {
-          if (def.onSuccess) def.onSuccess(ctx);
+          if (def.onSuccess) callRewardWithOracle(def.onSuccess, ctx);
         } else if (def.onFail) {
           def.onFail(ctx);
         }
@@ -264,7 +294,7 @@ function updateEvents(dt) {
     state.eventTimer -= dt;
     if (state.eventTimer <= 0) {
       spawnEvent();
-      state.eventTimer = 240 + Math.random() * 180;
+      state.eventTimer = (240 + Math.random() * 180) / techOracleEventMult();
     }
   }
 

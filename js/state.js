@@ -50,6 +50,10 @@ let state = {
     autoQuest: 0,
     pollination: 0, coopBots: 0, symbiosis: 0, critCascade: 0,
   },
+  // Branching meta-progression layered on top of gemUpgrades. Each tier holds
+  // one of three mutually exclusive choice ids (or null = not yet picked).
+  // Resets on Ascend.
+  techTree: { tier1: null, tier2: null, tier3: null },
   // Ascend (ruby) tier — survives super-prestige.
   rubies: 0,
   totalRubiesEarned: 0,
@@ -643,6 +647,53 @@ function gemShopCritBonus()  { return gemLvl('crit') * 0.01; }
 function gemShopOfflineMult(){ return 1 + gemLvl('offline') * 0.10; }
 function gemShopPrestigeMult(){ return 1 + gemLvl('prestigeBoost') * 0.10; }
 
+// ---------- Tech tree (branching meta-progression on top of gem shop) ----------
+const TECH_TREE = [
+  { tier: 1, key: 'tier1', cost: 25, choices: [
+    { id: 'eco',    icon: '💰', name: 'Economy',    desc: '+25% global coin income' },
+    { id: 'mech',   icon: '⚙️',  name: 'Mechanical', desc: '+15% robot speed AND +15% mow rate' },
+    { id: 'mystic', icon: '✨', name: 'Mystical',   desc: '+5% crit chance AND +1.5x crit multiplier' },
+  ]},
+  { tier: 2, key: 'tier2', cost: 80, choices: [
+    { id: 'eco',    icon: '🏦', name: 'Banker',     desc: '+50% offline earnings AND +20% prestige gem yield' },
+    { id: 'mech',   icon: '🔋', name: 'Engineer',   desc: 'Fuel drains 35% slower AND auto-buy interval -1s' },
+    { id: 'mystic', icon: '🌌', name: 'Astronomer', desc: 'Golden Gnomes spawn 2x more often AND buffs last 50% longer' },
+  ]},
+  { tier: 3, key: 'tier3', cost: 250, choices: [
+    { id: 'eco',    icon: '👑', name: 'Tycoon',      desc: 'All coin income x2 once you hit 1M lifetime tiles mowed' },
+    { id: 'mech',   icon: '🤖', name: 'Singularity', desc: 'Each robot beyond the first adds +5% to ALL multipliers' },
+    { id: 'mystic', icon: '🔮', name: 'Oracle',      desc: 'Random events spawn 2x more often AND rewards x3' },
+  ]},
+];
+const TECH_BY_KEY = Object.fromEntries(TECH_TREE.map(t => [t.key, t]));
+function techPicked(tierKey) {
+  return (state.techTree && state.techTree[tierKey]) || null;
+}
+function hasTech(tierKey, id) {
+  return techPicked(tierKey) === id;
+}
+function respecCost() { return 50; }
+function techCoinMult()         { return hasTech('tier1', 'eco')    ? 1.25 : 1; }
+function techSpeedMult()        { return hasTech('tier1', 'mech')   ? 1.15 : 1; }
+function techMowRateMult()      { return hasTech('tier1', 'mech')   ? 1.15 : 1; }
+function techCritChanceBonus()  { return hasTech('tier1', 'mystic') ? 0.05 : 0; }
+function techCritMultBonus()    { return hasTech('tier1', 'mystic') ? 1.5  : 0; }
+function techOfflineMult()      { return hasTech('tier2', 'eco')    ? 1.5  : 1; }
+function techPrestigeGemMult()  { return hasTech('tier2', 'eco')    ? 1.2  : 1; }
+function techFuelDrainMult()    { return hasTech('tier2', 'mech')   ? 0.65 : 1; }
+function techAutoBuyInterval()  { return hasTech('tier2', 'mech')   ? 2.0  : 3.0; }
+function techGoldenGnomeMult()  { return hasTech('tier2', 'mystic') ? 2    : 1; }
+function techBuffDurationMult() { return hasTech('tier2', 'mystic') ? 1.5  : 1; }
+function techTycoonMult()       {
+  return hasTech('tier3', 'eco') && (state.totalTilesMowed || 0) >= 1e6 ? 2 : 1;
+}
+function techSingularityMult()  {
+  if (!hasTech('tier3', 'mech')) return 1;
+  return 1 + 0.05 * Math.max(0, (state.upgrades && state.upgrades.robots || 1) - 1);
+}
+function techOracleEventMult()  { return hasTech('tier3', 'mystic') ? 2 : 1; }
+function techOracleRewardMult() { return hasTech('tier3', 'mystic') ? 3 : 1; }
+
 // ---------- Synergy upgrades (gem shop, second-order multipliers) ----------
 const GARDEN_TYPE_KEYS = ['tree', 'rock', 'pond', 'flower', 'beehive', 'fountain', 'shed', 'gnome'];
 function uniqueGardenTypes() {
@@ -693,7 +744,7 @@ function fuelEffMult()  {
   const mechanic = hasCrew('mechanic') ? 0.95 : 1;
   return Math.max(0.1, (1 - state.upgrades.fuelEff * 0.08) * mechanic);
 }
-function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult; }
+function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult * techFuelDrainMult(); }
 // Refuel price scales with how empty the tank is. A full-tank fill-up costs
 // the old flat rate; a nearly-full tank costs almost nothing. Minimum 1 coin
 // whenever there's anything at all to top up.
@@ -738,22 +789,22 @@ function moleLifetimeMult() {
 function weatherSafeSpeed()  { return typeof weatherSpeedMult  === 'function' ? weatherSpeedMult()  : 1; }
 function weatherSafeGrowth() { return typeof weatherGrowthMult === 'function' ? weatherGrowthMult() : 1; }
 function weatherSafeFlower() { return typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1; }
-function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed() * rubyShopSpeedMult(); }
+function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed() * rubyShopSpeedMult() * techSpeedMult() * techSingularityMult(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
-function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult() * pollinationMult() * pediaBonusMult() * (hasActiveBuff('frenzy') ? 7 : 1); }
+function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult() * pollinationMult() * pediaBonusMult() * techCoinMult() * techTycoonMult() * techSingularityMult() * (hasActiveBuff('frenzy') ? 7 : 1); }
 function growthRate()  {
-  const base = CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * crewGrowthMult() * symbiosisMult();
+  const base = CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * crewGrowthMult() * symbiosisMult() * techSingularityMult();
   return droughtActive() ? base * 0.5 : base;
 }
 // Random-event modifiers — read by growthRate() and cost helpers above.
 function droughtActive() { return !!(state.activeEvent && state.activeEvent.id === 'drought'); }
 function subsidyActive() { return !!(state.activeEvent && state.activeEvent.id === 'subsidy'); }
-function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult() * coopBotsMult(); }
+function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult() * coopBotsMult() * techMowRateMult() * techSingularityMult(); }
 function critChance()  {
   if (hasActiveBuff('critStorm')) return 1.0;
-  return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus());
+  return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus() + techCritChanceBonus());
 }
-function critMult()    { return hasActiveBuff('critStorm') ? 10 : 5; }
+function critMult()    { return hasActiveBuff('critStorm') ? 10 : (5 + techCritMultBonus()); }
 
 function hasActiveBuff(key) {
   if (!state.activeBuffs || state.activeBuffs.length === 0) return false;
@@ -784,4 +835,4 @@ function formatShort(n) {
 }
 
 // ===== AUTO-EXPORTS =====
-export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, coopBotsMult, critCascadeBonus, critChance, critMult, currentArea, currentAreaSpeciesIdx, decayCritCascade, droughtActive, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasActiveBuff, hasCrew, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, pediaBonusMult, playerMowRadius, playerMowRate, pollinationMult, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state, subsidyActive, symbiosisMult, uniqueGardenTypes };
+export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TECH_BY_KEY, TECH_TREE, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, coopBotsMult, critCascadeBonus, critChance, critMult, currentArea, currentAreaSpeciesIdx, decayCritCascade, droughtActive, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasActiveBuff, hasCrew, hasTech, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, pediaBonusMult, playerMowRadius, playerMowRate, pollinationMult, respecCost, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state, subsidyActive, symbiosisMult, techAutoBuyInterval, techBuffDurationMult, techCoinMult, techCritChanceBonus, techCritMultBonus, techFuelDrainMult, techGoldenGnomeMult, techMowRateMult, techOfflineMult, techOracleEventMult, techOracleRewardMult, techPicked, techPrestigeGemMult, techSingularityMult, techSpeedMult, techTycoonMult, uniqueGardenTypes };

@@ -1,5 +1,5 @@
 // ===== AUTO-IMPORTS =====
-import { AREA_BY_ID, MOW_PATTERN_BY_KEY, QUEST_BY_ID, SKIN_BY_KEY, ZEN_CONFIG_DEFAULT, applyMapDimensions, coinMult, formatShort, gemShopOfflineMult, mowRadius, mowRate, rubyShopOfflineCapHours, state } from './state.js';
+import { AREA_BY_ID, MOW_PATTERN_BY_KEY, QUEST_BY_ID, SKIN_BY_KEY, ZEN_CONFIG_DEFAULT, applyMapDimensions, coinMult, formatShort, gemShopOfflineMult, mowRadius, mowRate, rubyShopOfflineCapHours, state, techOfflineMult } from './state.js';
 import { CFG, T } from './config.js';
 import { achieved } from './ui.js';
 import { allocateWorldArrays, flowerColors, grass, grassSpecies, idx, inBounds, robots, tiles } from './world.js';
@@ -160,6 +160,7 @@ function loadGame() {
       autoQuest: 0,
       pollination: 0, coopBots: 0, symbiosis: 0, critCascade: 0,
     }, state.gemUpgrades || {});
+    state.techTree = Object.assign({ tier1: null, tier2: null, tier3: null }, state.techTree || {});
     // Restore area state early so applyMapDimensions can pick the right grid
     // size before typed arrays are allocated.
     if (!Array.isArray(state.areasUnlocked) || state.areasUnlocked.length === 0) state.areasUnlocked = ['home'];
@@ -238,7 +239,7 @@ function loadGame() {
     if (elapsed > 10) {
       const ts = 16;
       const tilesPerSec = state.upgrades.robots * mowRate() * Math.PI * Math.pow(mowRadius()/ts, 2) * 0.25;
-      const offlineBonus = gemShopOfflineMult();
+      const offlineBonus = gemShopOfflineMult() * techOfflineMult();
       const mowOffline = Math.floor(tilesPerSec * CFG.coinPerUnitBase * coinMult() * elapsed * 0.5 * offlineBonus);
       const flowerOffline = Math.floor(state.garden.flower * CFG.flowerCoinPerSec * coinMult() * elapsed * offlineBonus);
       const beeOffline = Math.floor(state.garden.beehive * CFG.beePerHive * (CFG.beeRewardPerVisit / (CFG.beeVisitDuration + 0.5)) * coinMult() * elapsed * 0.6 * offlineBonus);

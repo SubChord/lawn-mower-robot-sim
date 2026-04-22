@@ -1059,3 +1059,82 @@ body.zen-mode main.stage {
   .title { font-size: 12px; }
   .currency { min-width: 120px; padding: 6px 10px; }
 }
+
+/* ---------- Tech tree (Gem shop) ---------- */
+.tech-tree { margin-bottom: 14px; }
+.tech-tier {
+  margin-bottom: 10px;
+  padding: 6px 8px 8px;
+  background: linear-gradient(180deg, rgba(40,20,60,0.35), rgba(20,10,30,0.4));
+  border: 1px solid rgba(200,150,255,0.18);
+  border-radius: 8px;
+}
+.tech-tier-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.tech-tier-label {
+  font-weight: 700; font-size: 11px; letter-spacing: 0.4px;
+  color: #c896ff;
+}
+.tech-respec {
+  background: rgba(200,150,255,0.18);
+  color: #e8d4ff;
+  border: 1px solid rgba(200,150,255,0.4);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tech-respec:hover { background: rgba(200,150,255,0.32); }
+.tech-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tech-choice {
+  position: relative;
+  padding: 8px 6px 8px;
+  background: linear-gradient(180deg, rgba(20,30,50,0.7), rgba(10,15,25,0.8));
+  border: 1.5px solid rgba(200,150,255,0.25);
+  border-radius: 8px;
+  text-align: center;
+  cursor: default;
+  transition: transform .1s, border-color .15s, box-shadow .15s;
+  overflow: hidden;
+}
+.tech-choice .tech-icon { font-size: 22px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+.tech-choice .tech-name { font-weight: 800; font-size: 11px; margin-top: 4px; color: var(--ink); }
+.tech-choice .tech-desc { font-size: 9.5px; color: var(--ink-dim); line-height: 1.2; margin-top: 3px; min-height: 36px; }
+.tech-choice .tech-cost { font-size: 10px; font-weight: 700; color: var(--gem); margin-top: 4px; }
+.tech-choice.buyable {
+  cursor: pointer;
+  border-color: rgba(255,211,78,0.6);
+  box-shadow: 0 0 0 1px rgba(255,211,78,0.18), 0 0 12px rgba(255,211,78,0.12);
+}
+.tech-choice.buyable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(255,211,78,0.35), 0 0 18px rgba(255,211,78,0.22);
+}
+.tech-choice.active {
+  border-color: rgba(143,240,158,0.75);
+  box-shadow: 0 0 0 1px rgba(143,240,158,0.35), 0 0 18px rgba(143,240,158,0.25);
+  background: linear-gradient(180deg, rgba(20,60,30,0.7), rgba(10,28,18,0.85));
+}
+.tech-choice.locked {
+  opacity: 0.45;
+  filter: grayscale(0.7);
+}
+.tech-choice.tech-choice-placeholder {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 60px;
+  border-style: dashed;
+}
+.tech-locked-note { font-size: 11px; color: var(--ink-dim); }
+.tech-badge {
+  position: absolute; top: 2px; right: 4px;
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.3px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(143,240,158,0.25);
+  color: #d1ffe0;
+}
+.tech-badge-locked { background: rgba(255,255,255,0.08); color: #aaa; }

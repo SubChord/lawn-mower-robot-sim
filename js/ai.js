@@ -1,6 +1,6 @@
 // ===== AUTO-IMPORTS =====
 import { CFG, NEIGHBOR_NAMES, OBSTACLE, T } from './config.js';
-import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critCascadeBonus, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, playerMowRadius, playerMowRate, robotSpeed, state } from './state.js';
+import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critCascadeBonus, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, playerMowRadius, playerMowRate, robotSpeed, state, techAutoBuyInterval, techGoldenGnomeMult } from './state.js';
 import { addParticle, beep, canvas, playGnomeGiggle, tileSize } from './canvas.js';
 import { activeWeather, beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
 import { collectTreasureIndex, showQuestOfferModal, toast, autoBuyCheapest } from './ui.js';
@@ -683,7 +683,7 @@ function updateAutoBuy(dt) {
   if (!getSetting('autoBuyer')) return;
   state.autoBuyTimer = (state.autoBuyTimer || 0) - dt;
   if (state.autoBuyTimer > 0) return;
-  state.autoBuyTimer = 3.0;
+  state.autoBuyTimer = techAutoBuyInterval();
   autoBuyCheapest();
 }
 
@@ -703,7 +703,7 @@ function updateGoldenGnomes(dt) {
     if (state.goldenGnomeTimer <= 0) {
       if (goldenGnomes.length === 0) spawnGoldenGnome();
       const keenBoost = hasCrew('keenEye') ? (1 / 1.5) : 1;
-      state.goldenGnomeTimer = (300 + Math.random() * 240) * keenBoost;
+      state.goldenGnomeTimer = (300 + Math.random() * 240) * keenBoost / techGoldenGnomeMult();
     }
   }
 

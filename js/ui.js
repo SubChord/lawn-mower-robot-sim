@@ -1,5 +1,5 @@
 // ===== AUTO-IMPORTS =====
-import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, isElectric, pediaBonusMult, playerMowRate, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state } from './state.js';
+import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TECH_BY_KEY, TECH_TREE, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, hasTech, isElectric, pediaBonusMult, playerMowRate, respecCost, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state, techBuffDurationMult, techPicked, techPrestigeGemMult } from './state.js';
 import { CFG, T } from './config.js';
 import { DAY_TIME_KEYS, DAY_TIME_PRESETS, WEATHER_BY_ID, WEATHER_TYPES, activeWeather, takeZenPhoto } from './atmosphere.js';
 import { addParticle, beep, canvas, flashCoin, particles, resizeCanvas, tileSize } from './canvas.js';
@@ -1010,6 +1010,13 @@ function renderGemShop(list) {
     </p>`;
   list.appendChild(header);
 
+  renderTechTree(list);
+
+  const subhead = document.createElement('div');
+  subhead.innerHTML = `
+    <h3 style="margin:14px 0 6px; font-size:13px; color:var(--gem); letter-spacing:0.5px;">⚗️ COMMON UPGRADES</h3>`;
+  list.appendChild(subhead);
+
   for (const def of GEM_UPGRADES) {
     const lvl = gemLvl(def.key);
     const maxed = lvl >= def.max;
@@ -1036,6 +1043,125 @@ function renderGemShop(list) {
     if (btn && affordable) btn.addEventListener('click', () => buyGemUpgrade(def.key));
     list.appendChild(row);
   }
+}
+
+// ---------- Tech tree (3 tiers × 3 mutually exclusive paths) ----------
+function renderTechTree(list) {
+  const wrap = document.createElement('div');
+  wrap.className = 'tech-tree';
+  wrap.innerHTML = `
+    <h3 style="margin:4px 0 6px; font-size:13px; color:#c896ff; letter-spacing:0.5px;">🌳 TECH TREE</h3>
+    <p style="font-size:11px; color:var(--ink-dim); margin:0 0 8px; line-height:1.4;">
+      Pick one path per tier. Choices reset on Ascend, or respec for ${respecCost()} 💎 (50% refund).
+    </p>`;
+
+  for (let i = 0; i < TECH_TREE.length; i++) {
+    const tier = TECH_TREE[i];
+    const picked = techPicked(tier.key);
+    const prevTier = i > 0 ? TECH_TREE[i - 1] : null;
+    const prevPicked = prevTier ? techPicked(prevTier.key) : 'unlocked';
+    const locked = !prevPicked;
+
+    const row = document.createElement('div');
+    row.className = 'tech-tier';
+    const head = document.createElement('div');
+    head.className = 'tech-tier-head';
+    let respecHtml = '';
+    if (picked) {
+      const refund = Math.floor(respecCost() / 2);
+      respecHtml = `<button class="tech-respec" data-tier="${tier.key}">Respec (${respecCost()}💎, refund ${refund}💎)</button>`;
+    }
+    head.innerHTML = `
+      <span class="tech-tier-label">Tier ${tier.tier} · ${tier.cost} 💎</span>
+      ${respecHtml}`;
+    row.appendChild(head);
+
+    const cards = document.createElement('div');
+    cards.className = 'tech-choices';
+    if (locked) {
+      const ph = document.createElement('div');
+      ph.className = 'tech-choice tech-choice-placeholder';
+      ph.innerHTML = `<div class="tech-locked-note">🔒 Pick Tier ${prevTier.tier} first</div>`;
+      cards.appendChild(ph);
+    } else {
+      for (const choice of tier.choices) {
+        const card = document.createElement('div');
+        const isActive = picked === choice.id;
+        const isLocked = picked && !isActive;
+        const affordable = !picked && state.gems >= tier.cost;
+        card.className = 'tech-choice'
+          + (isActive ? ' active' : '')
+          + (isLocked ? ' locked' : '')
+          + (affordable ? ' buyable' : '');
+        card.innerHTML = `
+          ${isActive ? `<div class="tech-badge">✅ ACTIVE</div>` : ''}
+          ${isLocked ? `<div class="tech-badge tech-badge-locked">🔒 LOCKED</div>` : ''}
+          <div class="tech-icon">${choice.icon}</div>
+          <div class="tech-name">${choice.name}</div>
+          <div class="tech-desc">${choice.desc}</div>
+          ${(!picked) ? `<div class="tech-cost">${tier.cost} 💎</div>` : ''}
+        `;
+        if (!picked) {
+          card.addEventListener('click', () => buyTechChoice(tier.key, choice.id));
+        }
+        cards.appendChild(card);
+      }
+    }
+    row.appendChild(cards);
+    wrap.appendChild(row);
+  }
+  list.appendChild(wrap);
+
+  wrap.querySelectorAll('.tech-respec').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      respecTechTier(btn.dataset.tier);
+    });
+  });
+}
+
+function buyTechChoice(tierKey, choiceId) {
+  const tier = TECH_BY_KEY[tierKey]; if (!tier) return;
+  if (techPicked(tierKey)) { toast('Already picked — respec to change.', '#ffb4b4'); return; }
+  // Confirm previous tier picked.
+  const idx = TECH_TREE.indexOf(tier);
+  if (idx > 0 && !techPicked(TECH_TREE[idx - 1].key)) {
+    toast(`Pick Tier ${TECH_TREE[idx - 1].tier} first.`, '#ffb4b4');
+    return;
+  }
+  if (state.gems < tier.cost) { toast(`Need ${tier.cost} 💎`, '#ffb4b4'); return; }
+  const choice = tier.choices.find(c => c.id === choiceId); if (!choice) return;
+  if (!confirm(`Pick ${choice.name} for ${tier.cost} 💎?\n\n${choice.desc}\n\nThe other two Tier ${tier.tier} options will be locked until you respec or Ascend.`)) return;
+  state.gems -= tier.cost;
+  if (!state.techTree) state.techTree = { tier1: null, tier2: null, tier3: null };
+  state.techTree[tierKey] = choiceId;
+  beep(880, 0.1, 'triangle', 0.08);
+  setTimeout(() => beep(1320, 0.12, 'sine', 0.07), 90);
+  addParticle(canvas.width / 2, canvas.height / 2, {
+    text: `${choice.icon} ${choice.name} unlocked`,
+    color: '#c896ff', size: 20,
+  });
+  renderShop();
+  saveGame();
+}
+
+function respecTechTier(tierKey) {
+  const tier = TECH_BY_KEY[tierKey]; if (!tier) return;
+  if (!techPicked(tierKey)) return;
+  const cost = respecCost();
+  const refund = Math.floor(cost / 2);
+  if (state.gems < cost) { toast(`Need ${cost} 💎 to respec`, '#ffb4b4'); return; }
+  if (!confirm(`Respec Tier ${tier.tier}?\n\nCost: ${cost} 💎. Refund: ${refund} 💎. Net: -${cost - refund} 💎.\n\nThis also clears any later tiers that depend on this one.`)) return;
+  state.gems -= (cost - refund);
+  // Clear this tier and any later tiers (they depend on it).
+  const startIdx = TECH_TREE.indexOf(tier);
+  for (let i = startIdx; i < TECH_TREE.length; i++) {
+    state.techTree[TECH_TREE[i].key] = null;
+  }
+  beep(440, 0.12, 'sawtooth', 0.07);
+  toast(`Tier ${tier.tier}+ respec'd.`, '#c896ff');
+  renderShop();
+  saveGame();
 }
 
 function buyGemUpgrade(key) {
@@ -1253,7 +1379,7 @@ function autoBuyCheapest() {
 
 function doPrestige() {
   const baseGain = CFG.prestigeFormula(state.totalEarnedThisRun);
-  const gain = Math.floor(baseGain * gemShopPrestigeMult() * rubyShopPrestigeMult());
+  const gain = Math.floor(baseGain * gemShopPrestigeMult() * rubyShopPrestigeMult() * techPrestigeGemMult());
   if (gain <= 0) return;
   if (!confirm(`Fertilize? You will gain ${gain} 💎 gems (permanent +${gain * 10}% bonus), but reset coins, robots, upgrades and garden.`)) return;
   state.gems += gain;
@@ -1317,6 +1443,7 @@ function doAscend() {
     autoQuest: 0,
     pollination: 0, coopBots: 0, symbiosis: 0, critCascade: 0,
   };
+  state.techTree = { tier1: null, tier2: null, tier3: null };
   state.upgrades = {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
     fuelEff: 0, fuelType: 0, tool: 0,
@@ -1759,13 +1886,14 @@ function triggerGoldenBuff(g) {
   }
   // Timed buffs (frenzy, critStorm) — push to active list.
   if (!Array.isArray(state.activeBuffs)) state.activeBuffs = [];
+  const dur = def.duration * techBuffDurationMult();
   state.activeBuffs.push({
     key: g.buff,
     name: def.name,
     icon: def.icon,
-    expires: def.duration,
+    expires: dur,
   });
-  toast(`${def.icon} ${def.name}! ${def.duration}s`, def.color);
+  toast(`${def.icon} ${def.name}! ${Math.round(dur)}s`, def.color);
 }
 
 // ---------- Settings modal ----------
