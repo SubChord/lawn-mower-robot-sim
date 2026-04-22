@@ -106,6 +106,13 @@ assets via `Assets.image(key)` when present and falls back to vector drawing
 `assets/<theme>/`.
 
 ## Speculative / stretch
+- **Seasons (post-Ascend infinity loop).** After N ascends, "Season 1 ends" —
+  player gets a Season Score (sum of rubies+gems earned that season) which
+  buys Heirlooms (permanent cosmetic + small permanent bonus each, e.g.
+  "+1 starting Crew slot"). New Season starts everything over but Heirlooms
+  persist. Each season has a theme modifier (Rainy: +50% growth ×0.7 coin;
+  Crystal: only crystal grass; etc). Standard infinity-loop pattern from
+  Antimatter Dimensions / Realm Grinder.
 - **Multiplayer shared lawn.** Two browsers synced via WebRTC, each player
   controls their own mower. Huge scope; mentioned for completeness.
 - **Procedural music.** Tiny Web Audio sequencer that drifts based on coin
