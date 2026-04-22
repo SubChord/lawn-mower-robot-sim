@@ -189,6 +189,14 @@ function findGrassTile() {
   return null;
 }
 
+// Lawn-pedia: record a unique gnome name and toast on first sighting.
+function pediaDiscoverGnome(name) {
+  if (!name || !state.pedia || !Array.isArray(state.pedia.gnomes)) return;
+  if (state.pedia.gnomes.indexOf(name) >= 0) return;
+  state.pedia.gnomes.push(name);
+  if (typeof toast === 'function') toast('📖 Discovered: 🧙 ' + name, '#c896ff');
+}
+
 function spawnVisitorGnome() {
   const ts = getTileSize();
   const gw = CFG.gridW, gh = CFG.gridH;
@@ -200,6 +208,7 @@ function spawnVisitorGnome() {
   else                 { sx = 2 + Math.random() * (gw - 4); sy = gh + 1;  ex = 2 + Math.random() * (gw - 4); ey = -1;     }
 
   const dig = findGrassTile() || { x: Math.floor(gw/2), y: Math.floor(gh/2) };
+  const name = GNOME_NAMES[Math.floor(Math.random() * GNOME_NAMES.length)];
   visitorGnomes.push({
     x: sx * ts, y: sy * ts,
     targetX: (dig.x + 0.5) * ts, targetY: (dig.y + 0.5) * ts,
@@ -210,8 +219,9 @@ function spawnVisitorGnome() {
     stateTime: 0,
     walkPhase: Math.random() * 10,
     hasDropped: false,
-    name: GNOME_NAMES[Math.floor(Math.random() * GNOME_NAMES.length)],
+    name,
   });
+  pediaDiscoverGnome(name);
 }
 
 // Evil gnome: enters from edge, walks to an existing treasure, steals it, leaves.
@@ -228,6 +238,7 @@ function spawnEvilGnome() {
   else if (edge === 1) { sx = gw + 1;  sy = 2 + Math.random() * (gh - 4); ex = -1;     ey = 2 + Math.random() * (gh - 4); }
   else if (edge === 2) { sx = 2 + Math.random() * (gw - 4); sy = -1;      ex = 2 + Math.random() * (gw - 4); ey = gh + 1; }
   else                 { sx = 2 + Math.random() * (gw - 4); sy = gh + 1;  ex = 2 + Math.random() * (gw - 4); ey = -1;     }
+  const evilName = EVIL_GNOME_NAMES[Math.floor(Math.random() * EVIL_GNOME_NAMES.length)];
   visitorGnomes.push({
     x: sx * ts, y: sy * ts,
     targetX: target.x, targetY: target.y,
@@ -239,8 +250,9 @@ function spawnEvilGnome() {
     walkPhase: Math.random() * 10,
     hasStolen: false,
     evil: true,
-    name: EVIL_GNOME_NAMES[Math.floor(Math.random() * EVIL_GNOME_NAMES.length)],
+    name: evilName,
   });
+  pediaDiscoverGnome(evilName);
   if (typeof toast === 'function') toast('👿 An evil gnome eyes your treasure!', '#ff8fa0');
   return visitorGnomes[visitorGnomes.length - 1];
 }
@@ -303,6 +315,7 @@ function spawnGoldenGnome() {
     buff,
   };
   goldenGnomes.push(g);
+  pediaDiscoverGnome('Golden Gnome');
   return g;
 }
 

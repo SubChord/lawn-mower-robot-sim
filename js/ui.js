@@ -1,5 +1,5 @@
 // ===== AUTO-IMPORTS =====
-import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, isElectric, playerMowRate, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state } from './state.js';
+import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, isElectric, pediaBonusMult, playerMowRate, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state } from './state.js';
 import { CFG, T } from './config.js';
 import { DAY_TIME_KEYS, DAY_TIME_PRESETS, WEATHER_BY_ID, WEATHER_TYPES, activeWeather, takeZenPhoto } from './atmosphere.js';
 import { addParticle, beep, canvas, flashCoin, particles, resizeCanvas, tileSize } from './canvas.js';
@@ -762,6 +762,242 @@ function openStatsModal() {
   });
 }
 
+// ---------- Lawn-pedia modal ----------
+const PEDIA_TABS = [
+  { id: 'species',   label: 'Species',   icon: '🌱' },
+  { id: 'gnomes',    label: 'Gnomes',    icon: '🧙' },
+  { id: 'treasures', label: 'Treasures', icon: '🎁' },
+  { id: 'weather',   label: 'Weather',   icon: '🌦️' },
+  { id: 'buffs',     label: 'Buffs',     icon: '✨' },
+  { id: 'photos',    label: 'Photos',    icon: '📸' },
+];
+const PEDIA_RARITIES = [
+  { id: 'common',   label: 'Common',   color: '#9fc4a2' },
+  { id: 'uncommon', label: 'Uncommon', color: '#7df09e' },
+  { id: 'rare',     label: 'Rare',     color: '#7ec8ff' },
+  { id: 'epic',     label: 'Epic',     color: '#c896ff' },
+];
+const PEDIA_BUFF_DESCS = {
+  frenzy:    'Mowing Frenzy: 7× coin income for 30s.',
+  lucky:     'Lucky Strike: instant +1h of income.',
+  blessed:   'Blessed Rain: instantly maxes all grass.',
+  critStorm: 'Crit Storm: 100% crit chance, 10× crit for 20s.',
+};
+let pediaTab = 'species';
+
+function rgbCss(c) { return c ? `rgb(${c[0]},${c[1]},${c[2]})` : '#7ed47e'; }
+
+function renderPediaSpecies(body) {
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px;';
+  for (const spec of GRASS_TYPES) {
+    const owned = (state.pedia.species || []).indexOf(spec.key) >= 0;
+    const swatch = spec.color ? rgbCss(spec.color) : '#5fb05a';
+    const card = document.createElement('div');
+    card.style.cssText = `padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4; filter:grayscale(0.7);'}`;
+    card.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+        <div style="width:22px; height:22px; border-radius:4px; background:${swatch}; box-shadow: inset 0 -4px 6px rgba(0,0,0,0.3);"></div>
+        <div style="font-weight:700;">${spec.icon} ${owned ? spec.name : '???'}</div>
+      </div>
+      <div style="font-size:11px; color:var(--ink-dim); line-height:1.4;">
+        ${owned ? `Coin ×${spec.coinMult.toFixed(1)} · Toughness ${spec.toughness.toFixed(1)}` : 'Undiscovered'}
+      </div>`;
+    grid.appendChild(card);
+  }
+  body.appendChild(grid);
+}
+
+function renderPediaGnomes(body) {
+  const list = state.pedia.gnomes || [];
+  const head = document.createElement('p');
+  head.style.cssText = 'color:var(--ink-dim); font-size:12px; margin:0 0 10px;';
+  head.innerHTML = `Met <b style="color:#c896ff;">${list.length}</b> gnome${list.length === 1 ? '' : 's'}.`;
+  body.appendChild(head);
+  if (list.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'opacity:0.6; font-size:12px;';
+    empty.textContent = 'No gnomes yet — wait for visitors, evil thieves, or rare golden gnomes.';
+    body.appendChild(empty);
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:6px;';
+  for (const name of list) {
+    const isGolden = name === 'Golden Gnome';
+    const card = document.createElement('div');
+    card.style.cssText = `padding:8px 10px; border-radius:6px; background:rgba(0,0,0,0.25); border:1px solid ${isGolden ? '#ffd34e' : 'rgba(255,255,255,0.08)'}; font-weight:600; font-size:12px;`;
+    card.innerHTML = `${isGolden ? '🌟' : '🧙'} ${name}`;
+    grid.appendChild(card);
+  }
+  body.appendChild(grid);
+}
+
+function renderPediaTreasures(body) {
+  const total = state.pedia.treasures || 0;
+  const head = document.createElement('p');
+  head.style.cssText = 'color:var(--ink-dim); font-size:12px; margin:0 0 10px;';
+  head.innerHTML = `Opened <b style="color:#ffd34e;">${total}</b> treasure${total === 1 ? '' : 's'}.`;
+  body.appendChild(head);
+  const seen = state.pedia.treasureRare || [];
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px;';
+  for (const r of PEDIA_RARITIES) {
+    const owned = seen.indexOf(r.id) >= 0;
+    const card = document.createElement('div');
+    card.style.cssText = `padding:10px; border-radius:8px; border:1px solid ${owned ? r.color : 'rgba(255,255,255,0.08)'}; background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4;'}`;
+    card.innerHTML = `
+      <div style="font-weight:700; color:${owned ? r.color : 'var(--ink-dim)'};">🎁 ${owned ? r.label : '???'}</div>
+      <div style="font-size:11px; color:var(--ink-dim); margin-top:4px;">${owned ? 'Discovered' : 'Undiscovered'}</div>`;
+    grid.appendChild(card);
+  }
+  body.appendChild(grid);
+}
+
+function renderPediaWeather(body) {
+  const seen = state.pedia.weather || {};
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px;';
+  for (const w of WEATHER_TYPES) {
+    const secs = seen[w.id] || 0;
+    const owned = secs > 0;
+    const hours = secs / 3600;
+    const display = hours >= 1 ? `${hours.toFixed(1)}h` : `${Math.floor(secs / 60)}m ${Math.floor(secs % 60)}s`;
+    const card = document.createElement('div');
+    card.style.cssText = `padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4; filter:grayscale(0.7);'}`;
+    card.innerHTML = `
+      <div style="font-weight:700;">${w.icon} ${owned ? w.name : '???'}</div>
+      <div style="font-size:11px; color:var(--ink-dim); margin-top:4px;">${owned ? display + ' endured' : 'Undiscovered'}</div>`;
+    grid.appendChild(card);
+  }
+  body.appendChild(grid);
+}
+
+function renderPediaBuffs(body) {
+  const seen = state.pedia.buffs || [];
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:8px;';
+  for (const key of Object.keys(GOLDEN_BUFF_DEFS)) {
+    const def = GOLDEN_BUFF_DEFS[key];
+    const owned = seen.indexOf(key) >= 0;
+    const card = document.createElement('div');
+    card.style.cssText = `padding:10px; border-radius:8px; border:1px solid ${owned ? def.color : 'rgba(255,255,255,0.08)'}; background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4;'}`;
+    card.innerHTML = `
+      <div style="font-weight:700; color:${owned ? def.color : 'var(--ink-dim)'};">${def.icon} ${owned ? def.name : '???'}</div>
+      <div style="font-size:11px; color:var(--ink-dim); margin-top:4px; line-height:1.4;">
+        ${owned ? (PEDIA_BUFF_DESCS[key] || '') + '<br>✅ Triggered' : 'Undiscovered'}
+      </div>`;
+    grid.appendChild(card);
+  }
+  body.appendChild(grid);
+}
+
+function renderPediaPhotos(body) {
+  const photos = state.pedia.photos || [];
+  if (photos.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'opacity:0.6; font-size:12px;';
+    empty.textContent = 'No snapshots yet — press P in Zen Mode to save one. (Last 12 are kept.)';
+    body.appendChild(empty);
+    return;
+  }
+  const head = document.createElement('p');
+  head.style.cssText = 'color:var(--ink-dim); font-size:12px; margin:0 0 10px;';
+  head.innerHTML = `${photos.length} / 12 snapshot${photos.length === 1 ? '' : 's'} stored.`;
+  body.appendChild(head);
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px;';
+  for (let i = photos.length - 1; i >= 0; i--) {
+    const p = photos[i];
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'cursor:pointer; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); background:#000;';
+    const img = document.createElement('img');
+    img.src = p.dataUrl;
+    img.style.cssText = 'width:100%; display:block;';
+    img.alt = new Date(p.ts).toLocaleString();
+    wrap.appendChild(img);
+    const cap = document.createElement('div');
+    cap.style.cssText = 'font-size:10px; color:var(--ink-dim); padding:4px 6px; text-align:center;';
+    cap.textContent = new Date(p.ts).toLocaleString();
+    wrap.appendChild(cap);
+    wrap.addEventListener('click', () => openPediaPhotoLightbox(p));
+    grid.appendChild(wrap);
+  }
+  body.appendChild(grid);
+}
+
+function openPediaPhotoLightbox(p) {
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop';
+  back.style.zIndex = 9999;
+  const stamp = new Date(p.ts).toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  back.innerHTML = `
+    <div class="modal" style="max-width:min(90vw,900px);">
+      <h2>📸 SNAPSHOT</h2>
+      <img src="${p.dataUrl}" style="max-width:100%; max-height:70vh; display:block; margin:0 auto; border-radius:6px;" alt="snapshot"/>
+      <div style="margin-top:10px; display:flex; gap:8px; justify-content:center;">
+        <a id="pediaPhotoDl" href="${p.dataUrl}" download="lawnbot-zen-${stamp}.png"><button>⬇️ Download</button></a>
+        <button id="pediaPhotoClose">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  back.querySelector('#pediaPhotoClose').addEventListener('click', close);
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+}
+
+function renderPedia(body) {
+  body.innerHTML = '';
+  // Tab strip.
+  const tabs = document.createElement('div');
+  tabs.className = 'tabs';
+  tabs.style.cssText = 'margin-bottom:12px;';
+  for (const t of PEDIA_TABS) {
+    const b = document.createElement('button');
+    b.className = 'tab' + (pediaTab === t.id ? ' active' : '');
+    b.innerHTML = `<span class="tab-ico">${t.icon}</span><span class="tab-label">${t.label}</span>`;
+    b.addEventListener('click', () => { pediaTab = t.id; renderPedia(body); });
+    tabs.appendChild(b);
+  }
+  body.appendChild(tabs);
+  const content = document.createElement('div');
+  body.appendChild(content);
+  if      (pediaTab === 'species')   renderPediaSpecies(content);
+  else if (pediaTab === 'gnomes')    renderPediaGnomes(content);
+  else if (pediaTab === 'treasures') renderPediaTreasures(content);
+  else if (pediaTab === 'weather')   renderPediaWeather(content);
+  else if (pediaTab === 'buffs')     renderPediaBuffs(content);
+  else if (pediaTab === 'photos')    renderPediaPhotos(content);
+
+  // Footer carrot: current pedia bonus.
+  const bonusPct = (pediaBonusMult() - 1) * 100;
+  const footer = document.createElement('p');
+  footer.style.cssText = 'margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08); font-size:12px; color:var(--ink-dim);';
+  footer.innerHTML = `<b style="color:#c896ff;">📖 Pedia Bonus:</b> +${bonusPct.toFixed(1)}% coin income (from species, gnomes & buffs discovered).`;
+  body.appendChild(footer);
+}
+
+function openPediaModal() {
+  if (document.querySelector('.pedia-modal-backdrop')) return;
+  const back = document.createElement('div');
+  back.className = 'modal-backdrop pedia-modal-backdrop';
+  back.innerHTML = `
+    <div class="modal pedia-modal" style="max-width:min(92vw,720px);">
+      <h2>📖 LAWN-PEDIA</h2>
+      <div class="pedia-body"></div>
+      <button id="pediaCloseBtn">Done</button>
+    </div>`;
+  document.body.appendChild(back);
+  const body = back.querySelector('.pedia-body');
+  renderPedia(body);
+  const close = () => back.remove();
+  back.querySelector('#pediaCloseBtn').addEventListener('click', close);
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+  document.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
+  });
+}
+
 function renderGemShop(list) {
   const header = document.createElement('div');
   header.innerHTML = `
@@ -1349,11 +1585,39 @@ function skinPreviewHTML(skin, owned) {
 }
 
 // ---------- Treasure collection ----------
+// Lawn-pedia rarity classifier. Skins use their own rarity; pattern blueprints
+// are rare; coin treasures are bucketed by amount thresholds.
+function treasureRarityOf(t) {
+  if (!t) return 'common';
+  if (t.type === 'skin' && t.skinKey) {
+    const r = (SKIN_BY_KEY[t.skinKey] || {}).rarity;
+    if (r === 'epic' || r === 'legendary') return 'epic';
+    if (r === 'rare') return 'rare';
+    if (r === 'uncommon') return 'uncommon';
+    return 'common';
+  }
+  if (t.type === 'pattern') return 'rare';
+  const a = t.amount || 0;
+  if (a >= 1e6) return 'epic';
+  if (a >= 1e5) return 'rare';
+  if (a >= 1e4) return 'uncommon';
+  return 'common';
+}
+
 function collectTreasureIndex(i, silent) {
   const t = treasures[i];
   if (!t) return;
   treasures.splice(i, 1);
   state.treasuresCollected = (state.treasuresCollected || 0) + 1;
+  // Lawn-pedia tracking: count + per-rarity discovery.
+  if (state.pedia) {
+    state.pedia.treasures = (state.pedia.treasures || 0) + 1;
+    const rar = treasureRarityOf(t);
+    if (rar && Array.isArray(state.pedia.treasureRare) && state.pedia.treasureRare.indexOf(rar) < 0) {
+      state.pedia.treasureRare.push(rar);
+      toast('📖 Discovered: 🎁 ' + rar.charAt(0).toUpperCase() + rar.slice(1) + ' treasure', '#c896ff');
+    }
+  }
   if (t.type === 'skin' && t.skinKey && state.skinsUnlocked.indexOf(t.skinKey) < 0) {
     state.skinsUnlocked.push(t.skinKey);
     const skin = SKIN_BY_KEY[t.skinKey];
@@ -1458,6 +1722,11 @@ const GOLDEN_BUFF_DEFS = {
 
 function triggerGoldenBuff(g) {
   const def = GOLDEN_BUFF_DEFS[g.buff] || GOLDEN_BUFF_DEFS.frenzy;
+  // Lawn-pedia: record buff key on first trigger.
+  if (state.pedia && Array.isArray(state.pedia.buffs) && state.pedia.buffs.indexOf(g.buff) < 0) {
+    state.pedia.buffs.push(g.buff);
+    toast('📖 Discovered: ' + def.icon + ' ' + def.name, '#c896ff');
+  }
   // Particle burst at the gnome's position.
   for (let i = 0; i < 14; i++) {
     addParticle(g.x, g.y, { text: '✨', color: def.color, size: 10 + Math.random() * 8 });
@@ -2045,6 +2314,7 @@ function wireUIEvents() {
   document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
   document.getElementById('zenBtn').addEventListener('click', openZenSetupModal);
   document.getElementById('statsBtn').addEventListener('click', openStatsModal);
+  document.getElementById('pediaBtn').addEventListener('click', openPediaModal);
   document.getElementById('zenExit').addEventListener('click', exitZenMode);
 
   // Weather Machine: click HUD pill to cycle weather when ruby upgrade owned.

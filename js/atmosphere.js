@@ -139,6 +139,11 @@ function rollNextWeather() {
 
 function updateWeather(dt) {
   if (!state.weather) state.weather = { id: 'clear', intensity: 0, cycleTimer: 120 };
+  // Lawn-pedia: track total seconds endured per weather id (incl. 'clear').
+  if (state.pedia && state.pedia.weather) {
+    const id = state.weather.id;
+    state.pedia.weather[id] = (state.pedia.weather[id] || 0) + dt;
+  }
   const mode = (state.settings && state.settings.weather) || 'auto';
   // "No overlay": fade any lingering effect to 0 and freeze the cycle.
   if (mode === 'off') {
@@ -316,6 +321,12 @@ function rivalrySpeedBonus(r) {
 function takeZenPhoto() {
   try {
     const data = canvas.toDataURL('image/png');
+    // Lawn-pedia: persist last 12 snapshots so the gallery survives reloads.
+    if (state.pedia) {
+      if (!Array.isArray(state.pedia.photos)) state.pedia.photos = [];
+      state.pedia.photos.push({ ts: Date.now(), dataUrl: data });
+      while (state.pedia.photos.length > 12) state.pedia.photos.shift();
+    }
     const a = document.createElement('a');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     a.download = `lawnbot-zen-${stamp}.png`;

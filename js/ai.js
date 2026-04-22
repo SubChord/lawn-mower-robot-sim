@@ -13,6 +13,16 @@ import { saveGame } from './save.js';
    Robot AI, Bee AI, grass + flower income
    ============================================================ */
 
+// Lawn-pedia: record a unique mowed grass species and toast on first cut.
+// Skips index 0 ("Regular Grass") only if it had no key, but normal grass
+// counts as a discovery the first time you mow anything — that's the carrot.
+function pediaDiscoverSpecies(spec) {
+  if (!spec || !spec.key || !state.pedia || !Array.isArray(state.pedia.species)) return;
+  if (state.pedia.species.indexOf(spec.key) >= 0) return;
+  state.pedia.species.push(spec.key);
+  if (typeof toast === 'function') toast('📖 Discovered: ' + (spec.icon || '🌱') + ' ' + spec.name, '#c896ff');
+}
+
 // Does this robot prefer "dark" or "light" cells of the active pattern?
 // Stable across calls (uses index in the fleet), so each robot sticks with
 // one side of the pattern — that's what actually draws stripes/diagonals
@@ -136,7 +146,7 @@ function updatePlayer(dt) {
       grass[k] = Math.max(0, prev - cut);
       mowedThisTick += cut;
       coinUnits += cut * spec.coinMult;
-      if (prev > 0.9 && grass[k] <= 0.9) state.totalTilesMowed++;
+      if (prev > 0.9 && grass[k] <= 0.9) { state.totalTilesMowed++; pediaDiscoverSpecies(spec); }
     }
   }
   if (mowedThisTick > 0) {
@@ -237,7 +247,7 @@ function updateRobot(r, dt) {
       grass[k] = Math.max(0, prev - cut);
       mowedThisTick += cut;
       coinUnits += cut * spec.coinMult;
-      if (prev > 0.9 && grass[k] <= 0.9) state.totalTilesMowed++;
+      if (prev > 0.9 && grass[k] <= 0.9) { state.totalTilesMowed++; pediaDiscoverSpecies(spec); }
     }
   }
   if (mowedThisTick > 0) {

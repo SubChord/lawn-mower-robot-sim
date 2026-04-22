@@ -201,6 +201,19 @@ function loadGame() {
       prestigeGemBoost: 0, ascendBoost: 0, startCrew: 0, offlineCap: 0,
       weatherControl: 0, unlockAreas: 0,
     }, state.rubyUpgrades || {});
+    // Lawn-pedia defaults — old saves get an empty pedia and discover from now on.
+    state.pedia = Object.assign({
+      species: [], gnomes: [], treasures: 0, treasureRare: [],
+      weather: {}, buffs: [], photos: [],
+    }, state.pedia || {});
+    if (!Array.isArray(state.pedia.species))      state.pedia.species = [];
+    if (!Array.isArray(state.pedia.gnomes))       state.pedia.gnomes = [];
+    if (!isFinite(state.pedia.treasures))         state.pedia.treasures = 0;
+    if (!Array.isArray(state.pedia.treasureRare)) state.pedia.treasureRare = [];
+    if (!state.pedia.weather || typeof state.pedia.weather !== 'object') state.pedia.weather = {};
+    if (!Array.isArray(state.pedia.buffs))        state.pedia.buffs = [];
+    if (!Array.isArray(state.pedia.photos))       state.pedia.photos = [];
+    if (state.pedia.photos.length > 12) state.pedia.photos = state.pedia.photos.slice(-12);
     if (Array.isArray(data.robots)) state._savedRobots = data.robots;
     if (Array.isArray(data.tiles)) {
       for (const entry of data.tiles) {
