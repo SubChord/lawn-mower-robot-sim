@@ -30,6 +30,7 @@ let state = {
   skinsUnlocked: ['default'],
   activeSkin: 'default',
   gnomeTimer: 60 + Math.random() * 30, // seconds until next wandering gnome
+  autoBuyTimer: 0,          // Bookkeeper accountant: countdown to next auto-purchase
   treasuresCollected: 0,
   patternsUnlocked: ['plain'],
   activeMowPattern: 'plain',
@@ -66,6 +67,7 @@ let state = {
     dayNight: 'auto',   // auto | off | dawn | day | dusk | night
     weather: 'auto',    // auto | clear | rain | snow | storm | fog
     rivalry: true,      // crown the top-earning robot each 30s
+    autoBuyer: true,    // Bookkeeper auto-buys cheapest Bot/Tool upgrade
   },
   timeOfDay: 12,                // 0..24, advances in auto mode
   weather: { id: 'clear', intensity: 0, cycleTimer: 90 },
@@ -120,6 +122,8 @@ const SETTING_DEFS = [
     onValue: 'auto', offValue: 'off' },
   { type: 'toggle', key: 'weather',        label: 'Weather overlay',     hint: 'Show weather visuals and effects on the lawn.',
     onValue: 'auto', offValue: 'off' },
+  { type: 'toggle', key: 'autoBuyer',      label: 'Auto-buy upgrades',   hint: 'Bean Counter Beatrice buys the cheapest affordable Bot/Tool upgrade every 3s.',
+    gate: () => hasCrew('accountant') },
 ];
 function getSetting(key) {
   if (!state.settings) state.settings = {};
@@ -509,6 +513,9 @@ const SKILL_TREE = [
   { id: 'headGardener', tier: 2, col: 4, icon: '🌻', name: 'Head Gardener',    crewName: 'Flora Faye',
     desc: '+30% grass regrowth (stacks with Sprinkler Tech).',
     cost: 20000, req: 'sprinkler' },
+  { id: 'accountant', tier: 2, col: 3, icon: '📊', name: 'Bookkeeper',         crewName: 'Bean Counter Beatrice',
+    desc: 'Auto-buys the cheapest affordable Bot/Tool upgrade every 3s. Toggle in Settings.',
+    cost: 30000, req: 'moleWarden' },
 ];
 const SKILL_BY_ID = Object.fromEntries(SKILL_TREE.map(s => [s.id, s]));
 function hasCrew(id) { return state.crew && state.crew.indexOf(id) >= 0; }

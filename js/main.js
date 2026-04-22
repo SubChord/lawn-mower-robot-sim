@@ -6,7 +6,7 @@ import { bees, ensureBeesFromHives, ensureRobotCount, initWorld, robots } from '
 import { checkAchievements, renderShop, toast, updateHUD, wireUIEvents } from './ui.js';
 import { render } from './render.js';
 import { resizeCanvas } from './canvas.js';
-import { updateBee, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes } from './ai.js';
+import { updateAutoBuy, updateBee, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes } from './ai.js';
 import { updateDayNight, updateRivalry, updateWeather } from './atmosphere.js';
 // ===== END AUTO-IMPORTS =====
 
@@ -39,6 +39,7 @@ function loop(now) {
     updateTreasures(TICK);
     updateMoles(TICK);
     updateCrew(TICK);
+    updateAutoBuy(TICK);
     accumulator -= TICK;
   }
   render();

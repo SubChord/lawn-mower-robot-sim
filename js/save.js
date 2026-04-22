@@ -120,7 +120,9 @@ function loadGame() {
       showRobotNames: true, showGnomeNames: true, showParticles: true,
       scientificNumbers: false,
       theme: 'classic', dayNight: 'auto', weather: 'auto', rivalry: true,
+      autoBuyer: true,
     }, state.settings || {});
+    if (!isFinite(state.autoBuyTimer)) state.autoBuyTimer = 0;
     if (!isFinite(state.timeOfDay)) state.timeOfDay = 12;
     if (!state.weather || typeof state.weather !== 'object') {
       state.weather = { id: 'clear', intensity: 0, cycleTimer: 90 };

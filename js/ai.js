@@ -1,9 +1,9 @@
 // ===== AUTO-IMPORTS =====
 import { CFG, NEIGHBOR_NAMES, OBSTACLE, T } from './config.js';
-import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, state } from './state.js';
+import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, state } from './state.js';
 import { addParticle, beep, canvas, playGnomeGiggle, tileSize } from './canvas.js';
 import { beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
-import { collectTreasureIndex, showQuestOfferModal, toast } from './ui.js';
+import { collectTreasureIndex, showQuestOfferModal, toast, autoBuyCheapest } from './ui.js';
 import { despawnMole, grass, grassSpecies, idx, inBounds, moles, player, robots, spawnEvilGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, tiles, treasures, visitorGnomes } from './world.js';
 import { mowPatternIsDark } from './render.js';
 import { saveGame } from './save.js';
@@ -665,5 +665,17 @@ function updateFlowerIncome(dt) {
   }
 }
 
+// Bookkeeper crew member: every 3s buys the cheapest affordable Bot/Tool
+// upgrade. Driven from the main loop so it ticks even while the shop is on
+// another tab. No-op without the crew node or with the toggle disabled.
+function updateAutoBuy(dt) {
+  if (!hasCrew('accountant')) return;
+  if (!getSetting('autoBuyer')) return;
+  state.autoBuyTimer = (state.autoBuyTimer || 0) - dt;
+  if (state.autoBuyTimer > 0) return;
+  state.autoBuyTimer = 3.0;
+  autoBuyCheapest();
+}
+
 // ===== AUTO-EXPORTS =====
-export { updateBee, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes };
+export { updateAutoBuy, updateBee, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes };

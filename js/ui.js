@@ -967,6 +967,37 @@ function buy(key) {
   saveGame();
 }
 
+// Single-purchase variant used by the Bookkeeper auto-buyer. Bypasses the
+// bulk-buy modifier and skips screen-spamming particles, but still routes
+// state mutations through the same paths so robots/tool counts stay sane.
+const AUTO_BUY_KEYS = ['robots','speed','range','value','growth','rate','crit','fuelEff','pest','fuelType','tool'];
+function autoBuyOne(key) {
+  const lvl = state.upgrades[key] || 0;
+  if (lvl >= MAX[key]) return false;
+  const cost = COST[key](lvl);
+  if (!isFinite(cost) || state.coins < cost) return false;
+  state.coins -= cost;
+  state.upgrades[key] = lvl + 1;
+  if (key === 'robots') ensureRobotCount();
+  beep(560 + lvl * 6, 0.05, 'sine', 0.04);
+  renderShop();
+  saveGame();
+  return true;
+}
+function autoBuyCheapest() {
+  let bestKey = null, bestCost = Infinity;
+  for (const key of AUTO_BUY_KEYS) {
+    const lvl = state.upgrades[key] || 0;
+    if (lvl >= MAX[key]) continue;
+    const cost = COST[key](lvl);
+    if (!isFinite(cost)) continue;
+    if (state.coins < cost) continue;
+    if (cost < bestCost) { bestCost = cost; bestKey = key; }
+  }
+  if (bestKey) return autoBuyOne(bestKey);
+  return false;
+}
+
 function doPrestige() {
   const baseGain = CFG.prestigeFormula(state.totalEarnedThisRun);
   const gain = Math.floor(baseGain * gemShopPrestigeMult() * rubyShopPrestigeMult());
@@ -1093,6 +1124,7 @@ function renderCrew(list) {
     { from: [COL_X[0], TIER_Y[1]], to: [COL_X[0], TIER_Y[2]], id: 'autoRefuel', parent: 'mechanic' },
     { from: [COL_X[1], TIER_Y[1]], to: [COL_X[1], TIER_Y[2]], id: 'scout', parent: 'keenEye' },
     { from: [COL_X[2], TIER_Y[1]], to: [COL_X[2], TIER_Y[2]], id: 'efficiency', parent: 'qualityControl' },
+    { from: [COL_X[3], TIER_Y[1]], to: [COL_X[3], TIER_Y[2]], id: 'accountant', parent: 'moleWarden' },
     { from: [COL_X[4], TIER_Y[1]], to: [COL_X[4], TIER_Y[2]], id: 'headGardener', parent: 'sprinkler' },
   ];
   for (const L of lines) {
@@ -1393,7 +1425,7 @@ function openSettingsModal() {
   if (document.querySelector('.settings-modal-backdrop')) return;
   const back = document.createElement('div');
   back.className = 'modal-backdrop settings-modal-backdrop';
-  const rows = SETTING_DEFS.map(def => {
+  const rows = SETTING_DEFS.filter(def => !def.gate || def.gate()).map(def => {
     if (def.type === 'select') {
       const options = typeof def.options === 'function' ? def.options() : (def.options || []);
       const current = state.settings[def.key];
@@ -1979,4 +2011,4 @@ function wireUIEvents() {
 }
 
 // ===== AUTO-EXPORTS =====
-export { achieved, checkAchievements, collectTreasureIndex, displayedRate, renderShop, showQuestOfferModal, toast, updateHUD, wireUIEvents };
+export { achieved, autoBuyCheapest, checkAchievements, collectTreasureIndex, displayedRate, renderShop, showQuestOfferModal, toast, updateHUD, wireUIEvents };
