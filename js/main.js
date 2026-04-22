@@ -1,6 +1,6 @@
 // ===== AUTO-IMPORTS =====
 import { SAVE_KEY, loadGame, saveGame } from './save.js';
-import { TOOL_TYPES, applyMapDimensions, gemLvl, startingCoinsFor, state } from './state.js';
+import { TOOL_TYPES, applyMapDimensions, decayCritCascade, gemLvl, startingCoinsFor, state } from './state.js';
 import { applyThemeDom } from './themes.js';
 import { bees, ensureBeesFromHives, ensureRobotCount, initWorld, robots } from './world.js';
 import { checkAchievements, renderShop, toast, updateHUD, wireUIEvents } from './ui.js';
@@ -42,6 +42,7 @@ function loop(now) {
     updateBuffs(TICK);
     updateCrew(TICK);
     updateAutoBuy(TICK);
+    decayCritCascade(TICK);
     accumulator -= TICK;
   }
   render();

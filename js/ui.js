@@ -1023,6 +1023,7 @@ function doPrestige() {
   state.prestigeCount = (state.prestigeCount || 0) + 1;
   state.coins = startingCoinsFor(gemLvl('startCoins'));
   state.totalEarnedThisRun = 0;
+  state.critCascadeStack = 0;
   state.upgrades = {
     robots: 1 + gemLvl('startRobot'),
     speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
@@ -1069,12 +1070,14 @@ function doAscend() {
   // Full wipe of the gem tier and below.
   state.coins = 0;
   state.totalEarnedThisRun = 0;
+  state.critCascadeStack = 0;
   state.gems = rubyShopStartGems();
   state.totalGemsEarned = state.gems;
   state.gemUpgrades = {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
     autoQuest: 0,
+    pollination: 0, coopBots: 0, symbiosis: 0, critCascade: 0,
   };
   state.upgrades = {
     robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,

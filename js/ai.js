@@ -1,6 +1,6 @@
 // ===== AUTO-IMPORTS =====
 import { CFG, NEIGHBOR_NAMES, OBSTACLE, T } from './config.js';
-import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, state } from './state.js';
+import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critCascadeBonus, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, playerMowRadius, playerMowRate, robotSpeed, state } from './state.js';
 import { addParticle, beep, canvas, playGnomeGiggle, tileSize } from './canvas.js';
 import { activeWeather, beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
 import { collectTreasureIndex, showQuestOfferModal, toast, autoBuyCheapest } from './ui.js';
@@ -142,7 +142,7 @@ function updatePlayer(dt) {
   if (mowedThisTick > 0) {
     player.lastMowed = performance.now();
     let coins = coinUnits * CFG.coinPerUnitBase * coinMult();
-    if (Math.random() < critChance()) { coins *= critMult(); critHit = true; }
+    if (Math.random() < critChance()) { coins *= critMult() + critCascadeBonus(); critHit = true; noteCritForCascade(); }
     state.coins += coins;
     state.totalEarnedAllTime += coins;
     state.totalEarnedThisRun += coins;
@@ -242,7 +242,7 @@ function updateRobot(r, dt) {
   }
   if (mowedThisTick > 0) {
     let coins = coinUnits * CFG.coinPerUnitBase * coinMult();
-    if (Math.random() < critChance()) { coins *= critMult(); critHit = true; }
+    if (Math.random() < critChance()) { coins *= critMult() + critCascadeBonus(); critHit = true; noteCritForCascade(); }
     state.coins += coins;
     state.totalEarnedAllTime += coins;
     state.totalEarnedThisRun += coins;

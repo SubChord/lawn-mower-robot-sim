@@ -4,6 +4,7 @@ import { THEMES } from './themes.js';
 import { displayedRate } from './ui.js';
 import { tileSize } from './canvas.js';
 import { weatherFlowerMult, weatherGrowthMult, weatherSpeedMult } from './atmosphere.js';
+import { bees } from './world.js';
 // ===== END AUTO-IMPORTS =====
 
 /* ============================================================
@@ -47,6 +48,7 @@ let state = {
     startCoins: 0, coinMult: 0, growth: 0, crit: 0,
     offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
     autoQuest: 0,
+    pollination: 0, coopBots: 0, symbiosis: 0, critCascade: 0,
   },
   // Ascend (ruby) tier — survives super-prestige.
   rubies: 0,
@@ -96,6 +98,7 @@ let state = {
   questTimer: 80 + Math.random() * 60,  // seconds until next neighbor knocks
   questsCompleted: 0,
   questHistory: [],                     // { neighbor, title, rewardType, reward, outcome: 'success'|'failed', ts }
+  critCascadeStack: 0,                  // runtime: bonus crit-mult from Crit Cascade gem upgrade
 };
 
 const QUEST_HISTORY_MAX = 30;
@@ -342,6 +345,37 @@ const GEM_UPGRADES = [
     desc: 'Neighbor quests auto-accept — no more modal popups.',
     max: 1, baseCost: 8, growth: 1,
     statusText: (lvl) => lvl ? 'Quests auto-accepted' : 'Manual accept/decline' },
+  { key: 'pollination',   icon: '🌻', name: 'Pollination Pact',
+    desc: '+0.3% coin per (Bee × Flower) per level.',
+    max: 5, baseCost: 8, growth: 1.7,
+    statusText: (lvl) => {
+      const pairs = (typeof bees !== 'undefined' ? bees.length : 0) * (state.garden.flower || 0);
+      const pct = (lvl * 0.3 * pairs).toFixed(1);
+      return `+${pct}% coin · 🐝×🌸 = ${pairs}`;
+    } },
+  { key: 'coopBots',      icon: '🤝', name: 'Robot Co-op',
+    desc: 'Each extra robot adds +0.5% mow rate to every other robot per level.',
+    max: 5, baseCost: 10, growth: 1.7,
+    statusText: (lvl) => {
+      const extra = Math.max(0, (state.upgrades.robots || 1) - 1);
+      const pct = (lvl * 0.5 * extra).toFixed(1);
+      return `+${pct}% mow rate · extra bots = ${extra}`;
+    } },
+  { key: 'symbiosis',     icon: '🌿', name: 'Garden Symbiosis',
+    desc: '+1.5% growth per unique garden item type placed, per level.',
+    max: 4, baseCost: 12, growth: 1.8,
+    statusText: (lvl) => {
+      const u = uniqueGardenTypes();
+      const pct = (lvl * 1.5 * u).toFixed(1);
+      return `+${pct}% growth · unique types = ${u}/8`;
+    } },
+  { key: 'critCascade',   icon: '⚡', name: 'Crit Cascade',
+    desc: 'Each crit adds +0.4× to next crit mult, decays on miss. Hard cap 10×.',
+    max: 5, baseCost: 15, growth: 1.9,
+    statusText: (lvl) => {
+      const stack = state.critCascadeStack || 0;
+      return `Stack: +${stack.toFixed(1)}× · per-crit +${(0.4 * lvl).toFixed(1)}× · cap 10×`;
+    } },
 ];
 
 // Apply map dimensions based on the current area's expansion flag.
@@ -590,6 +624,41 @@ function gemShopGrowthMult() { return 1 + gemLvl('growth') * 0.03; }
 function gemShopCritBonus()  { return gemLvl('crit') * 0.01; }
 function gemShopOfflineMult(){ return 1 + gemLvl('offline') * 0.10; }
 function gemShopPrestigeMult(){ return 1 + gemLvl('prestigeBoost') * 0.10; }
+
+// ---------- Synergy upgrades (gem shop, second-order multipliers) ----------
+const GARDEN_TYPE_KEYS = ['tree', 'rock', 'pond', 'flower', 'beehive', 'fountain', 'shed', 'gnome'];
+function uniqueGardenTypes() {
+  let n = 0;
+  for (const k of GARDEN_TYPE_KEYS) if ((state.garden && state.garden[k]) > 0) n++;
+  return n;
+}
+function pollinationMult() {
+  const lvl = gemLvl('pollination'); if (lvl <= 0) return 1;
+  const beeCount = (typeof bees !== 'undefined' && bees) ? bees.length : 0;
+  return 1 + 0.003 * lvl * beeCount * (state.garden.flower || 0);
+}
+function coopBotsMult() {
+  const lvl = gemLvl('coopBots'); if (lvl <= 0) return 1;
+  return 1 + 0.005 * lvl * Math.max(0, (state.upgrades.robots || 1) - 1);
+}
+function symbiosisMult() {
+  const lvl = gemLvl('symbiosis'); if (lvl <= 0) return 1;
+  return 1 + 0.015 * lvl * uniqueGardenTypes();
+}
+function critCascadeBonus() {
+  if (gemLvl('critCascade') <= 0) return 0;
+  const headroom = Math.max(0, 10 - critMult());
+  return Math.min(headroom, state.critCascadeStack || 0);
+}
+function noteCritForCascade() {
+  const lvl = gemLvl('critCascade'); if (lvl <= 0) return;
+  const headroom = Math.max(0, 10 - critMult());
+  state.critCascadeStack = Math.min(headroom, (state.critCascadeStack || 0) + 0.4 * lvl);
+}
+function decayCritCascade(dt) {
+  if (!state.critCascadeStack) return;
+  state.critCascadeStack = Math.max(0, state.critCascadeStack - 0.5 * dt);
+}
 function activeFuelType(){ return FUEL_TYPES[state.upgrades.fuelType] || FUEL_TYPES[0]; }
 function isElectric()   { return !activeFuelType().refuelable; }
 function fuelEffMult()  {
@@ -643,9 +712,9 @@ function weatherSafeGrowth() { return typeof weatherGrowthMult === 'function' ? 
 function weatherSafeFlower() { return typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1; }
 function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed() * rubyShopSpeedMult(); }
 function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
-function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult() * (hasActiveBuff('frenzy') ? 7 : 1); }
-function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * crewGrowthMult(); }
-function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult(); }
+function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult() * pollinationMult() * (hasActiveBuff('frenzy') ? 7 : 1); }
+function growthRate()  { return CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * crewGrowthMult() * symbiosisMult(); }
+function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult() * coopBotsMult(); }
 function critChance()  {
   if (hasActiveBuff('critStorm')) return 1.0;
   return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus());
@@ -681,4 +750,4 @@ function formatShort(n) {
 }
 
 // ===== AUTO-EXPORTS =====
-export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, critChance, critMult, currentArea, currentAreaSpeciesIdx, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasActiveBuff, hasCrew, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, playerMowRadius, playerMowRate, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state };
+export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, coopBotsMult, critCascadeBonus, critChance, critMult, currentArea, currentAreaSpeciesIdx, decayCritCascade, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasActiveBuff, hasCrew, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, playerMowRadius, playerMowRate, pollinationMult, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state, symbiosisMult, uniqueGardenTypes };

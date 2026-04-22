@@ -58,6 +58,7 @@ function saveGame() {
       activeArea: state.activeArea,
       areaExpanded: state.areaExpanded,
       gemUpgrades: state.gemUpgrades,
+      critCascadeStack: state.critCascadeStack,
       totalGemsEarned: state.totalGemsEarned,
       prestigeCount: state.prestigeCount,
       ascendCount: state.ascendCount,
@@ -119,6 +120,7 @@ function loadGame() {
     if (state.fuel == null) state.fuel = CFG.fuelMax;
     if (state.questTimer == null || !isFinite(state.questTimer)) state.questTimer = 80 + Math.random() * 60;
     if (!isFinite(state.questsCompleted)) state.questsCompleted = 0;
+    if (!isFinite(state.critCascadeStack)) state.critCascadeStack = 0;
     if (state.activeQuest && !QUEST_BY_ID[state.activeQuest.id]) state.activeQuest = null;
     if (!Array.isArray(state.questHistory)) state.questHistory = [];
     state.settings = Object.assign({
@@ -146,6 +148,7 @@ function loadGame() {
       startCoins: 0, coinMult: 0, growth: 0, crit: 0,
       offline: 0, prestigeBoost: 0, startRobot: 0, startTool: 0,
       autoQuest: 0,
+      pollination: 0, coopBots: 0, symbiosis: 0, critCascade: 0,
     }, state.gemUpgrades || {});
     // Restore area state early so applyMapDimensions can pick the right grid
     // size before typed arrays are allocated.
