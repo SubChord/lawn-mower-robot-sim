@@ -4,7 +4,7 @@ import { SAVE_KEY, loadGame, saveGame } from './save.js';
 import { TOOL_TYPES, applyMapDimensions, decayCritCascade, gemLvl, startingCoinsFor, state } from './state.js';
 import { applyThemeDom } from './themes.js';
 import { bees, ensureBeesFromHives, ensureRobotCount, initWorld, robots } from './world.js';
-import { checkAchievements, renderShop, toast, updateHUD, wireUIEvents } from './ui.js';
+import { checkAchievements, iconizeStaticHUD, renderShop, toast, updateHUD, wireUIEvents } from './ui.js';
 import { render } from './render.js';
 import { resizeCanvas } from './canvas.js';
 import { updateAutoBuy, updateBee, updateBuffs, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGoldenGnomes, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes } from './ai.js';
@@ -138,7 +138,13 @@ function init() {
   // Preload sprites in the background. Render code null-checks, so the loop
   // can start immediately; sprites pop in as they finish decoding. If the
   // sprite flag is off the preloaded images sit idle and cost nothing.
-  Assets.preloadAll().catch(() => {});
+  // When decoding finishes we iconize the static HUD and force a shop
+  // repaint so the first frame doesn't flash emoji-then-sprite.
+  Assets.preloadAll().then(() => {
+    iconizeStaticHUD();
+    renderShop();
+    updateHUD();
+  }).catch(() => {});
   requestAnimationFrame(loop);
 }
 

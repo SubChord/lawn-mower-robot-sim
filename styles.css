@@ -1138,3 +1138,21 @@ body.zen-mode main.stage {
   color: #d1ffe0;
 }
 .tech-badge-locked { background: rgba(255,255,255,0.08); color: #aaa; }
+
+/* Inline UI icon sprites (emoji → <img>, see iconize() in js/assets.js).
+   Sized in em so they scale with the surrounding font size; aligned on
+   the text baseline so cost prefixes and pills don't jitter. */
+.ui-ico {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: -0.2em;
+  margin: 0 0.08em;
+  image-rendering: auto;
+  user-select: none;
+  pointer-events: none;
+}
+/* The HUD currency indicators use larger glyphs — inherit their parent
+   font-size but tighten the baseline so the amount text lines up. */
+.currency .ico .ui-ico { width: 1.1em; height: 1.1em; vertical-align: -0.15em; margin: 0; }
+.hud-pill .ui-ico { vertical-align: -0.22em; }

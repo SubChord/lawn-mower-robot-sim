@@ -149,6 +149,25 @@ const SPRITE_MANIFEST = {
   'chest_open':      'items/chest_open',
   'fuel_can':        'items/fuel_can',
   'energy_crystal':  'items/energy_crystal',
+
+  // UI icons — inline sprites for shop/HUD text (see EMOJI_TO_SPRITE + iconize).
+  // Kept separate from `items/` variants so we can pick whichever reads best at small sizes.
+  'ui_coin':         'ui_icons/coin',
+  'ui_gem':          'ui_icons/gem',
+  'ui_ruby':         'ui_icons/ruby',
+  'ui_robot':        'ui_icons/robot_head',
+  'ui_grass':        'ui_icons/grass_blade',
+  'ui_flower':       'ui_icons/flower',
+  'ui_bee':          'ui_icons/bee',
+  'ui_gear':         'ui_icons/gear',
+  'ui_wrench':       'ui_icons/wrench',
+  'ui_trophy':       'ui_icons/trophy',
+  'ui_star':         'ui_icons/star',
+  'ui_check':        'ui_icons/check',
+  'ui_cross':        'ui_icons/cross',
+  'ui_lock':         'ui_icons/lock',
+  'ui_gnome':        'ui_icons/gnome',
+  'ui_cart':         'ui_icons/cart',
 };
 
 for (const [key, rel] of Object.entries(SPRITE_MANIFEST)) {
@@ -187,5 +206,54 @@ const Sprites = {
   },
 };
 
+// ------------------------------------------------------------
+// Inline UI icon swap — translates shop/HUD emojis into sprite <img>
+// tags when `state.settings.useSprites` is on. `iconize(html)` is meant
+// to wrap template-literal HTML strings before assigning them to
+// innerHTML. When the flag is off (or a sprite is missing) it returns
+// the original emoji untouched, so every call site stays safe.
+// ------------------------------------------------------------
+const EMOJI_TO_SPRITE = {
+  '💰': 'ui_coin',
+  '💎': 'ui_gem',
+  '♦️': 'ui_ruby',
+  '🤖': 'ui_robot',
+  '🌱': 'ui_grass',
+  '🌸': 'ui_flower',
+  '🐝': 'ui_bee',
+  '⚙️': 'ui_gear',
+  '🔧': 'ui_wrench',
+  '🏆': 'ui_trophy',
+  '⭐': 'ui_star',
+  '✅': 'ui_check',
+  '❌': 'ui_cross',
+  '🔒': 'ui_lock',
+  '🧙': 'ui_gnome',
+  '🛒': 'ui_cart',
+};
+
+// Build a single regex that matches any of the mapped emojis. Done once
+// at module-load so iconize() is just a String.replace in the hot path.
+// Longer strings (♦️ is 2 code points) are matched first so they win over
+// shorter prefixes.
+const _EMOJI_KEYS_DESC = Object.keys(EMOJI_TO_SPRITE).sort((a, b) => b.length - a.length);
+const _EMOJI_ESCAPE_RX = /[.*+?^${}()|[\]\\]/g;
+const _EMOJI_RX = new RegExp(_EMOJI_KEYS_DESC.map(e => e.replace(_EMOJI_ESCAPE_RX, '\\$&')).join('|'), 'g');
+
+// Wrap an HTML string: when sprites are on and the ui_icons PNG has
+// loaded, substitute <img> tags for the mapped emojis. Otherwise return
+// the string unchanged. Fallback is per-emoji — missing assets leave the
+// original glyph in place.
+function iconize(html) {
+  if (typeof html !== 'string' || !Sprites.enabled()) return html;
+  return html.replace(_EMOJI_RX, (match) => {
+    const key = EMOJI_TO_SPRITE[match];
+    if (!key) return match;
+    const img = Assets.image('sprite_' + key);
+    if (!img) return match;
+    return `<img class="ui-ico" src="${img.src}" alt="${match}" draggable="false">`;
+  });
+}
+
 // ===== AUTO-EXPORTS =====
-export { Assets, Sprites };
+export { Assets, Sprites, iconize };

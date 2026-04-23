@@ -1,4 +1,5 @@
 // ===== AUTO-IMPORTS =====
+import { iconize } from './assets.js';
 import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TECH_BY_KEY, TECH_TREE, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, hasTech, isElectric, pediaBonusMult, playerMowRate, respecCost, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state, techBuffDurationMult, techPicked, techPrestigeGemMult } from './state.js';
 import { CFG, T } from './config.js';
 import { DAY_TIME_KEYS, DAY_TIME_PRESETS, WEATHER_BY_ID, WEATHER_TYPES, activeWeather, takeZenPhoto } from './atmosphere.js';
@@ -13,6 +14,32 @@ import { updateEventBanner } from './events.js';
 /* ============================================================
    HUD, shop UI, toasts, achievements, tabs, footer buttons
    ============================================================ */
+
+// Assign innerHTML with emoji→sprite swap baked in. When the
+// `useSprites` setting is off this is a straight passthrough, so it's
+// safe to use at every shop/HUD site. See iconize() in js/assets.js.
+function setHTML(el, html) {
+  if (el) el.innerHTML = iconize(html);
+}
+
+// Walk static HUD DOM and re-run iconize on their current innerHTML.
+// Called after sprites preload and whenever the `useSprites` toggle
+// flips (see wireUIEvents settings handler). Idempotent — iconize is
+// a no-op when sprites are off.
+function iconizeStaticHUD() {
+  const selectors = [
+    '.title', '.currencies .ico', '.hud-pill',
+    '.tab', '.shop-tabs button', '.footer-bar button',
+  ];
+  for (const sel of selectors) {
+    for (const el of document.querySelectorAll(sel)) {
+      // Stash the original emoji-flavoured HTML once so we can reset
+      // it when the toggle flips back to off.
+      if (!el.dataset.iconOrig) el.dataset.iconOrig = el.innerHTML;
+      el.innerHTML = iconize(el.dataset.iconOrig);
+    }
+  }
+}
 
 // ---------- HUD ----------
 let lastCoinDisplay = 0;
@@ -52,7 +79,7 @@ function updateHUD() {
   refuelBtn.style.display = ft.refuelable ? '' : 'none';
   const refillCost = fuelRefillCost();
   refuelBtn.disabled = state.coins < refillCost || state.fuel >= CFG.fuelMax;
-  document.getElementById('refuelCost').textContent = '💰' + formatShort(refillCost);
+  setHTML(document.getElementById('refuelCost'), '💰' + formatShort(refillCost));
 
   document.getElementById('hudRobots').textContent = state.upgrades.robots;
   let total = 0, count = 0;
@@ -117,12 +144,12 @@ function updateHUD() {
       const rewardStr = q.rewardType === 'gems' ? `+${q.reward}💎` : `+${formatShort(q.reward)}💰`;
       qBanner.style.display = '';
       qBanner.innerHTML =
-        `<span class="q-name">👋 ${q.neighbor}</span>` +
+        iconize(`<span class="q-name">👋 ${q.neighbor}</span>` +
         `<span class="q-title">${q.title}</span>` +
         `<div class="q-bar"><div class="q-fill" style="width:${pctQ}%"></div></div>` +
         `<span class="q-progress">${formatShort(progress)}/${formatShort(q.goal)}</span>` +
         `<span class="q-time">⏱ ${remaining.toFixed(0)}s</span>` +
-        `<span class="q-reward">${rewardStr}</span>`;
+        `<span class="q-reward">${rewardStr}</span>`);
     } else {
       qBanner.style.display = 'none';
     }
@@ -143,7 +170,7 @@ function showQuestOfferModal(quest) {
   const rewardStr = quest.rewardType === 'gems'
     ? `+${quest.reward} 💎`
     : `+${formatShort(quest.reward)} 💰`;
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal">
       <h2>👋 ${quest.neighbor}</h2>
       <p style="font-style:italic; opacity:0.85;">"${quest.flavor}"</p>
@@ -153,7 +180,7 @@ function showQuestOfferModal(quest) {
         <button id="qAccept">Accept</button>
         <button id="qDecline" class="danger">Decline</button>
       </div>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
   back.querySelector('#qAccept').addEventListener('click', () => {
     state.activeQuest = quest;
@@ -305,7 +332,7 @@ function renderShop() {
     const tooltip = maxed ? 'Fully upgraded' : up.effect(state);
     const buyLabel = maxed ? 'MAX' : (plan.count > 1 ? `Buy ×${plan.count}` : 'Buy');
     const costLabel = maxed ? '—' : '💰 ' + formatShort(plan.count > 0 ? plan.total : singleCost);
-    row.innerHTML = `
+    row.innerHTML = iconize(`
       <div class="icon">${up.icon}</div>
       <div class="info">
         <div class="name">${up.name} ${up.key !== 'robots' ? `<span class="lvl">Lv ${lvl}</span>` : ''}</div>
@@ -315,7 +342,7 @@ function renderShop() {
         ${buyLabel}
         <span class="cost">${costLabel}</span>
       </button>
-    `;
+    `);
     row.querySelector('.buy').addEventListener('click', () => buy(up.key));
     list.appendChild(row);
   }
@@ -326,25 +353,25 @@ function renderQuests(list) {
   const nextIn = Math.max(0, state.questTimer || 0);
 
   const header = document.createElement('div');
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Neighbors drop by with odd jobs. Finish in time → earn
       <b style="color:#ffd34e;">coins</b> or rare <b style="color:#72f2ff;">gems</b>.
       Decline and they sulk off for a bit.
-    </p>`;
+    </p>`);
   list.appendChild(header);
 
   const summary = document.createElement('div');
   summary.className = 'upgrade';
   summary.style.gridTemplateColumns = '42px 1fr auto';
-  summary.innerHTML = `
+  summary.innerHTML = iconize(`
     <div class="icon">📋</div>
     <div class="info">
       <div class="name">Quests Completed <span class="lvl">×${state.questsCompleted || 0}</span></div>
       <div class="effect">${q ? '🔥 Quest in progress' : `Next neighbor in ~${Math.ceil(nextIn)}s`}</div>
     </div>
     <div style="font-size:22px; text-align:right;">${q ? '👋' : '🕒'}</div>
-  `;
+  `);
   list.appendChild(summary);
 
   if (q) {
@@ -355,7 +382,7 @@ function renderQuests(list) {
     const rewardStr = q.rewardType === 'gems' ? `+${q.reward} 💎` : `+${formatShort(q.reward)} 💰`;
     const active = document.createElement('div');
     active.className = 'upgrade affordable';
-    active.innerHTML = `
+    active.innerHTML = iconize(`
       <div class="icon">👋</div>
       <div class="info">
         <div class="name">${q.neighbor} <span class="lvl">ACTIVE</span></div>
@@ -365,7 +392,7 @@ function renderQuests(list) {
           ${formatShort(progress)} / ${formatShort(q.goal)} · ⏱ ${remaining.toFixed(0)}s · ${rewardStr}
         </div>
       </div>
-    `;
+    `);
     list.appendChild(active);
   }
 
@@ -381,7 +408,7 @@ function renderQuests(list) {
     const row = document.createElement('div');
     row.className = 'upgrade' + (ok ? '' : ' maxed');
     row.style.gridTemplateColumns = '42px 1fr auto';
-    row.innerHTML = `
+    row.innerHTML = iconize(`
       <div class="icon">${ok ? '✅' : '❌'}</div>
       <div class="info">
         <div class="name">${h.neighbor}</div>
@@ -391,18 +418,18 @@ function renderQuests(list) {
         <div style="color:${ok ? '#8ff09e' : '#ffb4b4'}; font-weight:700;">${ok ? 'SUCCESS' : 'FAILED'}</div>
         <div style="color:${ok ? '#ffd34e' : 'var(--ink-dim)'};">${ok ? rewardStr : '—'}</div>
       </div>
-    `;
+    `);
     list.appendChild(row);
   }
 }
 
 function renderGarden(list) {
   const header = document.createElement('div');
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Build your dream garden. Placements auto-drop on random grass.<br>
       <b style="color:var(--grass-xlight);">Bonuses stack.</b> 🌸 flowers feed 🐝 bees.
-    </p>`;
+    </p>`);
   list.appendChild(header);
   for (const def of GARDEN_DEFS) {
     const owned = state.garden[def.key];
@@ -417,7 +444,7 @@ function renderGarden(list) {
     row.className = 'upgrade' + (affordable ? ' affordable' : '');
     const placeLabel = maxed ? 'MAX' : (plan.count > 1 ? `Place ×${plan.count}` : 'Place');
     const costLabel = maxed ? '—' : '💰 ' + formatShort(plan.count > 0 ? plan.total : singleCost);
-    row.innerHTML = `
+    row.innerHTML = iconize(`
       <div class="icon">${def.icon}</div>
       <div class="info">
         <div class="name">${def.name} <span class="lvl">× ${owned}/${def.max}</span></div>
@@ -427,7 +454,7 @@ function renderGarden(list) {
         ${placeLabel}
         <span class="cost">${costLabel}</span>
       </button>
-    `;
+    `);
     row.querySelector('.buy').addEventListener('click', () => buyGarden(def.key));
     list.appendChild(row);
   }
@@ -477,12 +504,12 @@ function buyGarden(key) {
 function renderTools(list) {
   const cur = activeTool();
   const header = document.createElement('div');
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Your character follows the mouse and mows grass where the cursor stands.<br>
       <b style="color:var(--grass-xlight);">Equipped:</b> ${cur.icon} ${cur.name}
       — ${playerMowRate().toFixed(1)} grass/sec · radius ${cur.radiusTiles.toFixed(1)} tiles.
-    </p>`;
+    </p>`);
   list.appendChild(header);
 
   const startIdx = state.upgrades.tool;
@@ -514,7 +541,7 @@ function renderTools(list) {
     } else {
       btn = `<button class="buy" disabled>🔒 LOCKED</button>`;
     }
-    row.innerHTML = `
+    row.innerHTML = iconize(`
       <div class="icon">${tool.icon}</div>
       <div class="info">
         <div class="name">${tool.name}</div>
@@ -522,7 +549,7 @@ function renderTools(list) {
         <div class="effect">${i === 0 ? 'Starter tool — always owned' : `+${(((tool.rateMult / TOOL_TYPES[i-1].rateMult) - 1) * 100) | 0}% faster than prev`}</div>
       </div>
       ${btn}
-    `;
+    `);
     const buyBtn = row.querySelector('.buy');
     if (buyBtn && isNext && toolPlan.count > 0) buyBtn.addEventListener('click', () => buyTool(i));
     list.appendChild(row);
@@ -610,12 +637,12 @@ function buyAreaExpansion() {
 function renderAreas(list) {
   const active = state.activeArea;
   const header = document.createElement('div');
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Unlock plots of premium grass and travel to them. Each area has its own default species — higher tiers pay far more per mow.
       Unlocked areas persist through Prestige and Ascend. Travelling resets the current plot's tile state.
     </p>
-  `;
+  `);
   list.appendChild(header);
 
   for (const def of AREA_DEFS) {
@@ -649,14 +676,14 @@ function renderAreas(list) {
       btn = `<button class="buy" data-action="travel">Travel ➜</button>`;
     }
 
-    row.innerHTML = `
+    row.innerHTML = iconize(`
       <div class="icon">${def.icon}</div>
       <div class="info">
         <div class="name">${def.name} ${lvlBadge}</div>
         <div class="effect">${effect}</div>
       </div>
       ${btn}
-    `;
+    `);
     const btnEl = row.querySelector('.buy');
     if (btnEl) {
       const action = btnEl.dataset.action;
@@ -694,23 +721,23 @@ function statRow(icon, label, value) {
   const row = document.createElement('div');
   row.className = 'upgrade';
   row.style.gridTemplateColumns = '34px 1fr auto';
-  row.innerHTML = `
+  row.innerHTML = iconize(`
     <div class="icon">${icon}</div>
     <div class="info"><div class="name">${label}</div></div>
     <div class="effect" style="font-weight:700; font-size:13px; color:var(--grass-xlight);">${value}</div>
-  `;
+  `);
   return row;
 }
 
 function renderStats(list) {
   list.innerHTML = '';
   const header = document.createElement('div');
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <div class="tabs stats-scope-tabs" style="margin-bottom:10px;">
       <button class="tab ${statsScope === 'current'  ? 'active' : ''}" data-scope="current"><span class="tab-label">Current Prestige</span></button>
       <button class="tab ${statsScope === 'lifetime' ? 'active' : ''}" data-scope="lifetime"><span class="tab-label">Lifetime</span></button>
     </div>
-  `;
+  `);
   list.appendChild(header);
   header.querySelectorAll('[data-scope]').forEach(b =>
     b.addEventListener('click', () => { statsScope = b.dataset.scope; renderStats(list); }));
@@ -747,12 +774,12 @@ function openStatsModal() {
   if (document.querySelector('.stats-modal-backdrop')) return;
   const back = document.createElement('div');
   back.className = 'modal-backdrop stats-modal-backdrop';
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal stats-modal">
       <h2>📊 STATS</h2>
       <div class="upgrades stats-list"></div>
       <button id="statsCloseBtn">Done</button>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
   const list = back.querySelector('.stats-list');
   renderStats(list);
@@ -797,14 +824,14 @@ function renderPediaSpecies(body) {
     const swatch = spec.color ? rgbCss(spec.color) : '#5fb05a';
     const card = document.createElement('div');
     card.style.cssText = `padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4; filter:grayscale(0.7);'}`;
-    card.innerHTML = `
+    card.innerHTML = iconize(`
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
         <div style="width:22px; height:22px; border-radius:4px; background:${swatch}; box-shadow: inset 0 -4px 6px rgba(0,0,0,0.3);"></div>
         <div style="font-weight:700;">${spec.icon} ${owned ? spec.name : '???'}</div>
       </div>
       <div style="font-size:11px; color:var(--ink-dim); line-height:1.4;">
         ${owned ? `Coin ×${spec.coinMult.toFixed(1)} · Toughness ${spec.toughness.toFixed(1)}` : 'Undiscovered'}
-      </div>`;
+      </div>`);
     grid.appendChild(card);
   }
   body.appendChild(grid);
@@ -814,7 +841,7 @@ function renderPediaGnomes(body) {
   const list = state.pedia.gnomes || [];
   const head = document.createElement('p');
   head.style.cssText = 'color:var(--ink-dim); font-size:12px; margin:0 0 10px;';
-  head.innerHTML = `Met <b style="color:#c896ff;">${list.length}</b> gnome${list.length === 1 ? '' : 's'}.`;
+  head.innerHTML = iconize(`Met <b style="color:#c896ff;">${list.length}</b> gnome${list.length === 1 ? '' : 's'}.`);
   body.appendChild(head);
   if (list.length === 0) {
     const empty = document.createElement('div');
@@ -829,7 +856,7 @@ function renderPediaGnomes(body) {
     const isGolden = name === 'Golden Gnome';
     const card = document.createElement('div');
     card.style.cssText = `padding:8px 10px; border-radius:6px; background:rgba(0,0,0,0.25); border:1px solid ${isGolden ? '#ffd34e' : 'rgba(255,255,255,0.08)'}; font-weight:600; font-size:12px;`;
-    card.innerHTML = `${isGolden ? '🌟' : '🧙'} ${name}`;
+    card.innerHTML = iconize(`${isGolden ? '🌟' : '🧙'} ${name}`);
     grid.appendChild(card);
   }
   body.appendChild(grid);
@@ -839,7 +866,7 @@ function renderPediaTreasures(body) {
   const total = state.pedia.treasures || 0;
   const head = document.createElement('p');
   head.style.cssText = 'color:var(--ink-dim); font-size:12px; margin:0 0 10px;';
-  head.innerHTML = `Opened <b style="color:#ffd34e;">${total}</b> treasure${total === 1 ? '' : 's'}.`;
+  head.innerHTML = iconize(`Opened <b style="color:#ffd34e;">${total}</b> treasure${total === 1 ? '' : 's'}.`);
   body.appendChild(head);
   const seen = state.pedia.treasureRare || [];
   const grid = document.createElement('div');
@@ -848,9 +875,9 @@ function renderPediaTreasures(body) {
     const owned = seen.indexOf(r.id) >= 0;
     const card = document.createElement('div');
     card.style.cssText = `padding:10px; border-radius:8px; border:1px solid ${owned ? r.color : 'rgba(255,255,255,0.08)'}; background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4;'}`;
-    card.innerHTML = `
+    card.innerHTML = iconize(`
       <div style="font-weight:700; color:${owned ? r.color : 'var(--ink-dim)'};">🎁 ${owned ? r.label : '???'}</div>
-      <div style="font-size:11px; color:var(--ink-dim); margin-top:4px;">${owned ? 'Discovered' : 'Undiscovered'}</div>`;
+      <div style="font-size:11px; color:var(--ink-dim); margin-top:4px;">${owned ? 'Discovered' : 'Undiscovered'}</div>`);
     grid.appendChild(card);
   }
   body.appendChild(grid);
@@ -867,9 +894,9 @@ function renderPediaWeather(body) {
     const display = hours >= 1 ? `${hours.toFixed(1)}h` : `${Math.floor(secs / 60)}m ${Math.floor(secs % 60)}s`;
     const card = document.createElement('div');
     card.style.cssText = `padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4; filter:grayscale(0.7);'}`;
-    card.innerHTML = `
+    card.innerHTML = iconize(`
       <div style="font-weight:700;">${w.icon} ${owned ? w.name : '???'}</div>
-      <div style="font-size:11px; color:var(--ink-dim); margin-top:4px;">${owned ? display + ' endured' : 'Undiscovered'}</div>`;
+      <div style="font-size:11px; color:var(--ink-dim); margin-top:4px;">${owned ? display + ' endured' : 'Undiscovered'}</div>`);
     grid.appendChild(card);
   }
   body.appendChild(grid);
@@ -884,11 +911,11 @@ function renderPediaBuffs(body) {
     const owned = seen.indexOf(key) >= 0;
     const card = document.createElement('div');
     card.style.cssText = `padding:10px; border-radius:8px; border:1px solid ${owned ? def.color : 'rgba(255,255,255,0.08)'}; background:rgba(0,0,0,0.25); ${owned ? '' : 'opacity:0.4;'}`;
-    card.innerHTML = `
+    card.innerHTML = iconize(`
       <div style="font-weight:700; color:${owned ? def.color : 'var(--ink-dim)'};">${def.icon} ${owned ? def.name : '???'}</div>
       <div style="font-size:11px; color:var(--ink-dim); margin-top:4px; line-height:1.4;">
         ${owned ? (PEDIA_BUFF_DESCS[key] || '') + '<br>✅ Triggered' : 'Undiscovered'}
-      </div>`;
+      </div>`);
     grid.appendChild(card);
   }
   body.appendChild(grid);
@@ -905,7 +932,7 @@ function renderPediaPhotos(body) {
   }
   const head = document.createElement('p');
   head.style.cssText = 'color:var(--ink-dim); font-size:12px; margin:0 0 10px;';
-  head.innerHTML = `${photos.length} / 12 snapshot${photos.length === 1 ? '' : 's'} stored.`;
+  head.innerHTML = iconize(`${photos.length} / 12 snapshot${photos.length === 1 ? '' : 's'} stored.`);
   body.appendChild(head);
   const grid = document.createElement('div');
   grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px;';
@@ -933,7 +960,7 @@ function openPediaPhotoLightbox(p) {
   back.className = 'modal-backdrop';
   back.style.zIndex = 9999;
   const stamp = new Date(p.ts).toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal" style="max-width:min(90vw,900px);">
       <h2>📸 SNAPSHOT</h2>
       <img src="${p.dataUrl}" style="max-width:100%; max-height:70vh; display:block; margin:0 auto; border-radius:6px;" alt="snapshot"/>
@@ -941,7 +968,7 @@ function openPediaPhotoLightbox(p) {
         <a id="pediaPhotoDl" href="${p.dataUrl}" download="lawnbot-zen-${stamp}.png"><button>⬇️ Download</button></a>
         <button id="pediaPhotoClose">Close</button>
       </div>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
   const close = () => back.remove();
   back.querySelector('#pediaPhotoClose').addEventListener('click', close);
@@ -957,7 +984,7 @@ function renderPedia(body) {
   for (const t of PEDIA_TABS) {
     const b = document.createElement('button');
     b.className = 'tab' + (pediaTab === t.id ? ' active' : '');
-    b.innerHTML = `<span class="tab-ico">${t.icon}</span><span class="tab-label">${t.label}</span>`;
+    b.innerHTML = iconize(`<span class="tab-ico">${t.icon}</span><span class="tab-label">${t.label}</span>`);
     b.addEventListener('click', () => { pediaTab = t.id; renderPedia(body); });
     tabs.appendChild(b);
   }
@@ -975,7 +1002,7 @@ function renderPedia(body) {
   const bonusPct = (pediaBonusMult() - 1) * 100;
   const footer = document.createElement('p');
   footer.style.cssText = 'margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08); font-size:12px; color:var(--ink-dim);';
-  footer.innerHTML = `<b style="color:#c896ff;">📖 Pedia Bonus:</b> +${bonusPct.toFixed(1)}% coin income (from species, gnomes & buffs discovered).`;
+  footer.innerHTML = iconize(`<b style="color:#c896ff;">📖 Pedia Bonus:</b> +${bonusPct.toFixed(1)}% coin income (from species, gnomes & buffs discovered).`);
   body.appendChild(footer);
 }
 
@@ -983,12 +1010,12 @@ function openPediaModal() {
   if (document.querySelector('.pedia-modal-backdrop')) return;
   const back = document.createElement('div');
   back.className = 'modal-backdrop pedia-modal-backdrop';
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal pedia-modal" style="max-width:min(92vw,720px);">
       <h2>📖 LAWN-PEDIA</h2>
       <div class="pedia-body"></div>
       <button id="pediaCloseBtn">Done</button>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
   const body = back.querySelector('.pedia-body');
   renderPedia(body);
@@ -1002,19 +1029,19 @@ function openPediaModal() {
 
 function renderGemShop(list) {
   const header = document.createElement('div');
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Spend 💎 gems on permanent upgrades. <b style="color:var(--gem);">These survive prestige.</b><br>
       Available: <b style="color:var(--gem);">${formatShort(state.gems)} 💎</b>
       · Lifetime: ${formatShort(state.totalGemsEarned || 0)} 💎 (${Math.round(gemMult() * 100 - 100)}% passive coin bonus)
-    </p>`;
+    </p>`);
   list.appendChild(header);
 
   renderTechTree(list);
 
   const subhead = document.createElement('div');
-  subhead.innerHTML = `
-    <h3 style="margin:14px 0 6px; font-size:13px; color:var(--gem); letter-spacing:0.5px;">⚗️ COMMON UPGRADES</h3>`;
+  subhead.innerHTML = iconize(`
+    <h3 style="margin:14px 0 6px; font-size:13px; color:var(--gem); letter-spacing:0.5px;">⚗️ COMMON UPGRADES</h3>`);
   list.appendChild(subhead);
 
   for (const def of GEM_UPGRADES) {
@@ -1027,7 +1054,7 @@ function renderGemShop(list) {
     row.className = 'upgrade' + (affordable ? ' affordable' : '') + (maxed ? ' maxed' : '');
     const label = maxed ? 'MAX' : (plan.count > 1 ? `Buy ×${plan.count}` : 'Buy');
     const costLabel = maxed ? '—' : '💎 ' + formatShort(plan.count > 0 ? plan.total : singleCost);
-    row.innerHTML = `
+    row.innerHTML = iconize(`
       <div class="icon">${def.icon}</div>
       <div class="info">
         <div class="name">${def.name} <span class="lvl">Lv ${lvl}/${def.max}</span></div>
@@ -1038,7 +1065,7 @@ function renderGemShop(list) {
         ${label}
         <span class="cost">${costLabel}</span>
       </button>
-    `;
+    `);
     const btn = row.querySelector('.buy');
     if (btn && affordable) btn.addEventListener('click', () => buyGemUpgrade(def.key));
     list.appendChild(row);
@@ -1049,11 +1076,11 @@ function renderGemShop(list) {
 function renderTechTree(list) {
   const wrap = document.createElement('div');
   wrap.className = 'tech-tree';
-  wrap.innerHTML = `
+  wrap.innerHTML = iconize(`
     <h3 style="margin:4px 0 6px; font-size:13px; color:#c896ff; letter-spacing:0.5px;">🌳 TECH TREE</h3>
     <p style="font-size:11px; color:var(--ink-dim); margin:0 0 8px; line-height:1.4;">
       Pick one path per tier. Choices reset on Ascend, or respec for ${respecCost()} 💎 (50% refund).
-    </p>`;
+    </p>`);
 
   for (let i = 0; i < TECH_TREE.length; i++) {
     const tier = TECH_TREE[i];
@@ -1071,9 +1098,9 @@ function renderTechTree(list) {
       const refund = Math.floor(respecCost() / 2);
       respecHtml = `<button class="tech-respec" data-tier="${tier.key}">Respec (${respecCost()}💎, refund ${refund}💎)</button>`;
     }
-    head.innerHTML = `
+    head.innerHTML = iconize(`
       <span class="tech-tier-label">Tier ${tier.tier} · ${tier.cost} 💎</span>
-      ${respecHtml}`;
+      ${respecHtml}`);
     row.appendChild(head);
 
     const cards = document.createElement('div');
@@ -1081,7 +1108,7 @@ function renderTechTree(list) {
     if (locked) {
       const ph = document.createElement('div');
       ph.className = 'tech-choice tech-choice-placeholder';
-      ph.innerHTML = `<div class="tech-locked-note">🔒 Pick Tier ${prevTier.tier} first</div>`;
+      ph.innerHTML = iconize(`<div class="tech-locked-note">🔒 Pick Tier ${prevTier.tier} first</div>`);
       cards.appendChild(ph);
     } else {
       for (const choice of tier.choices) {
@@ -1093,14 +1120,14 @@ function renderTechTree(list) {
           + (isActive ? ' active' : '')
           + (isLocked ? ' locked' : '')
           + (affordable ? ' buyable' : '');
-        card.innerHTML = `
+        card.innerHTML = iconize(`
           ${isActive ? `<div class="tech-badge">✅ ACTIVE</div>` : ''}
           ${isLocked ? `<div class="tech-badge tech-badge-locked">🔒 LOCKED</div>` : ''}
           <div class="tech-icon">${choice.icon}</div>
           <div class="tech-name">${choice.name}</div>
           <div class="tech-desc">${choice.desc}</div>
           ${(!picked) ? `<div class="tech-cost">${tier.cost} 💎</div>` : ''}
-        `;
+        `);
         if (!picked) {
           card.addEventListener('click', () => buyTechChoice(tier.key, choice.id));
         }
@@ -1200,13 +1227,13 @@ function planRubyBulk(key) {
 function renderRubyShop(list) {
   const header = document.createElement('div');
   const gainableNow = Math.floor(CFG.ascendFormula(state.totalGemsEarned || 0) * rubyShopAscendMult());
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Spend ♦️ rubies on the deepest permanent upgrades. <b style="color:#ff6b8b;">These survive every prestige AND ascend.</b><br>
       Rubies: <b style="color:#ff6b8b;">${formatShort(state.rubies || 0)} ♦️</b>
       · Lifetime: ${formatShort(state.totalRubiesEarned || 0)} ♦️
       · Pending at Ascend: <b style="color:#ff6b8b;">+${gainableNow}</b>
-    </p>`;
+    </p>`);
   list.appendChild(header);
 
   for (const def of RUBY_UPGRADES) {
@@ -1219,7 +1246,7 @@ function renderRubyShop(list) {
     row.className = 'upgrade' + (affordable ? ' affordable' : '') + (maxed ? ' maxed' : '');
     const label = maxed ? 'MAX' : (plan.count > 1 ? `Buy ×${plan.count}` : 'Buy');
     const costLabel = maxed ? '—' : '♦️ ' + formatShort(plan.count > 0 ? plan.total : singleCost);
-    row.innerHTML = `
+    row.innerHTML = iconize(`
       <div class="icon">${def.icon}</div>
       <div class="info">
         <div class="name">${def.name} <span class="lvl">Lv ${lvl}/${def.max}</span></div>
@@ -1230,7 +1257,7 @@ function renderRubyShop(list) {
         ${label}
         <span class="cost">${costLabel}</span>
       </button>
-    `;
+    `);
     const btn = row.querySelector('.buy');
     if (btn && affordable) btn.addEventListener('click', () => buyRubyUpgrade(def.key));
     list.appendChild(row);
@@ -1258,7 +1285,7 @@ function renderPrestige(list) {
   const gain = CFG.prestigeFormula(state.totalEarnedThisRun);
   const wrap = document.createElement('div');
   wrap.className = 'prestige';
-  wrap.innerHTML = `
+  wrap.innerHTML = iconize(`
     <h3>🌟 FERTILIZE THE LAWN</h3>
     <p>Reset your run (coins, robots, upgrades) for permanent gems.<br>
     Each gem grants <b>+10% coin bonus</b>, forever.</p>
@@ -1266,7 +1293,7 @@ function renderPrestige(list) {
     <p style="font-size:11px; opacity:0.7;">Threshold: ${formatShort(CFG.prestigeThreshold)} coins earned this run<br>
     Earned this run: ${formatShort(state.totalEarnedThisRun)}</p>
     <button id="prestigeBtn" ${can && gain > 0 ? '' : 'disabled'}>Fertilize (+${gain} 💎)</button>
-  `;
+  `);
   list.appendChild(wrap);
   const btn = wrap.querySelector('#prestigeBtn');
   if (btn) btn.addEventListener('click', doPrestige);
@@ -1274,13 +1301,13 @@ function renderPrestige(list) {
   const info = document.createElement('div');
   info.className = 'upgrade';
   info.style.gridTemplateColumns = '42px 1fr';
-  info.innerHTML = `
+  info.innerHTML = iconize(`
     <div class="icon">💎</div>
     <div class="info">
       <div class="name">Current Gems: ${state.gems}</div>
       <div class="effect">Global bonus: +${Math.round((gemMult() - 1) * 100)}% to all coin income</div>
     </div>
-  `;
+  `);
   list.appendChild(info);
 
   // --- Ascend (ruby prestige) ---
@@ -1295,7 +1322,7 @@ function renderPrestige(list) {
   ascend.className = 'prestige';
   ascend.style.background = 'linear-gradient(180deg, rgba(160, 30, 60, 0.65), rgba(40, 8, 20, 0.8))';
   ascend.style.borderColor = 'rgba(255, 90, 120, 0.55)';
-  ascend.innerHTML = `
+  ascend.innerHTML = iconize(`
     <h3 style="color:#ff6b8b; text-shadow: 0 0 10px rgba(255,90,120,0.5);">♦️ ASCEND</h3>
     <p>A deeper reset. <b>Wipes everything</b> — coins, runs, upgrades,
     garden, crew, grass species, 💎 gems, gem shop. Keeps ♦️ rubies,
@@ -1307,7 +1334,7 @@ function renderPrestige(list) {
       style="background: linear-gradient(180deg,#ff4a6a,#9e1230); box-shadow: 0 4px 14px rgba(255,90,120,0.35);">
       Ascend (+${ascendGain} ♦️)
     </button>
-  `;
+  `);
   list.appendChild(ascend);
   const ab = ascend.querySelector('#ascendBtn');
   if (ab) ab.addEventListener('click', doAscend);
@@ -1315,13 +1342,13 @@ function renderPrestige(list) {
   const rubyInfo = document.createElement('div');
   rubyInfo.className = 'upgrade';
   rubyInfo.style.gridTemplateColumns = '42px 1fr';
-  rubyInfo.innerHTML = `
+  rubyInfo.innerHTML = iconize(`
     <div class="icon">♦️</div>
     <div class="info">
       <div class="name" style="color:#ff6b8b;">Current Rubies: ${state.rubies || 0}</div>
       <div class="effect">Lifetime ♦️: ${state.totalRubiesEarned || 0} · Spend in the ♦️ Rubies tab</div>
     </div>
-  `;
+  `);
   list.appendChild(rubyInfo);
 }
 
@@ -1476,11 +1503,11 @@ function doAscend() {
 // ---------- Crew skill tree ----------
 function renderCrew(list) {
   const header = document.createElement('div');
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Hire specialists to automate the farm. Each tier requires the one above.
       🧙 A gnome might also drop by with gifts — collect his treasures or let your <b>Scout</b> grab them.
-    </p>`;
+    </p>`);
   list.appendChild(header);
 
   const tree = document.createElement('div');
@@ -1543,12 +1570,12 @@ function renderCrew(list) {
     const x = (node.tier === 0 && node.id === 'foreman') ? FOREMAN_X : COL_X[node.col];
     el.style.left = x + '%';
     el.style.top  = TIER_Y[node.tier] + '%';
-    el.innerHTML = `
+    el.innerHTML = iconize(`
       <div class="crew-icon">${node.icon}</div>
       <div class="crew-name">${owned ? node.crewName : node.name}</div>
       <div class="crew-desc">${node.desc}</div>
       <div class="crew-cost">${owned ? '✅ HIRED' : (locked ? '🔒 locked' : '💰 ' + formatShort(node.cost))}</div>
-    `;
+    `);
     if (buyable) {
       el.addEventListener('click', () => buyCrew(node.id));
     }
@@ -1580,11 +1607,11 @@ function buyCrew(id) {
 function renderSkins(list) {
   const header = document.createElement('div');
   const unlocked = state.skinsUnlocked.length;
-  header.innerHTML = `
+  header.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
       Equip a skin for your mower fleet. Unlock rare skins from 🧙 <b>gnome treasures</b>.<br>
       Collected: <b style="color:var(--grass-xlight);">${unlocked}/${SKIN_DEFS.length}</b> · Treasures opened: <b style="color:var(--gold);">${state.treasuresCollected || 0}</b>
-    </p>`;
+    </p>`);
   list.appendChild(header);
 
   const grid = document.createElement('div');
@@ -1596,12 +1623,12 @@ function renderSkins(list) {
     card.className = 'skin-card' + (owned ? ' owned' : ' locked') + (active ? ' active' : '');
     const preview = skinPreviewHTML(skin, owned);
     const rarityColor = RARITY_COLORS[skin.rarity] || '#9fc4a2';
-    card.innerHTML = `
+    card.innerHTML = iconize(`
       <div class="skin-preview">${preview}</div>
       <div class="skin-name">${owned ? skin.name : '???'}</div>
       <div class="skin-rarity" style="color:${rarityColor};">${skin.rarity.toUpperCase()}</div>
       <div class="skin-action">${active ? '✔ Equipped' : (owned ? 'Equip' : '🔒 Locked')}</div>
-    `;
+    `);
     if (owned && !active) {
       card.addEventListener('click', () => {
         state.activeSkin = skin.key;
@@ -1618,11 +1645,11 @@ function renderSkins(list) {
   // ---------- Mowing Patterns ----------
   const patHeader = document.createElement('div');
   const patOwned = state.patternsUnlocked.length;
-  patHeader.innerHTML = `
+  patHeader.innerHTML = iconize(`
     <p style="font-size:12px; color:var(--ink-dim); margin:16px 0 10px; line-height:1.4;">
       🪚 <b style="color:var(--grass-xlight);">Mowing Patterns</b> — styles your robots cut into the lawn.<br>
       Unlocked: <b style="color:var(--grass-xlight);">${patOwned}/${MOW_PATTERN_DEFS.length}</b> · Visible on freshly cut grass.
-    </p>`;
+    </p>`);
   list.appendChild(patHeader);
 
   const patGrid = document.createElement('div');
@@ -1637,10 +1664,10 @@ function renderSkins(list) {
     card.appendChild(preview);
     const meta = document.createElement('div');
     meta.className = 'pattern-meta';
-    meta.innerHTML = `
+    meta.innerHTML = iconize(`
       <div class="pattern-name">${pat.icon} ${pat.name}</div>
       <div class="pattern-desc">${pat.desc}</div>
-      <div class="pattern-action">${active ? '✔ Equipped' : owned ? 'Equip' : (pat.unlockCost > 0 ? '💰 ' + formatShort(pat.unlockCost) : 'Unlock')}</div>`;
+      <div class="pattern-action">${active ? '✔ Equipped' : owned ? 'Equip' : (pat.unlockCost > 0 ? '💰 ' + formatShort(pat.unlockCost) : 'Unlock')}</div>`);
     card.appendChild(meta);
     if (owned && !active) {
       card.addEventListener('click', () => {
@@ -1786,7 +1813,7 @@ function showPatternUnlockModal(pat) {
   preview.style.cssText = 'width:120px; height:120px; display:block; margin:8px auto; border-radius:8px; border:1px solid rgba(0,0,0,0.45); box-shadow: inset 0 -8px 12px rgba(0,0,0,0.25);';
   const back = document.createElement('div');
   back.className = 'modal-backdrop';
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal skin-modal">
       <h2>🧙 GNOME'S BLUEPRINT!</h2>
       <p style="color:#8ff09e; font-weight:800; letter-spacing:1px;">MOWING PATTERN UNLOCKED</p>
@@ -1794,7 +1821,7 @@ function showPatternUnlockModal(pat) {
       <div class="big" style="color:#8ff09e;">${pat.icon} ${pat.name}</div>
       <p>${pat.desc}<br>Equip it now from the 🎨 Skins tab.</p>
       <button id="okBtn">Sweet!</button>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
   back.querySelector('#patUnlockPreview').appendChild(preview);
   back.querySelector('#okBtn').addEventListener('click', () => back.remove());
@@ -1804,7 +1831,7 @@ function showSkinUnlockModal(skin) {
   const rarityColor = RARITY_COLORS[skin.rarity] || '#ffd34e';
   const back = document.createElement('div');
   back.className = 'modal-backdrop';
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal skin-modal">
       <h2>🧙 GNOME'S GIFT!</h2>
       <p style="color:${rarityColor}; font-weight:800; letter-spacing:1px;">${skin.rarity.toUpperCase()} SKIN UNLOCKED</p>
@@ -1812,7 +1839,7 @@ function showSkinUnlockModal(skin) {
       <div class="big" style="color:${rarityColor};">${skin.name}</div>
       <p>Equip it now from the 🎨 Skins tab.</p>
       <button id="okBtn">Sweet!</button>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
   back.querySelector('#okBtn').addEventListener('click', () => back.remove());
 }
@@ -1932,12 +1959,12 @@ function openSettingsModal() {
         <span class="toggle ${on ? 'on' : ''}" data-key="${def.key}"><span class="knob"></span></span>
       </label>`;
   }).join('');
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal settings-modal">
       <h2>⚙️ SETTINGS</h2>
       <div class="settings-list">${rows}</div>
       <button id="settingsCloseBtn">Done</button>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
   back.querySelectorAll('.toggle').forEach(t => {
     t.addEventListener('click', (e) => {
@@ -1954,6 +1981,13 @@ function openSettingsModal() {
         state.settings[key] = !state.settings[key];
         t.classList.toggle('on', !!state.settings[key]);
         beep(state.settings[key] ? 720 : 520, 0.05, 'sine', 0.05);
+      }
+      // Sprite toggle swaps the static HUD emojis live + forces a shop
+      // repaint so every existing rendered row picks up the new style.
+      if (key === 'useSprites') {
+        iconizeStaticHUD();
+        renderShop();
+        updateHUD();
       }
       saveGame();
     });
@@ -1998,7 +2032,7 @@ function openZenSetupModal() {
     </div>`;
   const sliderGrid = ZEN_SLIDERS.map(sliderRow).join('');
 
-  back.innerHTML = `
+  back.innerHTML = iconize(`
     <div class="modal zen-modal">
       <h2>🧘 ZEN MODE</h2>
       <p class="zen-tagline">Compose your garden screensaver.<br>
@@ -2044,7 +2078,7 @@ function openZenSetupModal() {
         <button id="zenCancelBtn" class="ghost">Cancel</button>
         <button id="zenStartBtn">▶ Start Zen</button>
       </div>
-    </div>`;
+    </div>`);
   document.body.appendChild(back);
 
   // Visual skin swatches — compact, single-row. Name in tooltip.
@@ -2056,7 +2090,7 @@ function openZenSetupModal() {
     tile.dataset.zenKey = 'skin';
     tile.dataset.value = skin.key;
     tile.title = skin.name + ' · ' + (skin.rarity || 'base');
-    tile.innerHTML = skinPreviewHTML(skin, true);
+    tile.innerHTML = iconize(skinPreviewHTML(skin, true));
     skinGrid.appendChild(tile);
   }
 
@@ -2083,7 +2117,7 @@ function openZenSetupModal() {
     chip.dataset.zenKey = 'weather';
     chip.dataset.value = w.id;
     chip.title = w.name;
-    chip.innerHTML = `${w.icon || ''} ${w.name}`.trim();
+    chip.innerHTML = iconize(`${w.icon || ''} ${w.name}`.trim());
     weatherChips.appendChild(chip);
   }
 
@@ -2098,7 +2132,7 @@ function openZenSetupModal() {
     chip.dataset.zenKey = 'dayTime';
     chip.dataset.value = key;
     chip.title = preset.label || key;
-    chip.innerHTML = `${timeIcons[key] || ''} ${preset.label || key}`.trim();
+    chip.innerHTML = iconize(`${timeIcons[key] || ''} ${preset.label || key}`.trim());
     timeChips.appendChild(chip);
   }
 
@@ -2302,7 +2336,7 @@ function toast(msg, color = '#ffd34e') {
   const t = document.createElement('div');
   t.className = 'toast';
   t.style.background = `linear-gradient(180deg, ${color}ee, ${color}aa)`;
-  t.innerHTML = msg;
+  t.innerHTML = iconize(msg);
   c.appendChild(t);
   setTimeout(() => t.remove(), 3200);
 }
@@ -2488,4 +2522,4 @@ function wireUIEvents() {
 }
 
 // ===== AUTO-EXPORTS =====
-export { achieved, autoBuyCheapest, checkAchievements, collectTreasureIndex, displayedRate, renderShop, showQuestOfferModal, toast, updateHUD, wireUIEvents };
+export { achieved, autoBuyCheapest, checkAchievements, collectTreasureIndex, displayedRate, iconizeStaticHUD, renderShop, showQuestOfferModal, toast, updateHUD, wireUIEvents };
