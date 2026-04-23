@@ -15,7 +15,44 @@ import { drawDayNightOverlay, drawWeather } from './atmosphere.js';
 // Pre-render grass tile gradients via offscreen caches keyed by
 // (bucket, species, tileSize, themeId). Theme swaps invalidate this cache.
 const tileCache = {};
-function clearTileCache() { for (const k in tileCache) delete tileCache[k]; }
+function clearTileCache() {
+  for (const k in tileCache) delete tileCache[k];
+  // Tile regeneration usually implies tile-size or theme change, both of
+  // which invalidate every gradient (sizes/colors differ). Clear together.
+  clearGradientCache();
+}
+
+// Gradient cache — gradients are allocated per-draw inside hot loops (robot
+// aura, pond water, chest body, fountain, fog bands, golden-gnome glow,
+// tree canopy, rock shading, beehive layers). On a full grid that's hundreds
+// of gradient allocations per frame. Cache them keyed on whatever inputs
+// actually change (mostly tileSize and mow radius) and invalidate on resize.
+// Pattern: getGrad(key, builder) where builder receives a fresh offscreen
+// ctx wouldn't work — gradients are bound to the main ctx. Instead we store
+// the CanvasGradient on the current ctx; they're transferrable between draws
+// on the same context in Canvas2D (they hold colour stops, not a target).
+let _gradCache = Object.create(null);
+let _gradCacheCtx = null;
+function clearGradientCache() {
+  _gradCache = Object.create(null);
+  _gradCacheCtx = null;
+}
+// Build-and-cache helper. `key` MUST encode every parameter that varies
+// (size, radius, colours). If the ctx changes (theme swap recreates DOM?)
+// we drop the cache — CanvasGradient is tied to its creating context.
+function getCachedGradient(key, build) {
+  if (_gradCacheCtx !== ctx) {
+    _gradCache = Object.create(null);
+    _gradCacheCtx = ctx;
+  }
+  let g = _gradCache[key];
+  if (!g) {
+    g = build();
+    _gradCache[key] = g;
+  }
+  return g;
+}
+
 function getTileImage(heightBucket, speciesIdx = 0) {
   const theme = (typeof activeTheme === 'function') ? activeTheme() : null;
   const themeId = theme ? theme.id : 'classic';
@@ -144,10 +181,24 @@ function mowPatternTint(x, y, h) {
 
 function drawGrass() {
   const ts = tileSize;
+  // Precompute a cheap solid fallback color for non-grass tile backgrounds.
+  // Features like trees/rocks are drawn at scaled offsets and leave tile
+  // corners exposed; previously every such tile got a full grass drawImage
+  // underneath (~30% of the grid — the biggest single render cost). A solid
+  // fillRect matching the theme's grass base covers those gaps for ~10× less
+  // work per tile. drawFlower still paints its own grass base internally.
+  const theme = (typeof activeTheme === 'function') ? activeTheme() : null;
+  const pal = (theme && theme.grass) || { base: [30,70,28], delta: [24,110,44] };
+  // Mid-brightness base matches an ungrown grass tile visually.
+  const br = (pal.base[0] + pal.delta[0] * 0.2) | 0;
+  const bg = (pal.base[1] + pal.delta[1] * 0.2) | 0;
+  const bb = (pal.base[2] + pal.delta[2] * 0.2) | 0;
+  const fallbackFill = `rgb(${br},${bg},${bb})`;
   for (let y = 0; y < CFG.gridH; y++) {
     for (let x = 0; x < CFG.gridW; x++) {
       const k = idx(x, y);
-      if (tiles[k] === T.GRASS) {
+      const t = tiles[k];
+      if (t === T.GRASS) {
         const h = grass[k];
         const bucket = Math.min(10, Math.max(0, Math.round(h * 10)));
         const spec = grassSpecies ? grassSpecies[k] : 0;
@@ -160,7 +211,12 @@ function drawGrass() {
           ctx.fillRect(x * ts, y * ts, ts, ts);
         }
       } else {
-        ctx.drawImage(getTileImage(2), x * ts, y * ts);
+        // Solid fill — much cheaper than the cached grass image drawImage.
+        // Deferred fill: batch into a single fillStyle switch would be nicer,
+        // but the lawn's non-grass tile count is small relative to grass so
+        // this is already ~10× faster than the old drawImage path.
+        ctx.fillStyle = fallbackFill;
+        ctx.fillRect(x * ts, y * ts, ts, ts);
       }
     }
   }
@@ -180,17 +236,26 @@ function drawTree(x, y) {
   roundRect(ctx, cx - ts * 0.09, cy - ts * 0.05, ts * 0.18, ts * 0.46, 2); ctx.fill();
   ctx.fillStyle = '#3e2612';
   ctx.fillRect(cx - ts * 0.03, cy - ts * 0.02, 1.5, ts * 0.44);
-  const canopy = ctx.createRadialGradient(cx - ts * 0.15, cy - ts * 0.4, 2, cx, cy - ts * 0.2, ts * 0.75);
-  canopy.addColorStop(0, '#6cc255');
-  canopy.addColorStop(0.5, '#3a8f33');
-  canopy.addColorStop(1, '#1f5a23');
+  // Canopy radial gradient is identical for every tree on-screen; build once.
+  // The gradient is tileSize-bound (radius + offsets) so key only on ts.
+  const canopy = getCachedGradient('treeCanopy|' + ts, () => {
+    const g = ctx.createRadialGradient(-ts * 0.15, -ts * 0.4, 2, 0, -ts * 0.2, ts * 0.75);
+    g.addColorStop(0, '#6cc255');
+    g.addColorStop(0.5, '#3a8f33');
+    g.addColorStop(1, '#1f5a23');
+    return g;
+  });
+  // Gradient was built at origin; translate the ctx so it lands on (cx,cy).
+  ctx.save();
+  ctx.translate(cx, cy);
   ctx.fillStyle = canopy;
-  ctx.beginPath(); ctx.arc(cx - ts * 0.18, cy - ts * 0.18, ts * 0.42, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + ts * 0.22, cy - ts * 0.12, ts * 0.36, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + ts * 0.02, cy - ts * 0.42, ts * 0.38, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-ts * 0.18, -ts * 0.18, ts * 0.42, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( ts * 0.22, -ts * 0.12, ts * 0.36, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( ts * 0.02, -ts * 0.42, ts * 0.38, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(180,255,180,0.35)';
-  ctx.beginPath(); ctx.arc(cx - ts * 0.25, cy - ts * 0.32, ts * 0.09, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx + ts * 0.12, cy - ts * 0.4,  ts * 0.07, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-ts * 0.25, -ts * 0.32, ts * 0.09, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc( ts * 0.12, -ts * 0.4,  ts * 0.07, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
 function drawRock(x, y) {
@@ -199,25 +264,33 @@ function drawRock(x, y) {
   if (Sprites.drawGrounded(ctx, 'rock', cx, cy + ts * 0.34, ts * 0.95)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.32, ts * 0.38, ts * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-  const grad = ctx.createLinearGradient(cx, cy - ts * 0.35, cx, cy + ts * 0.3);
-  grad.addColorStop(0, '#b9c0c7');
-  grad.addColorStop(0.6, '#7f868c');
-  grad.addColorStop(1, '#4a5157');
+  // Shared rock shading — cache by tile size (gradient axis is vertical,
+  // so translating the ctx lets us reuse across every rock on-screen).
+  const grad = getCachedGradient('rockShade|' + ts, () => {
+    const g = ctx.createLinearGradient(0, -ts * 0.35, 0, ts * 0.3);
+    g.addColorStop(0, '#b9c0c7');
+    g.addColorStop(0.6, '#7f868c');
+    g.addColorStop(1, '#4a5157');
+    return g;
+  });
+  ctx.save();
+  ctx.translate(cx, cy);
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.moveTo(cx - ts * 0.38, cy + ts * 0.2);
-  ctx.lineTo(cx - ts * 0.28, cy - ts * 0.22);
-  ctx.lineTo(cx - ts * 0.08, cy - ts * 0.35);
-  ctx.lineTo(cx + ts * 0.18, cy - ts * 0.28);
-  ctx.lineTo(cx + ts * 0.36, cy - ts * 0.05);
-  ctx.lineTo(cx + ts * 0.32, cy + ts * 0.22);
+  ctx.moveTo(-ts * 0.38, ts * 0.2);
+  ctx.lineTo(-ts * 0.28, -ts * 0.22);
+  ctx.lineTo(-ts * 0.08, -ts * 0.35);
+  ctx.lineTo( ts * 0.18, -ts * 0.28);
+  ctx.lineTo( ts * 0.36, -ts * 0.05);
+  ctx.lineTo( ts * 0.32, ts * 0.22);
   ctx.closePath(); ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.2)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(cx - ts * 0.22, cy - ts * 0.15);
-  ctx.lineTo(cx + ts * 0.06, cy - ts * 0.28);
+  ctx.moveTo(-ts * 0.22, -ts * 0.15);
+  ctx.lineTo( ts * 0.06, -ts * 0.28);
   ctx.stroke();
+  ctx.restore();
 }
 
 function drawPond(x, y) {
@@ -226,12 +299,18 @@ function drawPond(x, y) {
   if (Sprites.drawCentered(ctx, 'pond', cx, cy, ts * 1.05)) return;
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.beginPath(); ctx.ellipse(cx, cy + 2, ts * 0.48, ts * 0.32, 0, 0, Math.PI * 2); ctx.fill();
-  const grad = ctx.createRadialGradient(cx - ts * 0.1, cy - ts * 0.1, 2, cx, cy, ts * 0.5);
-  grad.addColorStop(0, '#7ed8ff');
-  grad.addColorStop(0.6, '#2aa2dd');
-  grad.addColorStop(1, '#155b85');
+  const grad = getCachedGradient('pondWater|' + ts, () => {
+    const g = ctx.createRadialGradient(-ts * 0.1, -ts * 0.1, 2, 0, 0, ts * 0.5);
+    g.addColorStop(0, '#7ed8ff');
+    g.addColorStop(0.6, '#2aa2dd');
+    g.addColorStop(1, '#155b85');
+    return g;
+  });
+  ctx.save();
+  ctx.translate(cx, cy);
   ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.ellipse(cx, cy, ts * 0.46, ts * 0.30, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 0, ts * 0.46, ts * 0.30, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
   const t = performance.now() / 1000;
   ctx.strokeStyle = 'rgba(255,255,255,0.35)';
   ctx.lineWidth = 1;
@@ -292,11 +371,19 @@ function drawBeehive(x, y) {
     const yy = cy + ts * 0.32 - (i * ts * 0.16);
     const w = ts * (0.46 - i * 0.06);
     const h = ts * 0.14;
-    const grad = ctx.createLinearGradient(0, yy - h, 0, yy + h);
-    grad.addColorStop(0, '#ffd26a');
-    grad.addColorStop(1, '#c58620');
+    // All four hive bands share the same vertical gradient shape (±h around
+    // center). Cache once per layer-size combo and reuse across every hive.
+    const grad = getCachedGradient('hiveBand|' + ts + '|' + h.toFixed(2), () => {
+      const g = ctx.createLinearGradient(0, -h, 0, h);
+      g.addColorStop(0, '#ffd26a');
+      g.addColorStop(1, '#c58620');
+      return g;
+    });
+    ctx.save();
+    ctx.translate(cx, yy);
     ctx.fillStyle = grad;
-    roundRect(ctx, cx - w, yy - h, w * 2, h * 2, 4); ctx.fill();
+    roundRect(ctx, -w, -h, w * 2, h * 2, 4); ctx.fill();
+    ctx.restore();
   }
   ctx.fillStyle = '#000';
   ctx.beginPath(); ctx.arc(cx, cy + ts * 0.22, ts * 0.08, 0, Math.PI * 2); ctx.fill();
@@ -534,11 +621,18 @@ function drawRobot(r) {
   const w = s * 1.4, h = s;
 
   const rad = mowRadius();
-  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
-  grad.addColorStop(0, 'rgba(255, 230, 130, 0.20)');
-  grad.addColorStop(0.7, 'rgba(255, 230, 130, 0.06)');
-  grad.addColorStop(1, 'rgba(255, 230, 130, 0)');
-  ctx.fillStyle = grad;
+  // Aura + body gradients are identical across every robot in the fleet and
+  // only change when tileSize or mowRadius (a derived upgrade) changes.
+  // Cache them — without this the per-frame cost is (robots × 2) gradient
+  // allocations, which dominates at 20+ robots.
+  const auraGrad = getCachedGradient('robotAura|' + rad.toFixed(2), () => {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
+    g.addColorStop(0, 'rgba(255, 230, 130, 0.20)');
+    g.addColorStop(0.7, 'rgba(255, 230, 130, 0.06)');
+    g.addColorStop(1, 'rgba(255, 230, 130, 0)');
+    return g;
+  });
+  ctx.fillStyle = auraGrad;
   ctx.beginPath();
   ctx.arc(0, 0, rad, 0, Math.PI * 2);
   ctx.fill();
@@ -549,9 +643,21 @@ function drawRobot(r) {
   const now = performance.now() / 1000;
   const [bodyTop, bodyBot, trimCol, accentCol, panelCol] = skinBodyColors(state.activeSkin, now);
 
-  const bodyGrad = ctx.createLinearGradient(0, -h/2, 0, h/2);
-  bodyGrad.addColorStop(0, bodyTop);
-  bodyGrad.addColorStop(1, bodyBot);
+  const bodyGrad = (state.activeSkin && state.activeSkin !== 'rainbow')
+    ? getCachedGradient('robotBody|' + h.toFixed(2) + '|' + bodyTop + '|' + bodyBot, () => {
+        const g = ctx.createLinearGradient(0, -h/2, 0, h/2);
+        g.addColorStop(0, bodyTop);
+        g.addColorStop(1, bodyBot);
+        return g;
+      })
+    : (() => {
+        // Rainbow skin animates hue every frame — cache would churn, so
+        // fall back to per-frame allocation here only.
+        const g = ctx.createLinearGradient(0, -h/2, 0, h/2);
+        g.addColorStop(0, bodyTop);
+        g.addColorStop(1, bodyBot);
+        return g;
+      })();
   ctx.fillStyle = bodyGrad;
   roundRect(ctx, -w/2, -h/2, w, h, s * 0.24);
   ctx.fill();

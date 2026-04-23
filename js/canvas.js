@@ -46,6 +46,10 @@ window.addEventListener('resize', () => {
         t.y = (t.tileY + 0.5) * tileSize;
       });
     }
+    // Render caches (tile pixmaps + entity gradients) are size-bound; drop
+    // them so nothing rebuilds against stale dimensions. Lazy import to avoid
+    // a circular top-level dependency (render.js already imports this file).
+    import('./render.js').then(m => m.clearTileCache && m.clearTileCache()).catch(() => {});
   }
 });
 

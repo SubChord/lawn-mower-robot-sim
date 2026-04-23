@@ -19,11 +19,41 @@ import { updateEvents } from './events.js';
 let lastFrame = performance.now();
 let accumulator = 0;
 const TICK = 1 / 60;
+// Throttle HUD DOM updates — values change at most a few times per second,
+// but the loop runs at 60Hz. 10Hz is imperceptible and saves ~50 DOM touches/sec.
+const HUD_INTERVAL = 0.1; // seconds
+let hudAccum = 0;
+// Render FPS cap. Sim still runs at 60Hz (via the TICK accumulator) but the
+// visible canvas only needs ~30fps for smooth-looking robot motion — the
+// grass field + features are near-static. This halves GPU/CPU time spent in
+// render() on a battery-powered device, with no perceptible motion loss.
+const RENDER_INTERVAL = 1 / 30;
+let renderAccum = 0;
+// When the tab is hidden the browser already throttles rAF to ~1Hz, but we
+// still want to drain accumulated sim time (offline progress is handled at
+// load; here we just avoid wasting cycles on canvas/DOM while backgrounded).
+let wasHidden = false;
 
 function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
+
+  // Skip all sim+render while hidden. rAF is heavily throttled when hidden
+  // (~1Hz), so letting ticks accumulate would spike CPU on tab-refocus.
+  // Resetting accumulator on focus matches how real idle time is collected
+  // separately by the save system.
+  if (document.hidden) {
+    wasHidden = true;
+    accumulator = 0;
+    hudAccum = 0;
+    return;
+  }
+  if (wasHidden) {
+    wasHidden = false;
+    accumulator = 0; // don't burn CPU catching up after a hidden gap
+  }
+
   accumulator += dt;
   while (accumulator >= TICK) {
     updateDayNight(TICK);
@@ -48,8 +78,21 @@ function loop(now) {
     updateEvents(TICK);
     accumulator -= TICK;
   }
-  render();
-  updateHUD();
+  // FPS-capped render. Sim is frame-independent via the fixed-step
+  // accumulator above, so throttling render has no gameplay effect.
+  renderAccum += dt;
+  if (renderAccum >= RENDER_INTERVAL) {
+    renderAccum -= RENDER_INTERVAL;
+    // Don't let renderAccum grow unbounded after a slow frame — it would
+    // cause a burst of render calls to catch up, defeating the cap.
+    if (renderAccum > RENDER_INTERVAL) renderAccum = 0;
+    render();
+  }
+  hudAccum += dt;
+  if (hudAccum >= HUD_INTERVAL) {
+    hudAccum = 0;
+    updateHUD();
+  }
 }
 
 function init() {
@@ -78,7 +121,14 @@ function init() {
   muteBtn.textContent = state.muted ? '🔇 Muted' : '🔊 Sound';
   wireUIEvents();
   renderShop();
-  setInterval(() => { renderShop(); checkAchievements(); }, 500);
+  // Shop + achievements: skip while hidden (browsers already throttle
+  // setInterval to ~1Hz when hidden, but a cheap guard is still worth it
+  // because renderShop touches a lot of DOM).
+  setInterval(() => {
+    if (document.hidden) return;
+    renderShop();
+    checkAchievements();
+  }, 500);
   setInterval(saveGame, 5000);
   window.addEventListener('beforeunload', saveGame);
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
