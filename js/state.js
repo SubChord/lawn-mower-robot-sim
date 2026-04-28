@@ -5,6 +5,7 @@ import { displayedRate } from './ui.js';
 import { tileSize } from './canvas.js';
 import { weatherFlowerMult, weatherGrowthMult, weatherSpeedMult } from './atmosphere.js';
 import { bees } from './world.js';
+import { ensureSkillTreeShape, hasNode, nodeRank, treeAdd, treeMult } from './skilltree.js';
 // ===== END AUTO-IMPORTS =====
 
 /* ============================================================
@@ -20,14 +21,19 @@ let state = {
   lastUpdate: Date.now(),
   muted: false,
   upgrades: {
-    robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, pest: 0, fuelType: 0, tool: 0,
+    // Cached/derived from skill-tree allocation. Kept on `state.upgrades` for
+    // backward-compat with HUD, world.ensureRobotCount(), zen mode, etc.
+    // Recomputed by recomputeFromTree() after allocate/refund/migration.
+    robots: 1, fuelType: 0, tool: 0,
   },
   fuel: 100,
   garden: {
     tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0,
   },
-  crew: [],                 // unlocked skill-tree node ids
+  // Skill tree replaces the legacy Bots/Tools/Crew tabs. Allocated node ids,
+  // milestone SP (lifetime tile mowing), and prestige SP (sqrt-damped per
+  // prestige). Initialized lazily by ensureSkillTreeShape().
+  skillTree: { allocated: [], milestoneSP: 0, prestigeSP: 0, lastAllocated: null },
   skinsUnlocked: ['default'],
   activeSkin: 'default',
   gnomeTimer: 60 + Math.random() * 30, // seconds until next wandering gnome
@@ -36,7 +42,6 @@ let state = {
   // Active timed buffs from golden gnomes: { key, name, icon, expires } where
   // `expires` is seconds remaining. Decremented in updateBuffs.
   activeBuffs: [],
-  autoBuyTimer: 0,          // Bookkeeper accountant: countdown to next auto-purchase
   treasuresCollected: 0,
   patternsUnlocked: ['plain'],
   activeMowPattern: 'plain',
@@ -78,7 +83,7 @@ let state = {
     dayNight: 'auto',   // auto | off | dawn | day | dusk | night
     weather: 'auto',    // auto | clear | rain | snow | storm | fog
     rivalry: true,      // crown the top-earning robot each 30s
-    autoBuyer: true,    // Bookkeeper auto-buys cheapest Bot/Tool upgrade
+    autoCollectTreasures: false, // repurposed setting (was Bookkeeper auto-buy)
     newsTicker: true,   // bottom-of-stage news ticker + random events
   },
   timeOfDay: 12,                // 0..24, advances in auto mode
@@ -149,8 +154,8 @@ const SETTING_DEFS = [
     onValue: 'auto', offValue: 'off' },
   { type: 'toggle', key: 'weather',        label: 'Weather overlay',     hint: 'Show weather visuals and effects on the lawn.',
     onValue: 'auto', offValue: 'off' },
-  { type: 'toggle', key: 'autoBuyer',      label: 'Auto-buy upgrades',   hint: 'Bean Counter Beatrice buys the cheapest affordable Bot/Tool upgrade every 3s.',
-    gate: () => hasCrew('accountant') },
+  { type: 'toggle', key: 'autoCollectTreasures', label: 'Auto-collect treasures',
+    hint: 'Skips the click — opens gnome treasures the moment they land.' },
   { type: 'toggle', key: 'newsTicker',     label: 'News ticker',         hint: 'Show the bottom news ticker and trigger random events every few minutes.' },
 ];
 function getSetting(key) {
@@ -355,12 +360,9 @@ const GEM_UPGRADES = [
     max: 5, baseCost: 5, growth: 2.0,
     statusText: (lvl) => `Start with ${1 + lvl} robot${lvl > 0 ? 's' : ''}` },
   { key: 'startTool',     icon: '🛠️', name: 'Apprentice Kit',
-    desc: 'Start each run with a better tool tier.',
-    max: TOOL_TYPES.length - 1, baseCost: 6, growth: 2.2,
-    statusText: (lvl) => {
-      const t = TOOL_TYPES[Math.min(lvl, TOOL_TYPES.length - 1)];
-      return `Start with ${t.icon} ${t.name}`;
-    } },
+    desc: 'Each level grants +2 Skill Points permanently (spend in the 🌳 Skills tree).',
+    max: 10, baseCost: 6, growth: 1.7,
+    statusText: (lvl) => `+${lvl * 2} starting Skill Points` },
   { key: 'autoQuest',     icon: '🤝', name: 'Open Door Policy',
     desc: 'Neighbor quests auto-accept — no more modal popups.',
     max: 1, baseCost: 8, growth: 1,
@@ -441,9 +443,9 @@ const RUBY_UPGRADES = [
     max: 10, baseCost: 4, growth: 2.0,
     statusText: (lvl) => `+${lvl * 15}% ascend rubies` },
   { key: 'startCrew',        icon: '👷', name: 'Veteran Foreman',
-    desc: 'Start every ascend with the Foreman already hired.',
-    max: 1, baseCost: 5, growth: 1,
-    statusText: (lvl) => lvl ? 'Foreman hired on every run' : 'Locked' },
+    desc: 'Each level grants +5 Skill Points permanently (spend in the 🌳 Skills tree).',
+    max: 5, baseCost: 5, growth: 2.0,
+    statusText: (lvl) => `+${lvl * 5} starting Skill Points` },
   { key: 'offlineCap',       icon: '💤', name: 'Eternal Ledger',
     desc: '+4 hours of offline earnings cap per level (base 12h).',
     max: 12, baseCost: 3, growth: 1.8,
@@ -489,24 +491,6 @@ function startingCoinsFor(lvl) {
   return 250 * (Math.pow(2, lvl) - 1);
 }
 
-const COST = {
-  robots:   (n) => Math.ceil(25   * Math.pow(1.45, n - 1)),
-  speed:    (n) => Math.ceil(40   * Math.pow(1.35, n)),
-  range:    (n) => Math.ceil(60   * Math.pow(1.40, n)),
-  value:    (n) => Math.ceil(80   * Math.pow(1.42, n)),
-  growth:   (n) => Math.ceil(120  * Math.pow(1.45, n) * (subsidyActive() ? 0.5 : 1)),
-  rate:     (n) => Math.ceil(150  * Math.pow(1.40, n)),
-  crit:     (n) => Math.ceil(500  * Math.pow(1.55, n)),
-  fuelEff:  (n) => Math.ceil(80   * Math.pow(1.45, n)),
-  pest:     (n) => Math.ceil(400  * Math.pow(1.48, n)),
-  fuelType: (n) => FUEL_TYPES[n]?.upgradeCost ?? Infinity,
-  tool:     (n) => TOOL_TYPES[n + 1]?.upgradeCost ?? Infinity,
-};
-const MAX = {
-  robots: 50, speed: 120, range: 60, value: 120, growth: 80, rate: 80, crit: 40,
-  fuelEff: 10, pest: 10, fuelType: 3, tool: TOOL_TYPES.length - 1,
-};
-
 const GARDEN_DEFS = [
   { key: 'flower',   type: T.FLOWER,   icon: '🌸', name: 'Flower Bed',
     desc: () => `+${CFG.flowerCoinPerSec} coins/sec each; attracts bees`,
@@ -539,53 +523,13 @@ function gardenCost(key) {
   return Math.ceil(def.baseCost * Math.pow(def.mult, state.garden[key]));
 }
 
-// ---------- Crew skill tree ----------
-// 3-tier tree, each node unlocks once (no levels). (col is 0..2 for rendering)
-const SKILL_TREE = [
-  { id: 'foreman',    tier: 0, col: 1, icon: '👷', name: 'Hire Foreman',    crewName: 'Big Ron',
-    desc: 'Recruit your first hand. +5% robot speed.',
-    cost: 1200, req: null },
-
-  { id: 'mechanic',   tier: 1, col: 0, icon: '🧰', name: 'Apprentice Mechanic', crewName: 'Grease McFix',
-    desc: 'Refuel costs -25% and drain -5%.',
-    cost: 3500, req: 'foreman' },
-  { id: 'keenEye',    tier: 1, col: 1, icon: '👁️', name: 'Keen Eye',           crewName: 'Eagle-Eye Brenda',
-    desc: 'Gnomes visit 35% more often · +60% skin drop chance.',
-    cost: 4500, req: 'foreman' },
-  { id: 'qualityControl', tier: 1, col: 2, icon: '🎯', name: 'Quality Control', crewName: 'Picky Patricia',
-    desc: '+4% crit chance (stacks with gnomes).',
-    cost: 5000, req: 'foreman' },
-  { id: 'moleWarden', tier: 1, col: 3, icon: '🐹', name: 'Mole Warden', crewName: 'Burrow Bob',
-    desc: 'Moles appear half as often and are evicted twice as fast.',
-    cost: 6000, req: 'foreman' },
-  { id: 'sprinkler', tier: 1, col: 4, icon: '💧', name: 'Sprinkler Tech', crewName: 'Drizzle Doug',
-    desc: '+15% grass regrowth speed.',
-    cost: 5500, req: 'foreman' },
-
-  { id: 'autoRefuel', tier: 2, col: 0, icon: '⛽', name: 'Auto-Refueler',      crewName: 'Nozzle Dave',
-    desc: 'Automatically refuel when fuel hits 25%.',
-    cost: 12000, req: 'mechanic' },
-  { id: 'scout',      tier: 2, col: 1, icon: '🔍', name: 'Treasure Scout',     crewName: 'Sneaky Steve',
-    desc: 'Auto-collects gnome treasures after 8s.',
-    cost: 15000, req: 'keenEye' },
-  { id: 'efficiency', tier: 2, col: 2, icon: '⚙️', name: 'Efficiency Expert',  crewName: 'Spreadsheet Karen',
-    desc: '+20% mow rate and +10% global coin income.',
-    cost: 18000, req: 'qualityControl' },
-  { id: 'headGardener', tier: 2, col: 4, icon: '🌻', name: 'Head Gardener',    crewName: 'Flora Faye',
-    desc: '+30% grass regrowth (stacks with Sprinkler Tech).',
-    cost: 20000, req: 'sprinkler' },
-  { id: 'accountant', tier: 2, col: 3, icon: '📊', name: 'Bookkeeper',         crewName: 'Bean Counter Beatrice',
-    desc: 'Auto-buys the cheapest affordable Bot/Tool upgrade every 3s. Toggle in Settings.',
-    cost: 30000, req: 'moleWarden' },
-];
-const SKILL_BY_ID = Object.fromEntries(SKILL_TREE.map(s => [s.id, s]));
-function hasCrew(id) { return state.crew && state.crew.indexOf(id) >= 0; }
-function crewUnlockable(id) {
-  const s = SKILL_BY_ID[id]; if (!s) return false;
-  if (hasCrew(id)) return false;
-  if (s.req && !hasCrew(s.req)) return false;
-  return true;
-}
+// ---------- Skill-tree compatibility ----------
+// hasCrew(id) preserves the legacy API for callers (ai.js, world.js,
+// state.js itself) that branch on specific perk ids ('keenEye',
+// 'mechanic', 'foreman', 'sprinkler', 'autoRefuel', 'scout', etc.).
+// Each of these ids is now a flag-node in the skill tree (see
+// skilltree.js BRANCHES) and resolves through hasNode().
+function hasCrew(id) { return hasNode(id); }
 
 // ---------- Mower skins ----------
 const SKIN_DEFS = [
@@ -738,19 +682,16 @@ function decayCritCascade(dt) {
   if (!state.critCascadeStack) return;
   state.critCascadeStack = Math.max(0, state.critCascadeStack - 0.5 * dt);
 }
-function activeFuelType(){ return FUEL_TYPES[state.upgrades.fuelType] || FUEL_TYPES[0]; }
+function activeFuelType(){ return FUEL_TYPES[Math.min(3, state.upgrades.fuelType)] || FUEL_TYPES[0]; }
 function isElectric()   { return !activeFuelType().refuelable; }
 function fuelEffMult()  {
-  const mechanic = hasCrew('mechanic') ? 0.95 : 1;
-  return Math.max(0.1, (1 - state.upgrades.fuelEff * 0.08) * mechanic);
+  // Tree's `fuelEff` nodes return a positive multiplier (1.05, 1.10, …);
+  // higher efficiency divides drain. Floor avoids degenerate zero drain.
+  return Math.max(0.1, 1 / treeMult('fuelEff'));
 }
-function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult * techFuelDrainMult(); }
-// Refuel price scales with how empty the tank is. A full-tank fill-up costs
-// the old flat rate; a nearly-full tank costs almost nothing. Minimum 1 coin
-// whenever there's anything at all to top up.
+function fuelDrainRate(){ return CFG.fuelDrainBase * state.upgrades.robots * fuelEffMult() * activeFuelType().drainMult * techFuelDrainMult() * treeMult('fuelDrain'); }
 function fuelRefillCostFull(){
-  const mechanicDisc = hasCrew('mechanic') ? 0.75 : 1;
-  return Math.ceil(25 * state.upgrades.robots * fuelEffMult() * mechanicDisc);
+  return Math.ceil(25 * state.upgrades.robots * fuelEffMult() / treeMult('refillDisc'));
 }
 function fuelRefillCost(){
   const missing = Math.max(0, CFG.fuelMax - state.fuel);
@@ -763,48 +704,32 @@ function fountainMult(){ return 1 + state.garden.fountain * 0.08; }
 function rockMult()    { return 1 + state.garden.rock * 0.005; }
 function treeGrowth()  { return state.garden.tree * 0.01 + state.garden.pond * 0.03; }
 function gnomeCritBonus(){ return state.garden.gnome * 0.01; }
-function crewSpeedMult(){ return hasCrew('foreman') ? 1.05 : 1; }
-function crewCoinMult(){ return hasCrew('efficiency') ? 1.10 : 1; }
-function crewMowRateMult(){ return hasCrew('efficiency') ? 1.20 : 1; }
-function crewCritBonus(){ return hasCrew('qualityControl') ? 0.04 : 0; }
-function crewGrowthMult(){
-  let m = 1;
-  if (hasCrew('sprinkler')) m *= 1.15;
-  if (hasCrew('headGardener')) m *= 1.30;
-  return m;
-}
-// Mole mitigation — stacks upgrade × crew. Larger interval = rarer moles;
-// smaller lifetime = shorter downtime per tile.
-function moleSpawnIntervalMult() {
-  const up = 1 + (state.upgrades.pest || 0) * 0.15;
-  const crew = hasCrew('moleWarden') ? 2.0 : 1;
-  return up * crew;
-}
-function moleLifetimeMult() {
-  const up = Math.max(0.2, 1 - (state.upgrades.pest || 0) * 0.08);
-  const crew = hasCrew('moleWarden') ? 0.5 : 1;
-  return up * crew;
-}
+// Mole mitigation — driven entirely by skill-tree nodes with stat
+// 'moleInterval' (Π) and 'moleLifetime' (Π, where >1 means longer-lived).
+function moleSpawnIntervalMult() { return treeMult('moleInterval'); }
+function moleLifetimeMult()      { return treeMult('moleLifetime'); }
 
 function weatherSafeSpeed()  { return typeof weatherSpeedMult  === 'function' ? weatherSpeedMult()  : 1; }
 function weatherSafeGrowth() { return typeof weatherGrowthMult === 'function' ? weatherGrowthMult() : 1; }
 function weatherSafeFlower() { return typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1; }
-function robotSpeed()  { return CFG.mowSpeedBase * (1 + state.upgrades.speed * 0.10) * shedMult() * crewSpeedMult() * weatherSafeSpeed() * rubyShopSpeedMult() * techSpeedMult() * techSingularityMult(); }
-function mowRadius()   { return CFG.mowRadiusBase * (1 + state.upgrades.range * 0.08); }
-function coinMult()    { return (1 + state.upgrades.value * 0.15) * gemMult() * fountainMult() * rockMult() * crewCoinMult() * gemShopCoinMult() * rubyShopCoinMult() * pollinationMult() * pediaBonusMult() * techCoinMult() * techTycoonMult() * techSingularityMult() * (hasActiveBuff('frenzy') ? 7 : 1); }
+function robotSpeed()  { return CFG.mowSpeedBase * treeMult('mowSpeed') * shedMult() * weatherSafeSpeed() * rubyShopSpeedMult() * techSpeedMult() * techSingularityMult(); }
+function mowRadius()   { return CFG.mowRadiusBase * treeMult('mowRadius'); }
+function coinMult()    { return treeMult('coinValue') * gemMult() * fountainMult() * rockMult() * gemShopCoinMult() * rubyShopCoinMult() * pollinationMult() * pediaBonusMult() * techCoinMult() * techTycoonMult() * techSingularityMult() * (hasActiveBuff('frenzy') ? 7 : 1); }
+function flowerYieldMult() { return treeMult('flowerYield'); }
+function beeYieldMult()    { return treeMult('beeYield'); }
 function growthRate()  {
-  const base = CFG.growthRateBase * (1 + state.upgrades.growth * 0.12 + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * crewGrowthMult() * symbiosisMult() * techSingularityMult();
+  const base = CFG.growthRateBase * (treeMult('growthRate') + treeGrowth()) * gemShopGrowthMult() * weatherSafeGrowth() * rubyShopGrowthMult() * symbiosisMult() * techSingularityMult();
   return droughtActive() ? base * 0.5 : base;
 }
 // Random-event modifiers — read by growthRate() and cost helpers above.
 function droughtActive() { return !!(state.activeEvent && state.activeEvent.id === 'drought'); }
 function subsidyActive() { return !!(state.activeEvent && state.activeEvent.id === 'subsidy'); }
-function mowRate()     { return CFG.mowRateBase * (1 + state.upgrades.rate * 0.15) * crewMowRateMult() * coopBotsMult() * techMowRateMult() * techSingularityMult(); }
+function mowRate()     { return CFG.mowRateBase * treeMult('mowRate') * coopBotsMult() * techMowRateMult() * techSingularityMult(); }
 function critChance()  {
   if (hasActiveBuff('critStorm')) return 1.0;
-  return Math.min(0.75, state.upgrades.crit * 0.02 + gnomeCritBonus() + crewCritBonus() + gemShopCritBonus() + rubyShopCritBonus() + techCritChanceBonus());
+  return Math.min(0.75, treeAdd('critChance') + gnomeCritBonus() + gemShopCritBonus() + rubyShopCritBonus() + techCritChanceBonus());
 }
-function critMult()    { return hasActiveBuff('critStorm') ? 10 : (5 + techCritMultBonus()); }
+function critMult()    { return hasActiveBuff('critStorm') ? 10 : (5 + techCritMultBonus() + treeAdd('critMult')); }
 
 function hasActiveBuff(key) {
   if (!state.activeBuffs || state.activeBuffs.length === 0) return false;
@@ -814,9 +739,20 @@ function hasActiveBuff(key) {
   return false;
 }
 
-function activeTool()  { return TOOL_TYPES[state.upgrades.tool] || TOOL_TYPES[0]; }
-function playerMowRate()   { return CFG.playerBaseMowRate * activeTool().rateMult * crewMowRateMult(); }
-function playerMowRadius() { return tileSize * activeTool().radiusTiles; }
+function activeTool()  { return TOOL_TYPES[Math.min(TOOL_TYPES.length - 1, state.upgrades.tool)] || TOOL_TYPES[0]; }
+function playerMowRate()   { return CFG.playerBaseMowRate * activeTool().rateMult * treeMult('playerRate'); }
+function playerMowRadius() { return tileSize * activeTool().radiusTiles * treeMult('playerRadius'); }
+
+// Recompute the cached `state.upgrades.{robots, fuelType, tool}` values from
+// the current skill-tree allocation + gem upgrades. Called after every
+// allocate/refund, after loadGame, and at the end of init's fresh-run setup.
+function recomputeFromTree() {
+  ensureSkillTreeShape();
+  const startRobotLvl = (state.gemUpgrades && state.gemUpgrades.startRobot) || 0;
+  state.upgrades.robots   = Math.max(1, 1 + startRobotLvl + treeAdd('robots'));
+  state.upgrades.fuelType = Math.min(3, nodeRank('fuelType'));
+  state.upgrades.tool     = Math.min(TOOL_TYPES.length - 1, nodeRank('tool'));
+}
 
 // ---------- Formatting ----------
 const SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
@@ -835,4 +771,4 @@ function formatShort(n) {
 }
 
 // ===== AUTO-EXPORTS =====
-export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TECH_BY_KEY, TECH_TREE, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, coinMult, coopBotsMult, critCascadeBonus, critChance, critMult, currentArea, currentAreaSpeciesIdx, decayCritCascade, droughtActive, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasActiveBuff, hasCrew, hasTech, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, pediaBonusMult, playerMowRadius, playerMowRate, pollinationMult, respecCost, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state, subsidyActive, symbiosisMult, techAutoBuyInterval, techBuffDurationMult, techCoinMult, techCritChanceBonus, techCritMultBonus, techFuelDrainMult, techGoldenGnomeMult, techMowRateMult, techOfflineMult, techOracleEventMult, techOracleRewardMult, techPicked, techPrestigeGemMult, techSingularityMult, techSpeedMult, techTycoonMult, uniqueGardenTypes };
+export { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKIN_BY_KEY, SKIN_DEFS, TECH_BY_KEY, TECH_TREE, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, beeYieldMult, coinMult, coopBotsMult, critCascadeBonus, critChance, critMult, currentArea, currentAreaSpeciesIdx, decayCritCascade, droughtActive, flowerYieldMult, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopOfflineMult, gemShopPrestigeMult, gemUpgradeCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasActiveBuff, hasCrew, hasTech, isElectric, moleLifetimeMult, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, pediaBonusMult, playerMowRadius, playerMowRate, pollinationMult, recomputeFromTree, respecCost, robotSpeed, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopOfflineCapHours, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, skinDropChance, startingCoinsFor, state, subsidyActive, symbiosisMult, techAutoBuyInterval, techBuffDurationMult, techCoinMult, techCritChanceBonus, techCritMultBonus, techFuelDrainMult, techGoldenGnomeMult, techMowRateMult, techOfflineMult, techOracleEventMult, techOracleRewardMult, techPicked, techPrestigeGemMult, techSingularityMult, techSpeedMult, techTycoonMult, uniqueGardenTypes };

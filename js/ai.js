@@ -1,12 +1,13 @@
 // ===== AUTO-IMPORTS =====
 import { CFG, NEIGHBOR_NAMES, OBSTACLE, T } from './config.js';
-import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, coinMult, critCascadeBonus, critChance, critMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, playerMowRadius, playerMowRate, robotSpeed, state, techAutoBuyInterval, techGoldenGnomeMult } from './state.js';
+import { GRASS_TYPES, QUEST_BY_ID, QUEST_HISTORY_MAX, QUEST_TYPES, activeFuelType, beeYieldMult, coinMult, critCascadeBonus, critChance, critMult, flowerYieldMult, formatShort, fuelDrainRate, fuelRefillCost, getSetting, gnomeSpawnIntervalMult, growthRate, hasCrew, isElectric, moleSpawnIntervalMult, mowRadius, mowRate, noteCritForCascade, playerMowRadius, playerMowRate, robotSpeed, state, techGoldenGnomeMult } from './state.js';
 import { addParticle, beep, canvas, playGnomeGiggle, tileSize } from './canvas.js';
 import { activeWeather, beesAreActive, rivalrySpeedBonus, trackRivalryEarnings, weatherFlowerMult } from './atmosphere.js';
-import { collectTreasureIndex, showQuestOfferModal, toast, autoBuyCheapest } from './ui.js';
+import { collectTreasureIndex, showQuestOfferModal, toast } from './ui.js';
 import { despawnMole, goldenGnomes, grass, grassSpecies, idx, inBounds, moles, player, robots, spawnEvilGnome, spawnGoldenGnome, spawnMole, spawnTreasureAt, spawnVisitorGnome, tiles, treasures, visitorGnomes } from './world.js';
 import { mowPatternIsDark } from './render.js';
 import { saveGame } from './save.js';
+import { recordTileMowed } from './skilltree.js';
 // ===== END AUTO-IMPORTS =====
 
 /* ============================================================
@@ -146,7 +147,7 @@ function updatePlayer(dt) {
       grass[k] = Math.max(0, prev - cut);
       mowedThisTick += cut;
       coinUnits += cut * spec.coinMult;
-      if (prev > 0.9 && grass[k] <= 0.9) { state.totalTilesMowed++; pediaDiscoverSpecies(spec); }
+      if (prev > 0.9 && grass[k] <= 0.9) { const _t = state.totalTilesMowed; state.totalTilesMowed = _t + 1; recordTileMowed(_t, _t + 1); pediaDiscoverSpecies(spec); }
     }
   }
   if (mowedThisTick > 0) {
@@ -247,7 +248,7 @@ function updateRobot(r, dt) {
       grass[k] = Math.max(0, prev - cut);
       mowedThisTick += cut;
       coinUnits += cut * spec.coinMult;
-      if (prev > 0.9 && grass[k] <= 0.9) { state.totalTilesMowed++; pediaDiscoverSpecies(spec); }
+      if (prev > 0.9 && grass[k] <= 0.9) { const _t = state.totalTilesMowed; state.totalTilesMowed = _t + 1; recordTileMowed(_t, _t + 1); pediaDiscoverSpecies(spec); }
     }
   }
   if (mowedThisTick > 0) {
@@ -330,7 +331,7 @@ function updateBee(b, dt) {
     b.y += Math.cos(b.stateTime * 14) * 0.15;
     if (b.stateTime > CFG.beeVisitDuration) {
       if (t.tx >= 0 && tiles[idx(t.tx, t.ty)] === T.FLOWER) {
-        const coins = CFG.beeRewardPerVisit * coinMult();
+        const coins = CFG.beeRewardPerVisit * coinMult() * beeYieldMult();
         state.coins += coins;
         state.totalEarnedAllTime += coins;
         state.totalEarnedThisRun += coins;
@@ -613,8 +614,8 @@ function updateCrew(dt) {
       }
     }
   }
-  // Treasure scout
-  if (hasCrew('scout')) {
+  // Treasure scout (skill-tree node) OR the auto-collect-treasures setting
+  if (hasCrew('scout') || getSetting('autoCollectTreasures')) {
     for (let i = treasures.length - 1; i >= 0; i--) {
       const t = treasures[i];
       if (t.born > CFG.scoutAutoDelay) {
@@ -655,7 +656,7 @@ function updateFlowerIncome(dt) {
   if (flowers <= 0) return;
   const wMult = typeof weatherFlowerMult === 'function' ? weatherFlowerMult() : 1;
   if (wMult <= 0) return; // snow (heavy) can pause flower income entirely
-  const perSec = flowers * CFG.flowerCoinPerSec * coinMult() * wMult;
+  const perSec = flowers * CFG.flowerCoinPerSec * coinMult() * flowerYieldMult() * wMult;
   const earned = perSec * dt;
   state.coins += earned;
   state.totalEarnedAllTime += earned;
@@ -673,18 +674,6 @@ function updateFlowerIncome(dt) {
     }
     if (flowerIncomeAccum > 20) flowerIncomeAccum = 0;
   }
-}
-
-// Bookkeeper crew member: every 3s buys the cheapest affordable Bot/Tool
-// upgrade. Driven from the main loop so it ticks even while the shop is on
-// another tab. No-op without the crew node or with the toggle disabled.
-function updateAutoBuy(dt) {
-  if (!hasCrew('accountant')) return;
-  if (!getSetting('autoBuyer')) return;
-  state.autoBuyTimer = (state.autoBuyTimer || 0) - dt;
-  if (state.autoBuyTimer > 0) return;
-  state.autoBuyTimer = techAutoBuyInterval();
-  autoBuyCheapest();
 }
 
 // ---------- Golden Gnomes (rare clickable buff spawns) ----------
@@ -741,4 +730,4 @@ function updateBuffs(dt) {
 }
 
 // ===== AUTO-EXPORTS =====
-export { updateAutoBuy, updateBee, updateBuffs, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGoldenGnomes, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes };
+export { updateBee, updateBuffs, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGoldenGnomes, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes };

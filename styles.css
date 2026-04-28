@@ -360,82 +360,113 @@ aside.shop {
 .upgrade .buy:disabled { background: var(--btn-disabled); color: var(--ink-dim); cursor: not-allowed; box-shadow: none; }
 .upgrade .buy .cost { display: block; font-size: 10px; font-weight: 600; opacity: 0.95; margin-top: 1px; }
 
-/* ---------- Crew skill tree ---------- */
-.crew-tree {
-  position: relative;
-  width: 100%;
-  height: 400px;
-  max-width: 360px;
-  margin: 0 auto 12px;
-}
-.crew-connectors {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  pointer-events: none;
-}
-.crew-node {
-  position: absolute;
-  width: 62px;
-  transform: translate(-50%, -50%);
+/* ---------- Skill tree (sidebar summary + fullscreen modal) ---------- */
+.skills-summary {
   background: linear-gradient(180deg, rgba(20,50,30,0.85), rgba(10,28,18,0.85));
-  border: 1.5px solid rgba(143,240,158,0.3);
+  border: 1px solid rgba(143,240,158,0.3);
   border-radius: 10px;
-  padding: 4px 4px 4px;
-  text-align: center;
-  cursor: default;
-  transition: transform .1s, border-color .15s, box-shadow .15s;
-  backdrop-filter: blur(3px);
-  left: calc(var(--px, 0) * 1%);
+  padding: 14px;
+  margin-bottom: 12px;
 }
-.crew-node .crew-icon {
-  font-size: 18px;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+.skills-summary-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
 }
-.crew-node .crew-name {
-  font-weight: 800;
-  font-size: 9px;
-  margin-top: 2px;
-  color: var(--ink);
-  line-height: 1.1;
-}
-.crew-node .crew-desc {
-  font-size: 8px;
-  color: var(--ink-dim);
-  line-height: 1.15;
-  margin-top: 2px;
-  min-height: 28px;
-}
-.crew-node .crew-cost {
-  font-size: 8.5px;
-  font-weight: 700;
-  margin-top: 2px;
-  color: var(--gold);
-}
-.crew-node.locked {
-  opacity: 0.45;
-  filter: grayscale(0.7);
-}
-.crew-node.locked .crew-cost { color: #888; }
-.crew-node.owned {
-  border-color: rgba(255,211,78,0.75);
-  box-shadow: 0 0 0 1px rgba(255,211,78,0.3), 0 0 18px rgba(255,211,78,0.25);
-  background: linear-gradient(180deg, rgba(60,50,20,0.8), rgba(30,20,5,0.85));
-}
-.crew-node.owned .crew-cost { color: var(--grass-xlight); }
-.crew-node.buyable {
+.skills-summary-label { color: var(--ink-dim); font-size: 12px; }
+.skills-summary-val { color: var(--ink); font-size: 14px; }
+.skills-summary-val b { color: #ffd34e; font-size: 18px; }
+.skills-summary-hint { color: var(--ink-dim); font-size: 11px; line-height: 1.4; margin: 6px 0 0; }
+.big-action {
+  display: block; width: 100%;
+  margin-top: 12px; padding: 14px;
+  background: linear-gradient(180deg, #4caf6e, #2e7d44);
+  color: #fff; font-weight: 800; font-size: 16px;
+  border: 0; border-radius: 8px;
   cursor: pointer;
-  border-color: rgba(255,211,78,0.75);
-  animation: crewPulse 1.8s ease-in-out infinite;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: transform .08s, filter .15s;
 }
-.crew-node.buyable:hover {
-  transform: translate(-50%, -50%) scale(1.06);
-  box-shadow: 0 0 0 2px rgba(255,211,78,0.4), 0 0 24px rgba(255,211,78,0.35);
+.big-action:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.skill-tree-backdrop {
+  display: flex; align-items: stretch; justify-content: stretch;
+  padding: 2vh 2vw;
 }
-@keyframes crewPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,211,78,0.0); }
-  50%      { box-shadow: 0 0 0 2px rgba(255,211,78,0.3), 0 0 16px rgba(255,211,78,0.3); }
+.skill-tree-modal {
+  width: 96vw; height: 96vh;
+  max-width: none; max-height: none;
+  display: flex; flex-direction: column;
+  padding: 0;
+  background: #0d1f12;
+  border: 1px solid rgba(143,240,158,0.3);
+  border-radius: 12px;
+  overflow: hidden;
 }
+.skill-tree-toolbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 16px;
+  background: rgba(0,0,0,0.4);
+  border-bottom: 1px solid rgba(143,240,158,0.2);
+  flex-wrap: wrap;
+}
+.st-title { font-weight: 800; font-size: 18px; color: #ffd34e; }
+.st-sp-counter { font-size: 14px; color: var(--ink); }
+.st-sp-counter b { color: #ffd34e; font-size: 18px; }
+.st-sp-sub { color: var(--ink-dim); font-size: 12px; }
+.st-actions { display: flex; gap: 8px; margin-left: auto; }
+.st-btn {
+  background: rgba(143,240,158,0.15);
+  color: var(--ink);
+  border: 1px solid rgba(143,240,158,0.4);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.st-btn:hover { background: rgba(143,240,158,0.3); }
+.st-btn-close { background: rgba(220,80,80,0.2); border-color: rgba(220,80,80,0.5); }
+.st-btn-close:hover { background: rgba(220,80,80,0.4); }
+.st-hint {
+  width: 100%;
+  font-size: 11px; color: var(--ink-dim);
+}
+.skill-tree-canvas-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+.skill-tree-canvas {
+  display: block;
+  width: 100%; height: 100%;
+  cursor: grab;
+}
+.skill-tree-canvas:active { cursor: grabbing; }
+.skill-tooltip {
+  position: absolute;
+  pointer-events: none;
+  max-width: 280px;
+  background: rgba(8,18,12,0.96);
+  border: 1px solid rgba(143,240,158,0.5);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  z-index: 10;
+}
+.st-tip-title { font-weight: 800; font-size: 14px; color: #ffd34e; margin-bottom: 2px; }
+.st-tip-branch { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; opacity: 0.9; }
+.st-tip-desc { color: var(--ink-dim); margin-bottom: 6px; }
+.st-tip-eff { color: #8ff09e; font-weight: 600; margin-bottom: 4px; }
+.st-tip-drawback { color: #ff8a6c; font-weight: 600; margin-top: 4px; }
+.st-tip-flag { color: #72f2ff; font-size: 11px; margin-top: 4px; }
+.st-tip-status { margin-top: 6px; font-weight: 700; font-size: 11px; }
+.st-tip-status.owned { color: #ffd34e; }
+.st-tip-status.buy   { color: #8ff09e; }
+.st-tip-status.no    { color: var(--ink-dim); }
+
+
 
 /* ---------- Skin gallery ---------- */
 .skin-grid {
@@ -1138,3 +1169,26 @@ body.zen-mode main.stage {
   color: #d1ffe0;
 }
 .tech-badge-locked { background: rgba(255,255,255,0.08); color: #aaa; }
+
+/* ---------- Skill tree modal — higher-specificity overrides for base .modal ---------- */
+.modal-backdrop.skill-tree-backdrop {
+  display: flex; align-items: stretch; justify-content: stretch;
+  padding: 2vh 2vw;
+}
+.modal.skill-tree-modal {
+  width: 96vw; height: 96vh;
+  max-width: none; max-height: none;
+  padding: 0;
+  text-align: left;
+  display: flex; flex-direction: column;
+}
+.modal.skill-tree-modal button {
+  min-width: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  box-shadow: none;
+  border-radius: 6px;
+}
+.modal.skill-tree-modal .big-action {
+  min-width: 0;
+}

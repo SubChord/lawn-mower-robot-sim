@@ -1,14 +1,15 @@
 // ===== AUTO-IMPORTS =====
 import { SAVE_KEY, loadGame, saveGame } from './save.js';
-import { TOOL_TYPES, applyMapDimensions, decayCritCascade, gemLvl, startingCoinsFor, state } from './state.js';
+import { TOOL_TYPES, applyMapDimensions, decayCritCascade, gemLvl, recomputeFromTree, rubyLvl, startingCoinsFor, state } from './state.js';
 import { applyThemeDom } from './themes.js';
 import { bees, ensureBeesFromHives, ensureRobotCount, initWorld, robots } from './world.js';
 import { checkAchievements, renderShop, toast, updateHUD, wireUIEvents } from './ui.js';
 import { render } from './render.js';
 import { resizeCanvas } from './canvas.js';
-import { updateAutoBuy, updateBee, updateBuffs, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGoldenGnomes, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes } from './ai.js';
+import { updateBee, updateBuffs, updateCrew, updateFlowerIncome, updateFuel, updateGnomeSpawnTimer, updateGoldenGnomes, updateGrass, updateMoles, updatePlayer, updateQuestTimer, updateRobot, updateTreasures, updateVisitorGnomes } from './ai.js';
 import { updateDayNight, updateRivalry, updateWeather } from './atmosphere.js';
 import { updateEvents } from './events.js';
+import { startingSPFromOrphans, ensureSkillTreeShape } from './skilltree.js';
 // ===== END AUTO-IMPORTS =====
 
 /* ============================================================
@@ -42,7 +43,6 @@ function loop(now) {
     updateGoldenGnomes(TICK);
     updateBuffs(TICK);
     updateCrew(TICK);
-    updateAutoBuy(TICK);
     decayCritCascade(TICK);
     updateEvents(TICK);
     accumulator -= TICK;
@@ -57,10 +57,11 @@ function init() {
   if (!loaded) {
     applyMapDimensions();
     initWorld();
-    // Fresh run: apply starting bonuses from permanent gem upgrades.
     state.coins = startingCoinsFor(gemLvl('startCoins'));
-    state.upgrades.robots = 1 + gemLvl('startRobot');
-    state.upgrades.tool = Math.min(gemLvl('startTool'), TOOL_TYPES.length - 1);
+    // Fresh run: seed prestigeSP from repurposed orphan gem/ruby upgrades.
+    ensureSkillTreeShape();
+    state.skillTree.prestigeSP = startingSPFromOrphans(gemLvl('startTool'), rubyLvl('startCrew'));
+    recomputeFromTree();
   }
   ensureRobotCount();
   if (state._savedRobots) {

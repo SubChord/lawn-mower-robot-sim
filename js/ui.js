@@ -1,5 +1,5 @@
 // ===== AUTO-IMPORTS =====
-import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, COST, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MAX, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKILL_BY_ID, SKILL_TREE, SKIN_BY_KEY, SKIN_DEFS, TECH_BY_KEY, TECH_TREE, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, hasTech, isElectric, pediaBonusMult, playerMowRate, respecCost, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state, techBuffDurationMult, techPicked, techPrestigeGemMult } from './state.js';
+import { AREA_BY_ID, AREA_DEFS, AREA_EXPAND_COST_GEMS, FUEL_TYPES, GARDEN_BY_KEY, GARDEN_DEFS, GEM_BY_KEY, GEM_UPGRADES, GRASS_BY_KEY, GRASS_TYPES, MOW_PATTERN_BY_KEY, MOW_PATTERN_DEFS, QUEST_BY_ID, RARITY_COLORS, RUBY_BY_KEY, RUBY_UPGRADES, SETTING_DEFS, SKIN_BY_KEY, SKIN_DEFS, TECH_BY_KEY, TECH_TREE, TOOL_TYPES, ZEN_CONFIG_DEFAULT, ZEN_SLIDERS, activeFuelType, activeTool, applyMapDimensions, areaIsExpanded, areaUnlocked, critChance, critMult, currentArea, formatShort, fuelDrainRate, fuelRefillCost, gardenCost, gemLvl, gemMult, gemShopPrestigeMult, gemUpgradeCost, hasCrew, hasTech, isElectric, pediaBonusMult, playerMowRate, recomputeFromTree, respecCost, rubyLvl, rubyShopAscendMult, rubyShopHasStartCrew, rubyShopHasWeatherControl, rubyShopPrestigeMult, rubyShopStartGems, rubyUpgradeCost, startingCoinsFor, state, techBuffDurationMult, techPicked, techPrestigeGemMult } from './state.js';
 import { CFG, T } from './config.js';
 import { DAY_TIME_KEYS, DAY_TIME_PRESETS, WEATHER_BY_ID, WEATHER_TYPES, activeWeather, takeZenPhoto } from './atmosphere.js';
 import { addParticle, beep, canvas, flashCoin, particles, resizeCanvas, tileSize } from './canvas.js';
@@ -8,6 +8,8 @@ import { applyThemeDom } from './themes.js';
 import { clearTileCache, mowPatternTint } from './render.js';
 import { resetGame, saveGame } from './save.js';
 import { updateEventBanner } from './events.js';
+import { getAvailableSP, getSpentSP, getTotalSP, awardPrestigeSP, prestigeSPGain, refundAll } from './skilltree.js';
+import { openSkillTreeModal } from './skilltree_ui.js';
 // ===== END AUTO-IMPORTS =====
 
 /* ============================================================
@@ -169,49 +171,10 @@ function showQuestOfferModal(quest) {
 }
 
 // ---------- Shop / Upgrades UI ----------
-// Compact rows: short name, one-line status. Next-step detail lives in the button tooltip.
-const UPGRADE_DEFS = [
-  { key: 'robots', icon: '🤖', name: 'Robot',
-    desc: (s) => `Fleet: ${s.upgrades.robots}`,
-    effect: () => `Deploy one more robot on the lawn`, show: () => true },
-  { key: 'speed',  icon: '⚡', name: 'Turbo Motors',
-    desc: (s) => `+${s.upgrades.speed * 10}% move speed`,
-    effect: () => `+10% robot move speed` },
-  { key: 'range',  icon: '📏', name: 'Wider Blades',
-    desc: (s) => `+${s.upgrades.range * 8}% cut range`,
-    effect: () => `+8% cutting radius` },
-  { key: 'rate',   icon: '🌀', name: 'Sharper Blades',
-    desc: (s) => `+${s.upgrades.rate * 15}% mow rate`,
-    effect: () => `+15% mow speed` },
-  { key: 'value',  icon: '💰', name: 'Golden Clippings',
-    desc: (s) => `+${s.upgrades.value * 15}% coin value`,
-    effect: () => `+15% coins per mow` },
-  { key: 'growth', icon: '🌱', name: 'Fertilizer',
-    desc: (s) => `+${s.upgrades.growth * 12}% growth`,
-    effect: () => `+12% grass regrowth` },
-  { key: 'crit',    icon: '🎯', name: 'Lucky Mower',
-    desc: () => `Crit ${(critChance()*100).toFixed(1)}% · ×${critMult()}`,
-    effect: () => `+2% crit chance` },
-  { key: 'fuelEff', icon: '🔩', name: 'Fuel Efficiency',
-    desc: () => `Drain ${fuelDrainRate().toFixed(2)}/s`,
-    effect: () => `-8% fuel consumption` },
-  { key: 'pest',   icon: '🐹', name: 'Pest Control',
-    desc: (s) => `Moles: +${s.upgrades.pest * 15}% interval · -${s.upgrades.pest * 8}% lifetime`,
-    effect: () => `Rarer moles, shorter dig-ins` },
-  { key: 'fuelType', icon: '⛽', name: 'Fuel Type',
-    desc: (s) => {
-      const cur = FUEL_TYPES[s.upgrades.fuelType];
-      const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
-      return nxt ? `${cur.icon} ${cur.name} → ${nxt.icon} ${nxt.name}` : `${cur.icon} ${cur.name} · MAX`;
-    },
-    effect: (s) => {
-      const nxt = FUEL_TYPES[s.upgrades.fuelType + 1];
-      return nxt ? `${(nxt.drainMult*100)|0}% drain · ${nxt.recharge}/s regen${nxt.refuelable ? '' : ' · no refuel needed'}` : '';
-    },
-  },
-];
+// Bots / Tools / Crew tabs were replaced by the Skill Tree (see skilltree.js
+// and skilltree_ui.js). The Skills tab opens a fullscreen modal canvas.
 
-let activeTab = 'upgrades';
+let activeTab = 'skills';
 
 // ---------- Bulk-buy modifier ----------
 // Hold Shift for ×10, Ctrl/Cmd for ×100, both for Max affordable.
@@ -260,9 +223,9 @@ function updateTabsVisibility() {
     const key = tab.dataset.tab;
     if (key in vis) tab.style.display = vis[key] ? '' : 'none';
   }
-  // If the currently-active tab just got hidden, fall back to Bots.
+  // If the currently-active tab just got hidden, fall back to Skills.
   if (activeTab in vis && !vis[activeTab]) {
-    activeTab = 'upgrades';
+    activeTab = 'skills';
     document.querySelectorAll('.tab').forEach(t =>
       t.classList.toggle('active', t.dataset.tab === activeTab));
   }
@@ -280,45 +243,37 @@ function renderShop() {
     list.appendChild(hint);
   }
 
+  if (activeTab === 'skills')   { renderSkillsTabPanel(list); return; }
   if (activeTab === 'prestige') { renderPrestige(list); return; }
   if (activeTab === 'garden')   { renderGarden(list);   return; }
-  if (activeTab === 'crew')     { renderCrew(list);     return; }
   if (activeTab === 'skins')    { renderSkins(list);    return; }
-  if (activeTab === 'tools')    { renderTools(list);    return; }
   if (activeTab === 'areas')    { renderAreas(list);     return; }
   if (activeTab === 'quests')   { renderQuests(list);    return; }
   if (activeTab === 'gemshop')  { renderGemShop(list);   return; }
   if (activeTab === 'rubyshop') { renderRubyShop(list);  return; }
+  // Unknown tab — fall back to skills panel summary.
+  renderSkillsTabPanel(list);
+}
 
-  for (const up of UPGRADE_DEFS) {
-    if (up.show && !up.show()) continue;
-    const lvl = state.upgrades[up.key];
-    const maxed = lvl >= MAX[up.key];
-    const plan = maxed ? { count: 0, total: 0 } : planBulk(
-      (i) => COST[up.key](lvl + i),
-      (i) => lvl + i < MAX[up.key],
-    );
-    const singleCost = maxed ? Infinity : COST[up.key](lvl);
-    const affordable = plan.count > 0;
-    const row = document.createElement('div');
-    row.className = 'upgrade' + (affordable ? ' affordable' : '') + (maxed ? ' maxed' : '');
-    const tooltip = maxed ? 'Fully upgraded' : up.effect(state);
-    const buyLabel = maxed ? 'MAX' : (plan.count > 1 ? `Buy ×${plan.count}` : 'Buy');
-    const costLabel = maxed ? '—' : '💰 ' + formatShort(plan.count > 0 ? plan.total : singleCost);
-    row.innerHTML = `
-      <div class="icon">${up.icon}</div>
-      <div class="info">
-        <div class="name">${up.name} ${up.key !== 'robots' ? `<span class="lvl">Lv ${lvl}</span>` : ''}</div>
-        <div class="effect">${maxed ? '⭐ MAXED' : up.desc(state)}</div>
-      </div>
-      <button class="buy" ${affordable ? '' : 'disabled'} title="${tooltip.replace(/"/g,'&quot;')}">
-        ${buyLabel}
-        <span class="cost">${costLabel}</span>
-      </button>
-    `;
-    row.querySelector('.buy').addEventListener('click', () => buy(up.key));
-    list.appendChild(row);
-  }
+// Sidebar summary card for the Skills tab — the real tree opens in a fullscreen
+// modal so it survives the 500ms renderShop nuke-and-rebuild cycle.
+function renderSkillsTabPanel(list) {
+  const avail = getAvailableSP();
+  const total = getTotalSP();
+  const spent = getSpentSP();
+  const card = document.createElement('div');
+  card.className = 'skills-summary';
+  card.innerHTML = `
+    <div class="skills-summary-row">
+      <span class="skills-summary-label">Skill Points</span>
+      <span class="skills-summary-val"><b>${avail}</b> available · ${spent}/${total} spent</span>
+    </div>
+    <p class="skills-summary-hint">Open the tree to spend points on +stats, flag perks, and keystones across six branches: Mow, Yield, Tools, Hazards, Garden, Fleet.</p>
+    <button id="openSkillTreeBtn" class="big-action">🌳 Open Skill Tree</button>
+    <p class="skills-summary-hint" style="margin-top:14px;">SP comes from milestones (every 2,500 tiles mowed) and prestige (~√gems × 2 per prestige).</p>
+  `;
+  list.appendChild(card);
+  card.querySelector('#openSkillTreeBtn').addEventListener('click', () => openSkillTreeModal());
 }
 
 function renderQuests(list) {
@@ -470,83 +425,6 @@ function buyGarden(key) {
     });
   }
   if (placedCount < plan.count) toast(`⚠️ Only ${placedCount} of ${plan.count} placed — lawn is full.`, '#ffb4b4');
-  renderShop();
-  saveGame();
-}
-
-function renderTools(list) {
-  const cur = activeTool();
-  const header = document.createElement('div');
-  header.innerHTML = `
-    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
-      Your character follows the mouse and mows grass where the cursor stands.<br>
-      <b style="color:var(--grass-xlight);">Equipped:</b> ${cur.icon} ${cur.name}
-      — ${playerMowRate().toFixed(1)} grass/sec · radius ${cur.radiusTiles.toFixed(1)} tiles.
-    </p>`;
-  list.appendChild(header);
-
-  const startIdx = state.upgrades.tool;
-  const toolPlan = planBulk(
-    (i) => TOOL_TYPES[startIdx + 1 + i]?.upgradeCost ?? Infinity,
-    (i) => startIdx + 1 + i < TOOL_TYPES.length,
-  );
-  // Which tiers will this click skip past?
-  const skipUntil = startIdx + toolPlan.count;
-
-  for (let i = 0; i < TOOL_TYPES.length; i++) {
-    const tool = TOOL_TYPES[i];
-    const owned = state.upgrades.tool >= i;
-    const isNext = i === state.upgrades.tool + 1;
-    const row = document.createElement('div');
-    const classes = ['upgrade'];
-    if (isNext && toolPlan.count > 0) classes.push('affordable');
-    if (i === state.upgrades.tool) classes.push('active');
-    if (isNext && i <= skipUntil && toolPlan.count > 1) classes.push('affordable');
-    row.className = classes.join(' ');
-    let btn;
-    if (owned) {
-      btn = `<button class="buy" disabled>${i === state.upgrades.tool ? '✔ EQUIPPED' : 'OWNED'}</button>`;
-    } else if (isNext) {
-      const canBuy = toolPlan.count > 0;
-      const label = canBuy && toolPlan.count > 1 ? `Buy ×${toolPlan.count}` : 'Buy';
-      const costText = canBuy ? formatShort(toolPlan.total) : formatShort(tool.upgradeCost ?? 0);
-      btn = `<button class="buy" ${canBuy ? '' : 'disabled'}>${label}<span class="cost">💰 ${costText}</span></button>`;
-    } else {
-      btn = `<button class="buy" disabled>🔒 LOCKED</button>`;
-    }
-    row.innerHTML = `
-      <div class="icon">${tool.icon}</div>
-      <div class="info">
-        <div class="name">${tool.name}</div>
-        <div class="lvl">${tool.rateMult.toFixed(1)}× rate · ${tool.radiusTiles.toFixed(1)}-tile radius</div>
-        <div class="effect">${i === 0 ? 'Starter tool — always owned' : `+${(((tool.rateMult / TOOL_TYPES[i-1].rateMult) - 1) * 100) | 0}% faster than prev`}</div>
-      </div>
-      ${btn}
-    `;
-    const buyBtn = row.querySelector('.buy');
-    if (buyBtn && isNext && toolPlan.count > 0) buyBtn.addEventListener('click', () => buyTool(i));
-    list.appendChild(row);
-  }
-}
-
-function buyTool(idx) {
-  if (idx !== state.upgrades.tool + 1) return;
-  // Tiers are strictly sequential, so bulk = advance as many tiers as affordable.
-  const startIdx = state.upgrades.tool;
-  const plan = planBulk(
-    (i) => TOOL_TYPES[startIdx + 1 + i]?.upgradeCost ?? Infinity,
-    (i) => startIdx + 1 + i < TOOL_TYPES.length,
-  );
-  if (plan.count === 0) return;
-  state.coins -= plan.total;
-  state.upgrades.tool = startIdx + plan.count;
-  const tool = TOOL_TYPES[state.upgrades.tool];
-  beep(700 + state.upgrades.tool * 40, 0.08, 'sine', 0.07);
-  setTimeout(() => beep(1040 + state.upgrades.tool * 50, 0.1, 'triangle', 0.06), 90);
-  toast(`${tool.icon} Equipped: ${tool.name}!`, '#8ff09e');
-  addParticle(canvas.width / 2, canvas.height / 2, {
-    text: tool.icon + ' ' + tool.name, color: '#8ff09e', size: 22,
-  });
   renderShop();
   saveGame();
 }
@@ -727,7 +605,7 @@ function renderStats(list) {
     list.appendChild(statRow('📋', 'Quests completed this run',    state.questsCompleted || 0));
     list.appendChild(statRow('🤖', 'Robots',                       state.upgrades.robots || 0));
     list.appendChild(statRow('🏡', 'Garden items placed',          gardenTotal));
-    list.appendChild(statRow('👷', 'Crew hired',                   (state.crew || []).length));
+    list.appendChild(statRow('🌳', 'Skill points spent',           getSpentSP()));
     list.appendChild(statRow('⛽', 'Fuel',                         `${Math.round(state.fuel || 0)}%`));
   } else {
     list.appendChild(statRow('💰', 'Lifetime coins earned',        formatShort(state.totalEarnedAllTime || 0)));
@@ -1325,83 +1203,29 @@ function renderPrestige(list) {
   list.appendChild(rubyInfo);
 }
 
-function buy(key) {
-  const startLvl = state.upgrades[key];
-  const plan = planBulk(
-    (i) => COST[key](startLvl + i),
-    (i) => startLvl + i < MAX[key],
-  );
-  if (plan.count === 0) return;
-  state.coins -= plan.total;
-  state.upgrades[key] = startLvl + plan.count;
-  if (key === 'robots') {
-    ensureRobotCount();
-    addParticle(canvas.width / 2, canvas.height / 2, {
-      text: plan.count > 1 ? `+${plan.count} ROBOTS!` : 'NEW ROBOT!',
-      color: '#8ff09e', size: 18,
-    });
-  }
-  beep(660 + startLvl * 10, 0.08, 'square', 0.08);
-  renderShop();
-  saveGame();
-}
-
-// Single-purchase variant used by the Bookkeeper auto-buyer. Bypasses the
-// bulk-buy modifier and skips screen-spamming particles, but still routes
-// state mutations through the same paths so robots/tool counts stay sane.
-const AUTO_BUY_KEYS = ['robots','speed','range','value','growth','rate','crit','fuelEff','pest','fuelType','tool'];
-function autoBuyOne(key) {
-  const lvl = state.upgrades[key] || 0;
-  if (lvl >= MAX[key]) return false;
-  const cost = COST[key](lvl);
-  if (!isFinite(cost) || state.coins < cost) return false;
-  state.coins -= cost;
-  state.upgrades[key] = lvl + 1;
-  if (key === 'robots') ensureRobotCount();
-  beep(560 + lvl * 6, 0.05, 'sine', 0.04);
-  renderShop();
-  saveGame();
-  return true;
-}
-function autoBuyCheapest() {
-  let bestKey = null, bestCost = Infinity;
-  for (const key of AUTO_BUY_KEYS) {
-    const lvl = state.upgrades[key] || 0;
-    if (lvl >= MAX[key]) continue;
-    const cost = COST[key](lvl);
-    if (!isFinite(cost)) continue;
-    if (state.coins < cost) continue;
-    if (cost < bestCost) { bestCost = cost; bestKey = key; }
-  }
-  if (bestKey) return autoBuyOne(bestKey);
-  return false;
-}
-
 function doPrestige() {
   const baseGain = CFG.prestigeFormula(state.totalEarnedThisRun);
   const gain = Math.floor(baseGain * gemShopPrestigeMult() * rubyShopPrestigeMult() * techPrestigeGemMult());
   if (gain <= 0) return;
-  if (!confirm(`Fertilize? You will gain ${gain} 💎 gems (permanent +${gain * 10}% bonus), but reset coins, robots, upgrades and garden.`)) return;
+  if (!confirm(`Fertilize? You will gain ${gain} 💎 gems (permanent +${gain * 10}% bonus) and refund all skill points, but reset coins, garden, and the skill tree.`)) return;
   state.gems += gain;
   state.totalGemsEarned = (state.totalGemsEarned || 0) + gain;
   state.prestigeCount = (state.prestigeCount || 0) + 1;
   state.coins = startingCoinsFor(gemLvl('startCoins'));
   state.totalEarnedThisRun = 0;
   state.critCascadeStack = 0;
-  state.upgrades = {
-    robots: 1 + gemLvl('startRobot'),
-    speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, pest: 0, fuelType: 0,
-    tool: Math.min(gemLvl('startTool'), TOOL_TYPES.length - 1),
-  };
+  // Refund the entire skill tree and award SP for this prestige.
+  refundAll();
+  awardPrestigeSP(gain);
+  state.upgrades = { robots: 1, fuelType: 0, tool: 0 };
   state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
-  state.crew     = [];
   state.fuel     = CFG.fuelMax;
   state.gnomeTimer = 60 + Math.random() * 30;
   state.activeQuest = null;
   state.questTimer = 80 + Math.random() * 60;
   state.questHistory = [];
   state.questsCompleted = 0;
+  recomputeFromTree();
   applyMapDimensions();
   clearActors();
   initWorld();
@@ -1409,7 +1233,7 @@ function doPrestige() {
   if (typeof clearTileCache === 'function') clearTileCache();
   ensureRobotCount();
   ensureBeesFromHives();
-  toast(`🌟 Gained ${gain} 💎 Gems!`, '#8ff09e');
+  toast(`🌟 Gained ${gain} 💎 Gems · +${prestigeSPGain(gain)} 🌳 Skill Points!`, '#8ff09e');
   beep(880, 0.15, 'triangle', 0.12);
   setTimeout(() => beep(1320, 0.2, 'triangle', 0.1), 100);
   renderShop();
@@ -1422,8 +1246,8 @@ function doAscend() {
   if (gain <= 0) return;
   if (!confirm(
     `♦️ ASCEND for ${gain} rubies?\n\n` +
-    `This WIPES everything: coins, upgrades, garden, crew, grass unlocks, gems, gem-shop upgrades.\n` +
-    `Your rubies, ruby-shop upgrades, skins, and mow patterns are KEPT.\n\n` +
+    `This WIPES everything: coins, skill tree, prestige Skill Points, garden, gems, gem-shop upgrades.\n` +
+    `Your rubies, ruby-shop upgrades, skins, mow patterns, and lifetime tile-milestone Skill Points are KEPT.\n\n` +
     `Rubies are much rarer than gems — spend them wisely.`
   )) return;
 
@@ -1431,7 +1255,6 @@ function doAscend() {
   state.totalRubiesEarned = (state.totalRubiesEarned || 0) + gain;
   state.ascendCount = (state.ascendCount || 0) + 1;
 
-  // Full wipe of the gem tier and below.
   state.coins = 0;
   state.totalEarnedThisRun = 0;
   state.critCascadeStack = 0;
@@ -1444,20 +1267,21 @@ function doAscend() {
     pollination: 0, coopBots: 0, symbiosis: 0, critCascade: 0,
   };
   state.techTree = { tier1: null, tier2: null, tier3: null };
-  state.upgrades = {
-    robots: 1, speed: 0, range: 0, value: 0, growth: 0, rate: 0, crit: 0,
-    fuelEff: 0, fuelType: 0, tool: 0,
-  };
+  // Wipe tree allocation + prestige SP. milestoneSP survives Ascend (it's
+  // lifetime-based off totalTilesMowed). Re-seed prestigeSP from the
+  // repurposed Veteran Foreman ruby upgrade.
+  refundAll();
+  state.skillTree.prestigeSP = (rubyLvl('startCrew') || 0) * 5;
+  state.upgrades = { robots: 1, fuelType: 0, tool: 0 };
   state.garden   = { tree: 0, rock: 0, pond: 0, flower: 0, beehive: 0, fountain: 0, shed: 0, gnome: 0 };
-  state.crew     = rubyShopHasStartCrew() ? ['foreman'] : [];
   state.fuel     = CFG.fuelMax;
   state.gnomeTimer = 60 + Math.random() * 30;
   state.activeQuest = null;
   state.questTimer = 80 + Math.random() * 60;
   state.questHistory = [];
   state.questsCompleted = 0;
-  // Come home on ascend (areas and per-area expansion persist).
   state.activeArea = 'home';
+  recomputeFromTree();
   applyMapDimensions();
   clearActors();
   initWorld();
@@ -1474,107 +1298,10 @@ function doAscend() {
 }
 
 // ---------- Crew skill tree ----------
-function renderCrew(list) {
-  const header = document.createElement('div');
-  header.innerHTML = `
-    <p style="font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.4;">
-      Hire specialists to automate the farm. Each tier requires the one above.
-      🧙 A gnome might also drop by with gifts — collect his treasures or let your <b>Scout</b> grab them.
-    </p>`;
-  list.appendChild(header);
+// (Old crew-tree DOM renderer + buyCrew were deleted with the Bots/Tools/Crew
+// tabs. Crew flag-perks are now nodes in the skill tree — see skilltree.js.)
 
-  const tree = document.createElement('div');
-  tree.className = 'crew-tree';
 
-  // SVG connectors: the tree has 3 tiers with 3 cols (foreman is col1/tier0).
-  // Tier 0 → all tier 1 nodes (fan-out from foreman).
-  // Tier 1 → matching tier 2 node (vertical).
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'crew-connectors');
-  svg.setAttribute('viewBox', '0 0 100 100');
-  svg.setAttribute('preserveAspectRatio', 'none');
-  // coords in percentage space (0..100)
-  const COL_X = [10, 30, 50, 70, 90];
-  const TIER_Y = [14, 50, 86];
-  // Foreman sits at the center column so the fan-out stays symmetric across 5 cols.
-  const FOREMAN_X = COL_X[2];
-  const lines = [
-    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[0], TIER_Y[1]], id: 'mechanic' },
-    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[1], TIER_Y[1]], id: 'keenEye' },
-    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[2], TIER_Y[1]], id: 'qualityControl' },
-    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[3], TIER_Y[1]], id: 'moleWarden' },
-    { from: [FOREMAN_X, TIER_Y[0]], to: [COL_X[4], TIER_Y[1]], id: 'sprinkler' },
-    { from: [COL_X[0], TIER_Y[1]], to: [COL_X[0], TIER_Y[2]], id: 'autoRefuel', parent: 'mechanic' },
-    { from: [COL_X[1], TIER_Y[1]], to: [COL_X[1], TIER_Y[2]], id: 'scout', parent: 'keenEye' },
-    { from: [COL_X[2], TIER_Y[1]], to: [COL_X[2], TIER_Y[2]], id: 'efficiency', parent: 'qualityControl' },
-    { from: [COL_X[3], TIER_Y[1]], to: [COL_X[3], TIER_Y[2]], id: 'accountant', parent: 'moleWarden' },
-    { from: [COL_X[4], TIER_Y[1]], to: [COL_X[4], TIER_Y[2]], id: 'headGardener', parent: 'sprinkler' },
-  ];
-  for (const L of lines) {
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', L.from[0]);
-    line.setAttribute('y1', L.from[1]);
-    line.setAttribute('x2', L.to[0]);
-    line.setAttribute('y2', L.to[1]);
-    const parentId = L.parent || 'foreman';
-    const active = hasCrew(L.id) && hasCrew(parentId);
-    const reachable = hasCrew(parentId);
-    line.setAttribute('stroke', active ? '#ffd34e' : (reachable ? 'rgba(143,240,158,0.45)' : 'rgba(143,240,158,0.15)'));
-    line.setAttribute('stroke-width', active ? '3' : '2');
-    line.setAttribute('stroke-linecap', 'round');
-    if (active) line.setAttribute('filter', 'drop-shadow(0 0 4px #ffd34e)');
-    svg.appendChild(line);
-  }
-  tree.appendChild(svg);
-
-  // Nodes positioned absolutely on the same 300x300 grid (% translated by CSS)
-  for (const node of SKILL_TREE) {
-    const el = document.createElement('div');
-    const owned = hasCrew(node.id);
-    const reqOk = !node.req || hasCrew(node.req);
-    const affordable = state.coins >= node.cost;
-    const buyable = !owned && reqOk && affordable;
-    const locked = !reqOk;
-    el.className = 'crew-node'
-      + (owned ? ' owned' : '')
-      + (buyable ? ' buyable' : '')
-      + (locked ? ' locked' : '');
-    // Foreman (tier 0) centers on col 2; others sit on their grid col.
-    const x = (node.tier === 0 && node.id === 'foreman') ? FOREMAN_X : COL_X[node.col];
-    el.style.left = x + '%';
-    el.style.top  = TIER_Y[node.tier] + '%';
-    el.innerHTML = `
-      <div class="crew-icon">${node.icon}</div>
-      <div class="crew-name">${owned ? node.crewName : node.name}</div>
-      <div class="crew-desc">${node.desc}</div>
-      <div class="crew-cost">${owned ? '✅ HIRED' : (locked ? '🔒 locked' : '💰 ' + formatShort(node.cost))}</div>
-    `;
-    if (buyable) {
-      el.addEventListener('click', () => buyCrew(node.id));
-    }
-    tree.appendChild(el);
-  }
-
-  list.appendChild(tree);
-}
-
-function buyCrew(id) {
-  const node = SKILL_BY_ID[id];
-  if (!node) return;
-  if (hasCrew(id)) return;
-  if (node.req && !hasCrew(node.req)) return;
-  if (state.coins < node.cost) return;
-  state.coins -= node.cost;
-  state.crew.push(id);
-  beep(700, 0.10, 'triangle', 0.08);
-  setTimeout(() => beep(1040, 0.12, 'triangle', 0.07), 90);
-  toast(`${node.icon} Hired: ${node.name}!`, '#8ff09e');
-  addParticle(canvas.width / 2, canvas.height / 2, {
-    text: node.icon + ' ' + node.name, color: '#8ff09e', size: 18,
-  });
-  renderShop();
-  saveGame();
-}
 
 // ---------- Skins tab ----------
 function renderSkins(list) {
@@ -2488,4 +2215,4 @@ function wireUIEvents() {
 }
 
 // ===== AUTO-EXPORTS =====
-export { achieved, autoBuyCheapest, checkAchievements, collectTreasureIndex, displayedRate, renderShop, showQuestOfferModal, toast, updateHUD, wireUIEvents };
+export { achieved, checkAchievements, collectTreasureIndex, displayedRate, renderShop, showQuestOfferModal, toast, updateHUD, wireUIEvents };
