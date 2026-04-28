@@ -1,0 +1,18 @@
+# IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Save files
+*.coin-save
+.coin-save
+
+# Node
+node_modules/
+package-lock.json
+package.json
