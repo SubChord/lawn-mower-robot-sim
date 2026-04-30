@@ -415,9 +415,9 @@ function applyMapDimensions() {
 // Costs are in rubies. Rubies are end-game — very few per ascend.
 const RUBY_UPGRADES = [
   { key: 'coinMult',         icon: '💰', name: 'Ruby Market',
-    desc: '+10% all coin income per level (stacks with gem Midas).',
-    max: 30, baseCost: 1, growth: 1.6,
-    statusText: (lvl) => `+${lvl * 10}% coin income` },
+    desc: '+20% all coin income per level (stacks with gem Midas).',
+    max: 15, baseCost: 1, growth: 1.5,
+    statusText: (lvl) => `+${lvl * 20}% coin income` },
   { key: 'gemBank',          icon: '💎', name: 'Gem Dowry',
     desc: 'Start every ascend with bonus gems (preserved).',
     max: 10, baseCost: 1, growth: 1.8,
@@ -467,7 +467,7 @@ function rubyUpgradeCost(key, lvl) {
   if (n >= def.max) return Infinity;
   return Math.ceil(def.baseCost * Math.pow(def.growth, n));
 }
-function rubyShopCoinMult()    { return 1 + rubyLvl('coinMult') * 0.10; }
+function rubyShopCoinMult()    { return 1 + rubyLvl('coinMult') * 0.20; }
 function rubyShopSpeedMult()   { return 1 + rubyLvl('speed') * 0.15; }
 function rubyShopCritBonus()   { return rubyLvl('crit') * 0.02; }
 function rubyShopGrowthMult()  { return 1 + rubyLvl('growth') * 0.10; }
